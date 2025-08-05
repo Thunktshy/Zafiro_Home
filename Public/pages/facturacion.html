@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Zafiro Home - Facturación</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Font Awesome -->
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  >
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  <link href="../css/forms.css" rel="stylesheet">
+  <link href="../css/index.css" rel="stylesheet">
+  <link href="../css/facturacion.css" rel="stylesheet">
+
+
+</head>
+<body class="page-body">
+
+  <!-- Banner superior -->
+  <div class="top-banner">
+    ¡Increíbles descuentos de hasta el 50%!
+  </div>
+
+  <!-- =========================
+       Header / Navbar
+       ============================== -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <!-- Logo y marca -->
+      <a class="navbar-store-title" href="#">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
+          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <!-- Menú colapsable -->
+      <div class="collapse navbar-collapse" id="mainNavbar">
+
+        <!-- Barra de búsqueda -->
+        <form class="navbar-search" action="/search" method="get" role="search">
+          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
+          <button class="btn-seacrh" type="submit" aria-label="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+
+        <!-- Iconos carrito y login -->
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" href="/cart" aria-label="Carrito de Compras">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-iniciar-sesion">Iniciar sesión</a>
+          </li>
+
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       Sub-Navbar con dropdowns
+       ============================== -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Electrónica</a></li>
+          <li><a href="#">Moda</a></li>
+          <li><a href="#">Hogar</a></li>
+          <li><a href="#">Jardín</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Ofertas del día</a></li>
+          <li><a href="#">Promociones</a></li>
+          <li><a href="#">Mayoristas</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Cómo funciona</a></li>
+          <li><a href="#">Beneficios</a></li>
+          <li><a href="#">Puntos Acumulados</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Facturación <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Consulta CFDI</a></li>
+          <li><a href="./ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Ayuda <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/ayuda">Contacto</a></li>
+          <li><a href="#">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Facturación Form Section -->
+  <section class="form-section">
+    <h1 class="form-title">Facturación y Detalles del Pedido</h1>
+    <form id="factura-form" autocomplete="off">
+      <div class="form-field">
+        <label for="rfc" class="form-label">RFC (requerido)</label>
+        <input type="text" id="rfc" name="rfc" required maxlength="13" class="form-input" placeholder="Ej: AAA010101AAA">
+      </div>
+      <div class="form-field">
+        <label for="razon-social" class="form-label">Razón Social (requerido)</label>
+        <input type="text" id="razon-social" name="razon-social" required class="form-input" placeholder="Nombre de tu empresa o persona moral">
+      </div>
+      <div class="form-field">
+        <label for="email-fiscal" class="form-label">Correo electrónico para la factura</label>
+        <input type="email" id="email-fiscal" name="email-fiscal" required class="form-input" placeholder="factura@email.com">
+      </div>
+      <div class="form-field">
+        <label for="calle" class="form-label">Calle y Número</label>
+        <input type="text" id="calle" name="calle" required class="form-input" placeholder="Ej: Av. Reforma 123">
+      </div>
+      <div class="form-row">
+        <div class="form-field flex-1">
+          <label for="colonia" class="form-label">Colonia</label>
+          <input type="text" id="colonia" name="colonia" required class="form-input">
+        </div>
+        <div class="form-field flex-1">
+          <label for="cp" class="form-label">Código Postal</label>
+          <input type="text" id="cp" name="cp" required maxlength="5" pattern="[0-9]{5}" class="form-input">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field flex-1">
+          <label for="ciudad" class="form-label">Ciudad</label>
+          <input type="text" id="ciudad" name="ciudad" required class="form-input">
+        </div>
+        <div class="form-field flex-1">
+          <label for="estado" class="form-label">Estado</label>
+          <select id="estado" name="estado" required class="form-input">
+            <option value="">Selecciona un estado</option>
+            <!-- options omitted for brevity -->
+            <option>Zacatecas</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="form-submit">Generar Factura</button>
+    </form>
+  </section>
+
+  <!-- Invoice Preview Section -->
+  <section id="invoice-preview" class="invoice-preview">
+    <h2 class="form-title invoice-title">Factura Electrónica (CFDI)</h2>
+    <div class="invoice-header">
+      <img src="https://cdn-icons-png.flaticon.com/512/3098/3098746.png" alt="Invoice Icon" height="44" class="invoice-icon" />
+      <span class="invoice-note">Esta es una factura de prueba (CFDI) basada en tus datos.</span>
+    </div>
+
+    <!-- Invoice Info -->
+    <div id="invoice-data" class="invoice-data">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Order Table -->
+    <h3 class="form-label order-title">Detalles del Pedido</h3>
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio unitario</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="order-details-body">
+        <!-- Order rows -->
+      </tbody>
+      <tfoot>
+        <tr class="invoice-total-row">
+          <td colspan="3">Total a pagar:</td>
+          <td>$<span id="total-amount">0.00</span></td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="./pages/ayuda.html">Ayuda</a>
+      <a href="./pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="./pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- JavaScript for form submission and invoice preview -->
+  <script>
+    // Dummy order data
+    const sampleOrder = [
+      { product: "Parlante Bluetooth 5W", quantity: 1, price: 19.99 },
+      { product: "Mochila de viaje 30L", quantity: 2, price: 29.99 },
+      { product: "Set de Sartenes Aluminio", quantity: 1, price: 39.99 }
+    ];
+    function calculateTotal(order) {
+      return order.reduce((acc, item) => acc + item.quantity * item.price, 0);
+    }
+
+    // Populate Order Details table on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const tbody = document.getElementById('order-details-body');
+      sampleOrder.forEach(item => {
+        let tr = document.createElement('tr');
+        tr.innerHTML =
+          `<td>${item.product}</td>
+           <td>${item.quantity}</td>
+           <td>$${item.price.toFixed(2)}</td>
+           <td>$${(item.quantity * item.price).toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('total-amount').textContent = calculateTotal(sampleOrder).toFixed(2);
+    });
+
+    // Form Submission Logic
+    const facturaForm = document.getElementById('factura-form');
+    const invoicePreview = document.getElementById('invoice-preview');
+    const invoiceDataDiv = document.getElementById('invoice-data');
+
+    facturaForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const rfc = document.getElementById('rfc').value.trim();
+      const razonSocial = document.getElementById('razon-social').value.trim();
+      const emailFiscal = document.getElementById('email-fiscal').value.trim();
+      const calle = document.getElementById('calle').value.trim();
+      const colonia = document.getElementById('colonia').value.trim();
+      const cp = document.getElementById('cp').value.trim();
+      const ciudad = document.getElementById('ciudad').value.trim();
+      const estado = document.getElementById('estado').value.trim();
+
+      // Show invoice preview with fade-in
+      setTimeout(() => {
+        invoicePreview.classList.add('active');
+      }, 10);
+
+      // Populate invoice data
+      invoiceDataDiv.innerHTML = `
+        <div style="display:flex;gap:24px;">
+          <div>
+            <p><strong>RFC:</strong> ${rfc}</p>
+            <p><strong>Razón Social:</strong> ${razonSocial}</p>
+            <p><strong>Email:</strong> ${emailFiscal}</p>
+          </div>
+          <div>
+            <p><strong>Dirección:</strong></p>
+            <p>${calle}<br/>${colonia}, ${cp}<br/>${ciudad}, ${estado}</p>
+          </div>
+        </div>
+      `;
+    });
+  </script>
+  <!-- Scripts para scroll interactivo -->
+  <script src="../scripts/index/animations.js"></script>
+  <!-- Scripts para modal y login -->
+  <script type="module" src="../scripts/loginModal.js"></script>
+</body>
+</html>
+

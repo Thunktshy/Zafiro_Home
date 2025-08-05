@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zafiro Home - Página Principal</title>
+  <!-- Font Awesome -->
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  >
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  <link href="../css/forms.css" rel="stylesheet">
+  <link href="../css/index.css" rel="stylesheet">
+
+</head>
+<body class="page-body">
+
+  <!-- Banner superior -->
+  <div class="top-banner">
+    ¡Increíbles descuentos de hasta el 50%!
+  </div>
+
+  <!-- =========================
+       Header / Navbar
+       ============================== -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <!-- Logo y marca -->
+      <a class="navbar-store-title" href="#">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
+          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <!-- Menú colapsable -->
+      <div class="collapse navbar-collapse" id="mainNavbar">
+
+        <!-- Barra de búsqueda -->
+        <form class="navbar-search" action="/search" method="get" role="search">
+          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
+          <button class="btn-seacrh" type="submit" aria-label="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+
+        <!-- Iconos carrito y login -->
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" href="/cart" aria-label="Carrito de Compras">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-iniciar-sesion">Iniciar sesión</a>
+          </li>
+
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       Sub-Navbar con dropdowns
+       ============================== -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Electrónica</a></li>
+          <li><a href="#">Moda</a></li>
+          <li><a href="#">Hogar</a></li>
+          <li><a href="#">Jardín</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Ofertas del día</a></li>
+          <li><a href="#">Promociones</a></li>
+          <li><a href="#">Mayoristas</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Cómo funciona</a></li>
+          <li><a href="#">Beneficios</a></li>
+          <li><a href="#">Puntos Acumulados</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Facturación <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Consulta CFDI</a></li>
+          <li><a href="#">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Ayuda <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/ayuda">Contacto</a></li>
+          <li><a href="#">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Formulario de Registro -->
+  <main class="form">
+        <div id="form-card">
+        <h2 class="form-tittle">
+            <i class="fa-solid fa-user-plus"></i> Registro de Usuario
+        </h2>
+
+        <div id="error-message" class="alert-box"></div>
+
+        <form id="userRegistrationForm" autocomplete="off">
+            <!-- Email -->
+            <div class="form-field">
+            <label for="email" class="form-label">Correo electrónico:</label>
+            <input type="email"
+                    id="email"
+                    name="email"
+                    placeholder="ejemplo@mail.com"
+                    required
+                    class="form-input">
+            <div id="error-email" class="error-text hidden"></div>
+            </div>
+
+            <!-- Usuario -->
+            <div class="mb-5 form-field">
+            <label for="username" class="form-label">Nombre de usuario:</label>
+            <input type="text"
+                    id="username"
+                    name="username"
+                    placeholder="Tu usuario"
+                    required
+                    class="form-input">
+            <div id="error-username" class="error-text hidden"></div>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="mb-5 form-field">
+            <label for="password" class="form-label">Contraseña:</label>
+            <input type="password"
+                    id="password"
+                    name="password"
+                    placeholder="8–20 caracteres"
+                    required
+                    class="form-input">
+            <div id="error-password" class="error-text hidden"></div>
+            </div>
+
+            <!-- Repetir Contraseña -->
+            <div class="mb-5 form-field">
+            <label for="confirmPassword" class="form-label">Repite contraseña:</label>
+            <input type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    placeholder="Repite contraseña"
+                    required
+                    class="form-input">
+            <div id="error-confirmPassword" class="error-text hidden"></div>
+            </div>
+
+            <button type="submit"
+                    id="submitForm"
+                    class="form-submit">
+            Registrarse
+            </button>
+        </form>
+
+        <p class="form-info">
+            ¿Ya tienes cuenta?
+            <a onclick="showLoginModal()" class="form-link">Iniciar Sesión</a>
+        </p>
+        </div>
+  </main>
+
+  <!-- ===============
+     NEWSLETTER 
+     =============== -->
+  <section class="newsletter-section">
+    <h2 class="newsletter-section-title">Suscríbete a nuestras ofertas</h2>
+    <form id="newsletter-form" class="newsletter-form">
+      <input type="email" name="email" placeholder="Tu correo electrónico" required>
+      <button type="submit">Suscribirme</button>
+    </form>
+  </section>
+
+  <!-- ========================
+       Modal LOGIN
+       =========================== -->
+  <div class="modal fade" id="loginmodal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Iniciar sesión</h5>
+                <button type="button" class="btn-close" onclick="closeLoginModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Error Box -->
+                <div id="error-message" class="alert alert-danger"></div>
+                
+                <form class="contact-form" id="form-login" autocomplete="off">
+                    <div class="mb-3">
+                        <label for="Usuario" class="form-label">Usuario</label>
+                        <input type="text" class="form-control" id="Usuario" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Contraseña" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="Contraseña" required>
+                    </div>
+                    <div>
+                        <a class="registrar-link" href="./Formularios/newuser.html" target="_blank">Registrarse</a>
+                    </div>
+                    <button type="submit" class="btn-primary w-100 mt-3">Enviar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-links">
+      <a href="./pages/ayuda.html">Ayuda</a>
+      <a href="./pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="./pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Scripts para scroll interactivo -->
+  <script src="../scripts/index/animations.js"></script>
+  <!-- Scripts para modal y login -->
+  <script type="module" src="../scripts/loginModal.js"></script>
+</body>
+</html>

@@ -30,30 +30,24 @@ class DBConnector {
       });
   }
 
-  //Ejecución de querys con parametros
-  async querywithparams(sqlQuery, params = {}) {
+  // Generic query runner
+  async queryWithParams(sqlQuery, params = {}) {
     if (typeof sqlQuery !== 'string') {
       throw new TypeError('El SQL debe ser un string');
     }
-    await this.poolReady;
-    const pool  = await this.poolReady;
-    const req   = pool.request();
 
-    // Requerir que cada parámetro coincida con su tipo de dato
+    const pool = await this.poolReady;
+    const req  = pool.request();
+
     for (const [name, spec] of Object.entries(params)) {
-      if (
-        !spec ||
-        !spec.type ||
-        (!Object.prototype.hasOwnProperty.call(spec, 'value'))
-      ) {
-        throw new TypeError('Se intentó ingresar un parametro inválido para "${name}"');
+      if (!spec || !spec.type || !('value' in spec)) {
+        throw new TypeError(`Parámetro inválido: ${name}`);
       }
       req.input(name, spec.type, spec.value);
     }
 
-    //Captura de error en el query
     try {
-      const result = await req.query(sqlText);
+      const result = await req.query(sqlQuery);
       return result.recordset;
     } catch (err) {
       console.error('Error de ejecución del query:', err);
@@ -61,17 +55,10 @@ class DBConnector {
     }
   }
 
-  //Cierra el pool de conexiones
   async close() {
-    try {
-      await this.pool.close();
-      console.log('SQL Server pool closed');
-    } catch (err) {
-      console.error('Error closing SQL Server pool:', err);
-      throw err;
-    }
+    await this.pool.close();
+    console.log('SQL Server pool closed');
   }
 }
 
 module.exports = new DBConnector();
-

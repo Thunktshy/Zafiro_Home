@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zafiro Home - Página Principal</title>
+  <!-- Font Awesome -->
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  >
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/terminosycon.css">
+  <link rel="stylesheet" href="../css/index.css">
+
+</head>
+<body class="page-body">
+
+  <!-- Banner superior -->
+  <div class="top-banner">
+    ¡Increíbles descuentos de hasta el 50%!
+  </div>
+
+  <!-- =========================
+       Header / Navbar
+       ============================== -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <!-- Logo y marca -->
+      <a class="navbar-store-title" href="#">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
+          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <!-- Menú colapsable -->
+      <div class="collapse navbar-collapse" id="mainNavbar">
+
+        <!-- Barra de búsqueda -->
+        <form class="navbar-search" action="/search" method="get" role="search">
+          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
+          <button class="btn-seacrh" type="submit" aria-label="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+
+        <!-- Iconos carrito y login -->
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" aria-label="Carrito de Compras">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-iniciar-sesion" >Iniciar sesión</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       Sub-Navbar con dropdowns
+       ============================== -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Electrónica</a></li>
+          <li><a href="#">Moda</a></li>
+          <li><a href="#">Hogar</a></li>
+          <li><a href="#">Jardín</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Ofertas del día</a></li>
+          <li><a href="#">Promociones</a></li>
+          <li><a href="#">Mayoristas</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Cómo funciona</a></li>
+          <li><a href="#">Beneficios</a></li>
+          <li><a href="#">Puntos Acumulados</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="./pages/facturacion.html">Facturación <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="./pages/facturacion.html">Consulta CFDI</a></li>
+          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="./pages/ayuda.html">Ayuda <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/ayuda">Contacto</a></li>
+          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- ==============================
+     Banner de características
+     ============================== -->
+  <div class="info-banner-wrapper">
+    <div class="info-banner-container">
+      <!-- Envío fijo -->
+      <div class="info-banner-item">
+        <i class="fas fa-truck info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Tarifa fija de envío a todo México de $49.99!</strong>
+          <span>Incluye transporte y todos los costos de liberación de aduanas.</span>
+        </div>
+      </div>
+      <!-- Soporte en Español -->
+      <div class="info-banner-item">
+        <i class="fas fa-headset info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Estamos listos para ayudarle!</strong>
+          <span>La ayuda que necesitas en Español con uno de nuestros expertos</span>
+        </div>
+      </div>
+      <!--  -->
+      <div class="info-banner-item">
+        <i class="fas fa-desktop info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Soporte 24/7!</strong>
+          <span>¡siempre a tu lado!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="terms-container">
+    <h1 class="terms-title">Términos y Condiciones</h1>
+    
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Bienvenido a Zafiro Home</h2>
+        <p>Al navegar e interactuar con nuestro sitio web, aceptas cumplir los siguientes términos y condiciones.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Identidad del proveedor</h2>
+        <p>Nuestra dirección web es: https://zafirohome.com </p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Contenido permitido</h2>
+        <p>Está prohibido transmitir, almacenar o presentar cualquier información que viole leyes locales, estatales o federales. Esto incluye, pero no se limita a, material con derechos de autor, amenazante, obsceno o protegido por secreto comercial. El cliente acepta indemnizar a Zafiro Home por cualquier reclamación derivada del uso indebido del servicio.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Uso indebido de correo electrónico (Spam)</h2>
+        <p>El envío de correos electrónicos no solicitados desde nuestros servidores está estrictamente prohibido. Zafiro Home determinará, a su criterio, si ha ocurrido una violación.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Copias de seguridad</h2>
+        <p>Te recomendamos realizar copias de seguridad periódicas de tu sistema de juego. No somos responsables por pérdida de datos en caso de errores del servidor.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Derecho a rechazar o cancelar servicios</h2>
+        <p>Nos reservamos el derecho de suspender o cancelar servicios a discreción. También podremos desactivar tu cuenta si no inicias sesión por más de 2 meses.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Facturación y cancelaciones</h2>
+        <ul>
+        <li>La renovación automática está desactivada por defecto. Si decides activarla, tu tarjeta se cobrará en la fecha correspondiente.</li>
+        <li>Si no deseas renovar, debes cancelar tu cuenta desde nuestro panel de soporte</a> antes del cobro. Guarda el número de ticket como comprobante.</li>
+        <li>En caso de fondos insuficientes, te notificaremos por correo para que actualices tus datos en un plazo de 48 horas.</li>
+        </ul>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Reembolsos</h2>
+        <p>Reembolsamos el saldo restante proporcional a los días no usados del último periodo. Los créditos por hora no usados también serán devueltos. No se reembolsarán créditos ya utilizados, ni los de prueba o promocionales.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Limitación de responsabilidad</h2>
+        <p>Zafiro Home no será responsable por interrupciones del servicio, pérdida de datos, ni daños indirectos. Nuestra responsabilidad máxima será el monto pagado en el último mes. No ofrecemos garantías sobre la continuidad del servicio o el acceso a servicios de emergencia.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Fuerza mayor</h2>
+        <p>No seremos responsables por fallos causados por eventos fuera de nuestro control razonable.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Actividades prohibidas</h2>
+        <ul>
+        <li>Está prohibida toda modificación no autorizada del equipo, cables o servicios de telecomunicación.</li>
+        <li>El servicio es solo para uso personal y residencial. No puede revenderse ni compartirse.</li>
+        <li>Está prohibido minar criptomonedas o realizar minería de datos.</li>
+        </ul>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Política de uso justo</h2>
+        <p>El uso excesivo del servicio, como transmisiones continuas o uso de servidores personales, puede resultar en suspensión o modificación del servicio.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Violaciones a este acuerdo</h2>
+        <p>El uso indebido del servicio podrá dar lugar a suspensión, eliminación de contenido o terminación inmediata. Nos reservamos el derecho de investigar y tomar acciones técnicas o legales.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Activación de cuenta</h2>
+        <p>Al activar tu cuenta, aceptas estos términos y condiciones. Si no los cumples, no se harán reembolsos, aunque te informaremos antes de tomar cualquier acción.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Modificaciones</h2>
+        <p>Zafiro Home se reserva el derecho de modificar estos términos sin previo aviso. Te recomendamos revisarlos periódicamente.</p>
+    </section>
+
+    <section class="terms-section">
+        <h2 class="terms-subtitle">Contacto</h2>
+        <p>Si tienes dudas sobre esta política, escribe a <a href="mailto:terms@maximumsettings.com">terms@maximumsettings.com</a></p>
+        <p>Dirección: Unit 6, 11 Steinway Blvd, Etobicoke, Ontario, M9W 6S9, Canadá</p>
+    </section>
+    </main>
+
+
+
+  <!-- ===============
+     NEWSLETTER 
+     =============== -->
+  <section class="newsletter-section">
+    <h2 class="newsletter-section-title">Suscríbete a nuestras ofertas</h2>
+    <form id="newsletter-form" class="newsletter-form">
+      <input type="email" name="email" placeholder="Tu correo electrónico" required>
+      <button type="submit">Suscribirme</button>
+    </form>
+  </section>
+
+  <!-- ========================
+       Modal LOGIN
+       =========================== -->
+  <div class="modal fade" id="loginmodal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Iniciar sesión</h5>
+                <button type="button" id="btn-close" class="btn-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Error Box -->
+                <div class="error-box" id="error-message-box" ></div>
+                
+                <form class="login-form" id="form-login" autocomplete="off">
+                    <div class="mb-3">
+                        <label for="Usuario" class="form-label">Usuario</label>
+                        <input type="text" class="form-control" id="Usuario" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Contraseña" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="Contraseña" required>
+                    </div>
+                    <div>
+                        <a class="registrar-link" href="./pages/nuevoUsuario.html" target="_blank">Registrarse</a>
+                    </div>
+                    <button type="submit" class="btn-primary w-100 mt-3">Enviar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-links">
+      <a href="./pages/ayuda.html">Ayuda</a>
+      <a href="./pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="./pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Scripts para carrusel interactivo -->
+  <!-- Scripts para scroll interactivo -->
+  <!-- Scripts para scroll interactivo -->
+  <script src="../scripts/index/animations.js"></script>
+  <!-- Scripts para modal y login -->
+  <script type="module" src="../scripts/loginModal.js"></script>
+
+</body>
+</html>
+

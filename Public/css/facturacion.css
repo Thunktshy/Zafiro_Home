@@ -1,0 +1,157 @@
+/* Form Styles */
+
+:root {
+  --color-text-light: rgb(255, 255, 255);
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --max-width-container: 1200px;
+  --spacing-standard: 1rem;
+  --borderradius: 20px;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-bg: #f9f9f9;
+  --color-text: #333333;
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --color-accent: #f08a5d;
+  --color-light-bg: #ffffff;
+  --border-radius: 12px;
+  --spacing: 1rem;
+  --transition-fast: 0.3s ease;
+}
+
+    .form-section {
+      max-width: var(--max-width-container);
+      margin: 4rem auto 1.5rem;
+      padding: 3rem 2rem;
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+    }
+    .form-title {
+      font-size: 2.5rem; color: #a5230c; margin-bottom: 1.6rem;
+      text-align:center;
+    }
+
+    /* Form Fields (from forms.txt) */
+    .form-field {
+      margin-bottom: 1.25rem;
+    }
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: #333333;
+      margin-bottom: 0.25rem;
+    }
+    .form-input {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 0.25rem;
+      padding: 0.5rem 0.75rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .form-input:focus {
+      border-color: #f08a5d;
+      box-shadow: 0 0 0 3px rgba(240,138,93,0.25);
+    }
+
+    /* Submit Button */
+    .form-submit {
+      width: 100%;
+      padding: 0.75rem 0;
+      background-color: #a5230c;
+      color: var(--color-text-light);
+      font-weight: 700;
+      border: none;
+      border-radius: 0.75rem;
+      box-shadow: 
+          0 10px 15px -3px rgba(0,0,0,0.1), 
+          0 4px 6px -2px rgba(0,0,0,0.05);
+      transition: background var(--transition-fast), transform var(--transition-fast);
+      margin-top: 0.5rem;
+      cursor: pointer;
+      font-size: 1.15rem;
+    }
+    .form-submit:hover {
+      background-color: #c93e2a;
+      transform: translateY(-2px) scale(1.03);
+    }
+
+    /* Invoice Preview Styles */
+    .invoice-preview {
+      max-width: var(--max-width-container);
+      margin: 4rem auto 1.5rem;
+      padding: 3rem 2rem;
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+      opacity: 0;
+      transform: translateY(-16px) scale(.95);
+      transition: 
+        opacity .3s cubic-bezier(.62,.22,.41,1.48), 
+        transform .3s cubic-bezier(.62,.22,.41,1.48);
+    }
+    .invoice-preview.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Invoice Table */
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+    .invoice-table th, 
+    .invoice-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #ebebeb;
+      text-align: left;
+    }
+    .invoice-total-row {
+      font-weight: bold;
+      color: var(--color-primary);
+      font-size: 1.2rem;
+    }
+
+    /* Footer */
+    footer {
+      background-color: #30478f; color: var(--color-text-light); padding: 2rem 1rem; text-align: center;
+    }
+    .footer-links a { color: var(--color-text-light); margin: 0 1.5rem;}
+    .social-media a { font-size: 1.4rem; color: #fff; margin: 0 8px;}
+    .social-media a:hover { color: #f08a5d;}
+
+    .form-row {
+  display: flex;
+  gap: 24px;
+}
+
+.invoice-title {
+  text-align: left;
+}
+
+.invoice-header {
+  display: flex;
+  align-items: center;
+}
+
+.invoice-icon {
+  margin-right: 1rem;
+}
+
+.invoice-note {
+  font-size: 1.1rem;
+  color: #a5230c;
+  font-weight: bold;
+}
+
+.invoice-data {
+  margin-top: 2rem;
+}
+
+.order-title {
+  margin-top: 1.5rem;
+}

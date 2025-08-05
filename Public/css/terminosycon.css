@@ -1,0 +1,25 @@
+/* Terms styles */
+    .terms-container {
+      max-width: var(--max-width-container);
+      margin: 4rem auto 1.5rem;
+      padding: 3rem 2rem;
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+    }
+    .terms-title {
+      font-size: 2.5rem; color: #a5230c; margin-bottom: 1.6rem;
+    }
+    .terms-section {
+      margin-top: 2rem;
+    }
+    .terms-subtitle {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin-bottom: 0.7rem;
+      color: #30478f;
+    }
+    ol, ul { padding-left: 1.5rem; margin-top: .7rem; line-height: 1.6;}
+    p {
+      margin-top: .9rem; font-size: 1rem;
+    }

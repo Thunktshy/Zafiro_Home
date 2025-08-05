@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zafiro Home - Página Principal</title>
+  <!-- Font Awesome -->
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  >
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/forms.css">
+  <link rel="stylesheet" href="./css/ayuda.css">
+
+</head>
+<body class="page-body">
+
+  <!-- Banner superior -->
+  <div class="top-banner">
+    ¡Increíbles descuentos de hasta el 50%!
+  </div>
+
+  <!-- =========================
+       Header / Navbar
+       ============================== -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <!-- Logo y marca -->
+      <a class="navbar-store-title" href="#">
+        <img src="./Images/logo.png"
+          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <!-- Menú colapsable -->
+      <div class="collapse navbar-collapse" id="mainNavbar">
+
+        <!-- Barra de búsqueda -->
+        <form class="navbar-search" action="/search" method="get" role="search">
+          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
+          <button class="btn-seacrh" type="submit" aria-label="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+
+        <!-- Iconos carrito y login -->
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" aria-label="Carrito de Compras">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-iniciar-sesion" >Iniciar sesión</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       Sub-Navbar con dropdowns
+       ============================== -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Electrónica</a></li>
+          <li><a href="#">Moda</a></li>
+          <li><a href="#">Hogar</a></li>
+          <li><a href="#">Jardín</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Ofertas del día</a></li>
+          <li><a href="#">Promociones</a></li>
+          <li><a href="#">Mayoristas</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="#">Cómo funciona</a></li>
+          <li><a href="#">Beneficios</a></li>
+          <li><a href="#">Puntos Acumulados</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="./pages/facturacion.html">Facturación <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="./pages/facturacion.html">Consulta CFDI</a></li>
+          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+
+      <li class="subnav-item">
+        <a href="./pages/ayuda.html">Ayuda <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="./pages/contacto.html">Contacto</a></li>
+          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- ==============================
+     Banner de características
+     ============================== -->
+  <div class="info-banner-wrapper">
+    <div class="info-banner-container">
+      <!-- Envío fijo -->
+      <div class="info-banner-item">
+        <i class="fas fa-truck info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Tarifa fija de envío a todo México de $49.99!</strong>
+          <span>Incluye transporte y todos los costos de liberación de aduanas.</span>
+        </div>
+      </div>
+      <!-- Soporte en Español -->
+      <div class="info-banner-item">
+        <i class="fas fa-headset info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Estamos listos para ayudarle!</strong>
+          <span>La ayuda que necesitas en Español con uno de nuestros expertos</span>
+        </div>
+      </div>
+      <!--  -->
+      <div class="info-banner-item">
+        <i class="fas fa-desktop info-banner-icon"></i>
+        <div class="info-banner-text">
+          <strong>¡Soporte 24/7!</strong>
+          <span>¡siempre a tu lado!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección Ofertas -->
+  <section id="ofertas" class="ofertas-section">
+    <div class="ofertas-container">
+      <h2 class="section-title">Las Mejores Ofertas</h2>
+      <div class="ofertas-grid">
+
+        <!-- Oferta 1 -->
+        <div class="offer-card">
+          <img 
+            class="offer-image" 
+            src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80"
+            alt="Parlante Bluetooth"
+          >
+          <div class="offer-details">
+            <h3 class="offer-title">Parlantes Bluetooth 5W</h3>
+            <p class="offer-price">$19.99</p>
+            <button class="btn-buy">Comprar ahora</button>
+            <button class="btn-ad-to-cart">Agregar al carrito</button>
+          </div>
+        </div>
+
+        <!-- Oferta 2 -->
+        <div class="offer-card">
+          <img 
+            class="offer-image" 
+            src="https://images.unsplash.com/photo-1503676382389-4809596d5290?auto=format&fit=crop&w=400&q=80"
+            alt="Mochila de Viaje"
+          >
+          <div class="offer-details">
+            <h3 class="offer-title">Mochila de viaje 30L</h3>
+            <p class="offer-price">$29.99</p>
+            <button class="btn-buy">Comprar ahora</button>
+            <button class="btn-ad-to-cart">Agregar al carrito</button>
+          </div>
+        </div>
+
+        <!-- Oferta 3 -->
+        <div class="offer-card">
+          <img 
+            class="offer-image" 
+            src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80"
+            alt="Set de Sartenes"
+          >
+          <div class="offer-details">
+            <h3 class="offer-title">Set de Sartenes Aluminio</h3>
+            <p class="offer-price">$39.99</p>
+            <button class="btn-buy">Comprar ahora</button>
+            <button class="btn-ad-to-cart">Agregar al carrito</button>
+          </div>
+        </div>
+
+        <!-- Oferta 4 -->
+        <div class="offer-card">
+          <img 
+            class="offer-image" 
+            src="https://images.unsplash.com/photo-1526178613658-3fdfe8c0f9d6?auto=format&fit=crop&w=400&q=80"
+            alt="Teclado Mecánico"
+          >
+          <div class="offer-details">
+            <h3 class="offer-title">Teclado Mecánico RGB</h3>
+            <p class="offer-price">$79.99</p>
+            <button class="btn-buy">Comprar ahoras</button>
+            <button class="btn-ad-to-cart">Agregar al carrito</button>
+          </div>
+        </div>
+
+      </div> <!-- /.ofertas-grid -->
+    </div> <!-- /.ofertas-container -->
+  </section>
+
+  <!-- Sección Filtros de Productos -->
+  <section class="filters-section">
+    <div class="products-container">
+      <!-- Controles de Filtro -->
+      <div id="filterControls" class="mb-4 text-center">
+
+        <!-- Filtrar por Marca -->
+        <div class="filter-group">
+          <label for="brandFilter" class="form-label">Nuestras Marcas</label>
+          <select id="brandFilter" class="form-select">
+            <option value="">Selecciona una marca</option>
+            <option>Apple</option>
+            <option>Sony</option>
+            <option>Nike</option>
+            <option>ZafiroTech</option>
+            <option>HogarFácil</option>
+          </select>
+        </div>
+        <!-- Filtrar por Categoría -->
+        <div class="filter-group">
+          <label for="categoryFilter" class="form-label">Filtrar por Categoría</label>
+          <select id="categoryFilter" class="form-select">
+            <option value="">Selecciona una categoría</option>
+            <option>Electrónica</option>
+            <option>Moda</option>
+            <option>Hogar</option>
+            <option>Jardín</option>
+          </select>
+        </div>
+        <!-- Filtrar por Repisa -->
+        <div class="filter-group">
+          <label for="shelfFilter" class="form-label">Filtrar por Repisa</label>
+          <select id="shelfFilter" class="form-select">
+            <option value="">Selecciona una repisa</option>
+            <option>Mejores Ventas</option>
+            <option>Nuevos Lanzamientos</option>
+            <option>Promociones</option>
+          </select>
+        </div>
+        <!-- Filtrar por Unidad -->
+        <div class="filter-group">
+          <label for="unitFilter" class="form-label">Filtrar por Unidad</label>
+          <select id="unitFilter" class="form-select">
+            <option value="">Selecciona una unidad</option>
+            <option>Pieza</option>
+            <option>Set</option>
+            <option>Kg</option>
+            <option>Litro</option>
+          </select>
+        </div>
+        <!-- Filtrar por Tamaño -->
+        <div class="filter-group">
+          <label for="dimensionFilter" class="form-label">Filtrar por Tamaño</label>
+          <select id="dimensionFilter" class="form-select">
+            <option value="">Selecciona un tamaño</option>
+            <option>Pequeño</option>
+            <option>Mediano</option>
+            <option>Grande</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===============
+     CARRUSEL PRINCIPAL 
+     =============== -->
+  <section class="main-carousel">
+    <button id="carouselPrev" class="carousel-arrow left" title="Anterior"><i class="fa-solid fa-chevron-left"></i></button>
+    <div class="carousel-container" id="main-carousel">
+      <!-- SLIDE 1 -->
+      <div class="carousel-slide">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80"
+          alt="Promoción 1">
+        <div class="carousel-caption">
+          <h2>Descubre nuestras nuevas colecciones</h2>
+          <p>Ofertas válidas por tiempo limitado</p>
+        </div>
+      </div>
+      <!-- SLIDE 2 -->
+      <div class="carousel-slide">
+        <img src="https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=900&q=80"
+          alt="Promoción 2">
+        <div class="carousel-caption">
+          <h2>Entrega rápida en todo el país</h2>
+        </div>
+      </div>
+      <!-- SLIDE 3 -->
+      <div class="carousel-slide">
+        <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80"
+          alt="Promoción 3">
+        <div class="carousel-caption">
+          <h2>Descuentos en moda y electrónica</h2>
+        </div>
+      </div>
+    </div>
+    <button id="carouselNext" class="carousel-arrow right" title="Siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+  </section>
+
+  <!-- ===============
+     CATEGORÍAS DESTACADAS
+     =============== -->
+  <section class="featured-categories">
+    <h2 class="section-title">Explora por Categoría</h2>
+    <div class="categories-grid" id="categories-list">
+      <div class="category-card">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80" alt="Electrónica">
+        <h3>Electrónica</h3>
+      </div>
+      <div class="category-card">
+        <img src="https://images.unsplash.com/photo-1512497586112-fbdf2faabf8e?auto=format&fit=crop&w=400&q=80" alt="Moda">
+        <h3>Moda</h3>
+      </div>
+      <div class="category-card">
+        <img src="https://images.unsplash.com/photo-1519681393769-4cbe2bdec5aa?auto=format&fit=crop&w=400&q=80" alt="Hogar">
+        <h3>Hogar</h3>
+      </div>
+      <div class="category-card">
+        <img src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=400&q=80" alt="Jardín">
+        <h3>Jardín</h3>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===============
+     TESTIMONIOS 
+     =============== -->
+  <section class="testimonials-section">
+    <h2 class="section-title">Lo que dicen nuestros clientes</h2>
+    <div class="testimonials-container">
+      <div class="testimonial-card">
+        <p>"Muy buen servicio y productos de calidad. ¡Repetiré!"</p>
+        <strong>- Ana P.</strong>
+      </div>
+      <div class="testimonial-card">
+        <p>"Entrega puntual y excelente atención al cliente."</p>
+        <strong>- Carlos M.</strong>
+      </div>
+      <div class="testimonial-card">
+        <p>"La variedad de productos es impresionante. ¡Muy recomendado!"</p>
+        <strong>- Luis G.</strong>
+      </div>
+      <div class="testimonial-card">
+        <p>"Los descuentos son increíbles y la entrega rápida."</p>
+        <strong>- María Q.</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===============
+     NEWSLETTER 
+     =============== -->
+  <section class="newsletter-section">
+    <h2 class="newsletter-section-title">Suscríbete a nuestras ofertas</h2>
+    <form id="newsletter-form" class="newsletter-form">
+      <input type="email" name="email" placeholder="Tu correo electrónico" required>
+      <button type="submit">Suscribirme</button>
+    </form>
+  </section>
+
+  <!-- ========================
+       Modal LOGIN
+       =========================== -->
+  <div class="modal fade" id="loginmodal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Iniciar sesión</h5>
+                <button type="button" id="btn-close" class="btn-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Error Box -->
+                <div class="error-box" id="error-message-box" ></div>
+                
+                <form class="login-form" id="form-login" autocomplete="off">
+                    <div class="mb-3">
+                        <label for="Usuario" class="login-form-label">Usuario</label>
+                        <input type="text" class="login-form-control" id="Usuario" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Contraseña" class="login-form-label">Contraseña</label>
+                        <input type="password" class="login-form-control" id="Contraseña" required>
+                    </div>
+                    <div>
+                        <a class="registrar-link" href="./pages/nuevoUsuario.html" target="_blank">Registrarse</a>
+                    </div>
+                    <button type="submit" class="btn-primary w-100 mt-3">Enviar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-links">
+      <a href="./pages/ayuda.html">Ayuda</a>
+      <a href="./pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="./pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Scripts para carrusel interactivo -->
+  <!-- Scripts para scroll interactivo -->
+  <script src="./scripts/index/animations.js"></script>
+  <!-- Scripts para modal y login -->
+  <script type="module" src="./scripts/loginModal.js"></script>
+
+</body>
+</html>
+
