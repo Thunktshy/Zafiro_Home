@@ -91,9 +91,9 @@ const categoriesRoutes = require('./Server/routes/categoriesRoute.js');
 app.use('/categories', categoriesRoutes);
 
 
-//Ruta para login
+// Ruta para login
 app.post('/login',
-  // 1) Middleware de validación
+  // Middleware de validación (express-validator)
   [
     body('username')
       .trim()
@@ -103,55 +103,80 @@ app.post('/login',
       .notEmpty().withMessage('La contraseña es obligatoria')
       .isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres')
   ],
-  // 2) Controlador asíncrono
+
   async (req, res) => {
-    // Validar los errores de validación
+    // Verificar errores de validación
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(422).json({ success: false, message: "Errores de validación", errors: errors.array() });
+      return res.status(422).json({
+        success: false,
+        message: "Errores de validación",
+        errors: errors.array()
+      });
     }
 
     const { username, password } = req.body;
 
     try {
-      // 1) Buscar la cuenta del usuario (cliente o empleado)
-      const searchId = await dbInstance.queryWithParams(
+      // Buscar la cuenta del usuario (puede ser cliente o empleado)
+
+      const rows = await dbInstance.queryWithParams(
         'EXEC buscar_id_para_login @cuenta, @email',
         {
-          cuenta: { type: sql.NVarChar(50), value: username },
-          email: { type: sql.NVarChar(150), value: username }  // Permitir búsqueda por email también
+          cuenta: { type: sql.NVarChar(50),  value: username },
+          email:  { type: sql.NVarChar(150), value: username } // Permite búsqueda por email también
         }
       );
 
-      // Verificar si se encontraron resultados
-      const users = searchId;
-      if (!users || users.length === 0) {
+      // Validar que exista algún resultado
+      if (!Array.isArray(rows) || rows.length === 0) {
+        // Mensaje genérico para no filtrar si el usuario existe o no
         return res.status(404).json({ success: false, message: "Credenciales inválidas." });
       }
 
-      // 2) Comprobar la contraseña
-      const user = users[0];  // Suponiendo que sólo se devuelve un resultado
-      const hashedPassword = user.contrasena;
+      // Tomar el primer resultado
+      const row = rows[0];
 
-      // Comparar la contraseña enviada con la almacenada en la base de datos
+      // Es cliente_id o empleado_id
+      const userId = row.cliente_id ?? row.empleado_id ?? null;
+
+      // Flags para la sesión
+      const esCliente  = row.cliente_id != null;
+      const esEmpleado = row.empleado_id != null;
+
+      // Asegurar que exista la contraseña hasheada en DB
+      const hashedPassword = row.contrasena;
+      if (!userId || !hashedPassword) {
+        // Si faltan datos críticos, se responde como credenciales inválidas
+        return res.status(404).json({ success: false, message: "Credenciales inválidas." });
+      }
+
+      // Comparar la contraseña enviada con el hash almacenado (bcrypt)
       const passwordMatch = await bcrypt.compare(password, hashedPassword);
       if (!passwordMatch) {
+        // Mensaje genérico por seguridad
         return res.status(401).json({ success: false, message: "Credenciales inválidas." });
       }
 
-      // 3) Configurar la sesión
-      req.session.userID = user.cliente_id || user.empleado_id;  // Usar cliente_id o empleado_id según corresponda
-      req.session.isClient = !!user.cliente_id;  // Si es cliente, establecer isClient
-      req.session.isAdmin = !!user.empleado_id && user.puesto === 'Administrador';  // Si es administrador, establecer isAdmin
+      // Configurar la sesión
+      req.session.userID   = userId;                               // ID normalizado
+      req.session.isClient = esCliente;                            // true si es cliente
+      // isAdmin sólo verdadero si es empleado y su puesto/rol es Administrador
+      req.session.isAdmin  = esEmpleado && (
+        row.puesto === 'Administrador' || row.rol === 'Administrador'
+      );
 
+      // Respuesta de éxito
       return res.json({ success: true, message: "Inicio de sesión exitoso." });
 
     } catch (error) {
+      // Manejo de errores inesperados
       console.error("Error en el login:", error);
       return res.status(500).json({ success: false, message: "Error en el servidor." });
     }
   }
 );
+
 
 //Ruta para cerra sesion
 app.post('/logout', (req, res) => {
