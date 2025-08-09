@@ -66,6 +66,19 @@ const requireClient = (req, res, next) => {
 
 
 // Middleware de validacion
+const PROTECTED_DIR = path.resolve(process.cwd(), 'Protected');
+
+// static con cache privado (el cliente no compartirá en cachés públicas)
+const adminStatic = express.static(PROTECTED_DIR, {
+  index: false,                // evita servir un index por defecto
+  maxAge: '1h',                // ajusta según necesidad
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+  }
+});
+
+// Servir servicios protegidos
+app.use('/admin-resources', requireAdmin, adminStatic);
 
 const ValidationService = require('./Server/validatorService.js');
 //Reglas
