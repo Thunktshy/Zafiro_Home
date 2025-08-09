@@ -79,26 +79,6 @@ const upload = multer({
   }
 });
 
-// Example route that uses `upload` + image processing:
-// app.post('/upload-avatar',
-//   upload.single('avatar'),
-//   async (req, res, next) => {
-//     try {
-//       const bufferResized = await sharp(req.file.buffer)
-//         .resize(256, 256)
-//         .png()
-//         .toBuffer();
-//       // …save bufferResized to disk or database…
-//–     res.json({ success: true });
-//     } catch (err) {
-//       next(err);
-//     }
-//   }
-// );
-
-// —–– Your API routes go here —––
-// app.use('/api', require('./routes/api'));
-
 // --- Login endpoint ---
 app.post('/login', body('username')
     .trim()

@@ -5,7 +5,7 @@ root@srv899499:~# /opt/mssql-tools18/bin/sqlcmd \
   -P "eWUmX8owfovKPAR3rWoAww" \
   -i setup_testecom.sql
 Sqlcmd: 'setup_testecom.sql': Invalid filename.
-root@srv899499:~#  sqlcmd -S localhost -U TiendaAdmin -P 'Ricardoydiego1.#4' -C
+
 1> SELECT TABLE_SCHEMA, TABLE_NAME
 2> FROM INFORMATION_SCHEMA.TABLES
 3> WHERE TABLE_TYPE = 'BASE TABLE'

@@ -1,7 +1,11 @@
 // hash-passwords.js
 const bcrypt = require('bcrypt');
 
+
+// Example passwords to hash
+
 // Example passwords
+
 const passwords = [
   "Ricardoydiego.1",
   "Tulipanenses123",
@@ -11,7 +15,19 @@ const passwords = [
 // Number of salt rounds (higher = more secure but slower)
 const saltRounds = 10;
 
+
+// Stored hash in database
+
+const storedHash = "$2b$10$G0VynUS9FF4cn2.gK2/tF.VAL.zCJlBIzySVKSA3V5UmAg8X6SFqi";
+
+// Plaintext password to check
+const enteredPassword = "Ricardoydiego.1";
+
 (async () => {
+  console.log("=== Hashing Passwords ===");
+
+(async () => {
+
   for (const pwd of passwords) {
     try {
       const hash = await bcrypt.hash(pwd, saltRounds);
@@ -21,4 +37,17 @@ const saltRounds = 10;
       console.error(`Error hashing password "${pwd}":`, err);
     }
   }
+
+
+  console.log("=== Checking Password ===");
+  try {
+    const match = await bcrypt.compare(enteredPassword, storedHash);
+    console.log(match ? "✅ Password is correct!" : "❌ Password is incorrect.");
+  } catch (err) {
+    console.error("Error comparing password:", err);
+  }
 })();
+
+
+})();
+
