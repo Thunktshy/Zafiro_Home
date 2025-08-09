@@ -25,6 +25,9 @@ CREATE TABLE metodos_pago (
     ciudad         NVARCHAR(50)  NULL,
     codigo_postal  NVARCHAR(10)  NULL,
     pais           NVARCHAR(50)  NULL,
+
+    datos           NVARCHAR(MAX) NOT NULL,
+
     es_principal    BIT           NOT NULL DEFAULT 0,
     fecha_creacion  DATETIME      NOT NULL DEFAULT GETDATE(),
     CONSTRAINT fk_metodos_pago_cliente

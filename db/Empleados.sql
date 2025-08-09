@@ -381,7 +381,9 @@ BEGIN
     SELECT 
         empleado_id
     FROM 
+
        empleados 
+
     WHERE 
         (cuenta LIKE '%' + @termino_busqueda + '%' OR 
          email LIKE '%' + @termino_busqueda + '%')
