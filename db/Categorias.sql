@@ -1,5 +1,5 @@
 /* ==============================================================
-   Tablas, Triggers y Procedimientos para Categorías y sus logs
+   Tablas, Constraints, Triggers y Procedimientos para Categorías
    ============================================================== */
 
 -- Tabla principal de categorías
@@ -7,28 +7,24 @@ DROP TABLE IF EXISTS categorias;
 GO
 CREATE TABLE categorias (
     categoria_id      INT IDENTITY(1,1) PRIMARY KEY,   -- PK
-    nombre_categoria  NVARCHAR(50) NOT NULL,          -- Nombre de la categoría
-    descripcion       NVARCHAR(255) NULL               -- Descripción de la categoría
+    nombre_categoria  NVARCHAR(50) NOT NULL,           -- Nombre de la categoría
+    descripcion       NVARCHAR(255) NULL,              -- Descripción de la categoría
+    image_path        NVARCHAR(255) NULL               -- Ruta de la imagen
 );
 GO
 
--- Tabla INSERT de categorías
-DROP TABLE IF EXISTS categorias_ins_log;
-GO
-CREATE TABLE categorias_ins_log (
-    log_id            INT IDENTITY(1,1) PRIMARY KEY,
-    categoria_id      INT,                             -- FK a categorías
-    nombre_categoria  NVARCHAR(50),
-    descripcion       NVARCHAR(255),
-    fecha_log         DATETIME    DEFAULT GETDATE(),
-    usuario           NVARCHAR(50) DEFAULT SYSTEM_USER
-);
+-- Constraint UNIQUE en nombre_categoria
+ALTER TABLE categorias
+ADD CONSTRAINT UQ_categorias_nombre_categoria UNIQUE (nombre_categoria);
 GO
 
--- Tabla DELETE de categorías
-DROP TABLE IF EXISTS categorias_del_log;
+/* ========================
+   Tablas de LOG 
+   ======================== */
+
+DROP TABLE IF EXISTS categorias_insert_log;
 GO
-CREATE TABLE categorias_del_log (
+CREATE TABLE categorias_insert_log (
     log_id            INT IDENTITY(1,1) PRIMARY KEY,
     categoria_id      INT,
     nombre_categoria  NVARCHAR(50),
@@ -38,29 +34,44 @@ CREATE TABLE categorias_del_log (
 );
 GO
 
--- Tabla UPDATE de categorías
-DROP TABLE IF EXISTS categorias_upd_log;
+DROP TABLE IF EXISTS categorias_delete_log;
 GO
-CREATE TABLE categorias_upd_log (
-    log_id                  INT IDENTITY(1,1) PRIMARY KEY,
-    categoria_id            INT,
-    nombre_categoria_anterior NVARCHAR(50),
-    descripcion_anterior    NVARCHAR(255),
-    nombre_categoria_nuevo  NVARCHAR(50),
-    descripcion_nuevo       NVARCHAR(255),
-    fecha_log               DATETIME    DEFAULT GETDATE(),
-    usuario                 NVARCHAR(50) DEFAULT SYSTEM_USER
+CREATE TABLE categorias_delete_log (
+    log_id            INT IDENTITY(1,1) PRIMARY KEY,
+    categoria_id      INT,
+    nombre_categoria  NVARCHAR(50),
+    descripcion       NVARCHAR(255),
+    fecha_log         DATETIME    DEFAULT GETDATE(),
+    usuario           NVARCHAR(50) DEFAULT SYSTEM_USER
 );
 GO
 
--- TRIGGER INSERT categorías
-CREATE OR ALTER TRIGGER trg_ins_categorias
+DROP TABLE IF EXISTS categorias_update_log;
+GO
+CREATE TABLE categorias_update_log (
+    log_id                    INT IDENTITY(1,1) PRIMARY KEY,
+    categoria_id              INT,
+    nombre_categoria_anterior NVARCHAR(50),
+    descripcion_anterior      NVARCHAR(255),
+    nombre_categoria_nuevo    NVARCHAR(50),
+    descripcion_nuevo         NVARCHAR(255),
+    fecha_log                 DATETIME    DEFAULT GETDATE(),
+    usuario                   NVARCHAR(50) DEFAULT SYSTEM_USER
+);
+GO
+
+/* ========================
+   TRIGGERS 
+   ======================== */
+
+-- INSERT
+CREATE OR ALTER TRIGGER trg_insert_categorias
 ON categorias
 AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO categorias_ins_log (
+    INSERT INTO categorias_insert_log (
         categoria_id, nombre_categoria, descripcion
     )
     SELECT
@@ -69,14 +80,14 @@ BEGIN
 END;
 GO
 
--- TRIGGER DELETE categorías
-CREATE OR ALTER TRIGGER trg_del_categorias
+-- DELETE
+CREATE OR ALTER TRIGGER trg_delete_categorias
 ON categorias
 AFTER DELETE
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO categorias_del_log (
+    INSERT INTO categorias_delete_log (
         categoria_id, nombre_categoria, descripcion
     )
     SELECT
@@ -85,14 +96,14 @@ BEGIN
 END;
 GO
 
--- TRIGGER UPDATE categorías
-CREATE OR ALTER TRIGGER trg_upd_categorias
+-- UPDATE (solo loggea cambios en nombre/descripcion)
+CREATE OR ALTER TRIGGER trg_update_categorias
 ON categorias
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO categorias_upd_log (
+    INSERT INTO categorias_update_log (
         categoria_id,
         nombre_categoria_anterior, descripcion_anterior,
         nombre_categoria_nuevo,   descripcion_nuevo
@@ -110,85 +121,89 @@ BEGIN
 END;
 GO
 
--- Procedimiento INSERT categorías
+/* ==============================================================
+   Procedimientos
+   ============================================================== */
+
+-- INSERT categorías 
 CREATE OR ALTER PROCEDURE categorias_insert
     @nombre_categoria NVARCHAR(50),
-    @descripcion      NVARCHAR(255) = NULL
+    @descripcion      NVARCHAR(255) = NULL,
+    @image_path       NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar duplicados por nombre
+
+        IF LTRIM(RTRIM(@nombre_categoria)) = ''
+            THROW 51001, 'nombre_categoria no puede estar vacío.', 1;
+
         IF EXISTS (SELECT 1 FROM categorias WHERE nombre_categoria = @nombre_categoria)
-        BEGIN
-            RAISERROR('La categoría ya existe.', 16, 1);
-            RETURN;
-        END
-        INSERT INTO categorias (nombre_categoria, descripcion)
-        VALUES (@nombre_categoria, @descripcion);
+            THROW 51002, 'La categoría ya existe.', 1;
+
+        INSERT INTO categorias (
+            nombre_categoria, descripcion, image_path
+        )
+        VALUES (
+            @nombre_categoria, @descripcion, @image_path
+        );
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO Logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'categorias_insert'
-        );
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_insert');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento UPDATE categorías
+-- UPDATE categorías
 CREATE OR ALTER PROCEDURE categorias_update
     @categoria_id      INT,
     @nombre_categoria  NVARCHAR(50),
-    @descripcion       NVARCHAR(255) = NULL
+    @descripcion       NVARCHAR(255) = NULL,
+    @image_path        NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar existencia
+
         IF NOT EXISTS (SELECT 1 FROM categorias WHERE categoria_id = @categoria_id)
-        BEGIN
-            RAISERROR('categoria_id no existe.', 16, 1);
-            RETURN;
-        END
-        -- Validar duplicado de nombre en otro registro
+            THROW 51003, 'La categoría ya no se encuentra en la base de datos.', 1;
+
+        IF LTRIM(RTRIM(@nombre_categoria)) = ''
+            THROW 51004, 'nombre_categoria no puede estar vacío.', 1;
+
         IF EXISTS (
             SELECT 1 FROM categorias
             WHERE nombre_categoria = @nombre_categoria
               AND categoria_id <> @categoria_id
         )
-        BEGIN
-            RAISERROR('Otra categoría ya usa ese nombre.', 16, 1);
-            RETURN;
-        END
+            THROW 51005, 'Otra categoría ya usa ese nombre.', 1;
+
         UPDATE categorias
         SET
             nombre_categoria = @nombre_categoria,
-            descripcion      = @descripcion
+            descripcion      = @descripcion,
+            image_path       = @image_path
         WHERE categoria_id = @categoria_id;
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO Logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'categorias_update'
-        );
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_update');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento DELETE categorías
+-- DELETE categorías
 CREATE OR ALTER PROCEDURE categorias_delete
     @categoria_id INT
 AS
@@ -196,25 +211,48 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar existencia
+
         IF NOT EXISTS (SELECT 1 FROM categorias WHERE categoria_id = @categoria_id)
-        BEGIN
-            RAISERROR('categoria_id no existe.', 16, 1);
-            RETURN;
-        END
+            THROW 51006, 'La categoría ya no se encuentra en la base de datos.', 1;
+
         DELETE FROM categorias
         WHERE categoria_id = @categoria_id;
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO Logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'categorias_delete'
-        );
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_delete');
         THROW;
     END CATCH
+END;
+GO
+
+-- Obtener todas las categorías
+CREATE OR ALTER PROCEDURE categorias_get_all
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        categoria_id,
+        nombre_categoria,
+        descripcion,
+        image_path
+    FROM categorias
+    ORDER BY nombre_categoria;
+END;
+GO
+
+-- Obtener lista de categorías (solo id y nombre)
+CREATE OR ALTER PROCEDURE categorias_get_list
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        categoria_id,
+        nombre_categoria
+    FROM categorias
+    ORDER BY nombre_categoria;
 END;
 GO

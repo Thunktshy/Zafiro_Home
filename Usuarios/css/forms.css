@@ -1,0 +1,233 @@
+/* Form css styles */
+
+:root {
+  --color-text-light: rgb(255, 255, 255);
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --max-width-container: 1200px;
+  --spacing-standard: 1rem;
+  --borderradius: 20px;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-bg: #f9f9f9;
+  --color-text: #333333;
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --color-accent: #f08a5d;
+  --color-light-bg: #ffffff;
+  --border-radius: 12px;
+  --spacing: 1rem;
+  --transition-fast: 0.3s ease;
+}
+
+/* Container */
+.form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 40px;
+    padding-bottom: 64px;
+}
+
+/* Card */
+#form-card {
+    background: #ffffff;
+    border-radius: 0.75rem;           /* = rounded-xl */
+    box-shadow:
+        0 4px 6px -1px rgba(0,0,0,0.1),
+        0 2px 4px -1px rgba(0,0,0,0.06);
+    padding: 2rem;                     /* = p-8 */
+    max-width: 32rem;                  /* = max-w-lg */
+    width: 100%;
+    border-top: 4px solid #f97316;     /* = border-t-4 + border-orange-500 */
+    animation: fadeIn 0.3s ease both;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Title */
+.form-tittle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;                      /* = gap-3 */
+    font-size: 1.875rem;               /* = text-3xl */
+    line-height: 2.25rem;
+    font-weight: 700;                  /* = font-bold */
+    color: #1e3a8a;                    /* = text-blue-900 */
+    margin-bottom: 1.5rem;             /* = mb-6 */
+}
+
+
+/* Each field wrapper */
+.form-field {
+    margin-bottom: 1.25rem;            /* = mb-5 */
+}
+
+/* Labels */
+.form-label {
+    display: block;
+    font-weight: 600;                  /* = font-semibold */
+    color: #333333;
+    margin-bottom: 0.25rem;
+}
+
+/* Inputs */
+.form-input {
+    width: 100%;                       /* = w-full */
+    border: 1px solid #ccc;
+    border-radius: 0.25rem;            /* = rounded */
+    padding: 0.5rem 0.75rem;           /* = py-2 px-3 */
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-input:focus {
+    border-color: #f08a5d;             /* = focus:border-accent */
+    box-shadow: 0 0 0 3px rgba(240,138,93,0.25);
+}
+
+.hidden {
+    display: none;
+}
+
+/* Submit button */
+.form-submit {
+    width: 100%;                       /* = w-full */
+    padding: 0.75rem 0;                /* = py-3 */
+    background-color: #1e40af;         /* = bg-blue-800 */
+    color: #ffffff;                    /* = text-white */
+    font-weight: 700;                  /* = font-bold */
+    border: none;
+    border-radius: 0.75rem;            /* = rounded-xl */
+    box-shadow:
+        0 10px 15px -3px rgba(0,0,0,0.1),
+        0 4px 6px -2px rgba(0,0,0,0.05); /* = shadow-lg */
+    transition: background 0.3s ease, transform 0.3s ease;
+    margin-top: 0.5rem;                /* = mt-2 */
+    cursor: pointer;
+}
+
+.form-submit:hover {
+    background-color: #2563eb;         /* a slightly lighter blue */
+    transform: translateY(-2px) scale(1.03);
+}
+
+/* Info below the form */
+.form-info {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.875rem;               /* = text-sm */
+}
+
+/* “Iniciar Sesión” link */
+.form-link {
+    color: #2563eb;                    /* = text-blue-600 */
+    text-decoration: none;
+    transition: text-decoration 0.3s ease;
+}
+
+.form-link:hover {
+    text-decoration: underline;        /* = hover:underline */
+}
+
+.error-box{
+  display: none;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 0.25rem;
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Estilos para el formulario de Información Personal
+────────────────────────────────────────────────────────── */
+
+/* Tarjeta */
+.form-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 2rem;
+}
+
+/* Título */
+.form-title {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Banner de errores */
+#error-message-box {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  display: none;  /* se mostrará vía showError() */
+}
+
+/* Campos del formulario */
+.form-field {
+  margin-bottom: 1rem;
+  width: 96%;;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+/* Borde rojo para inputs inválidos */
+.border-red-500 {
+  border-color: #f56565 !important;
+}
+
+/* Botón de envío */
+.form-submit {
+  background: #3182ce;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.form-submit:hover {
+  background: #2b6cb0;
+}
+
+/* Mensaje de éxito */
+.hidden {
+  display: none;
+}
+
+.text-green-800 {
+  color: #2f855a;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}

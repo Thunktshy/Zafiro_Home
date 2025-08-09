@@ -1,0 +1,84 @@
+/* Contact Info Styles */
+:root {
+  --color-text-light: rgb(255, 255, 255);
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --max-width-container: 1200px;
+  --spacing-standard: 1rem;
+  --borderradius: 20px;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-bg: #f9f9f9;
+  --color-text: #333333;
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --color-accent: #f08a5d;
+  --color-light-bg: #ffffff;
+  --border-radius: 12px;
+  --spacing: 1rem;
+  --transition-fast: 0.3s ease;
+}
+    /* Form Styles */
+    .contact-section {
+      max-width: var(--max-width-container);
+      margin: 4rem auto 1.5rem;
+      padding: 3rem 2rem;
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+    }
+    .contact-title {
+      font-size: 2.5rem; color: #a5230c; margin-bottom: 1.6rem;
+      text-align:center;
+    }
+
+.contact-info-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2.5rem;
+      margin-top: 4rem;
+    }
+    .contact-card {
+      background: #f9fafb;
+      border-radius: var(--border-radius);
+      padding: 1.8rem 1.6rem;
+      box-shadow: 0 6px 30px rgba(0,0,0,.05);
+      flex-basis: 240px;
+      display: flex;
+      flex-direction: column;
+      align-items:center;
+    }
+    .contact-icon {
+      width: 38px; height: 38px; margin-bottom:1rem;
+    }
+
+    /* Map/Location */
+    .map-container {
+      max-width: var(--max-width-container);
+      margin: 4rem auto;
+      text-align: center;
+    }
+    #contact-map {
+      border-radius: var(--border-radius);
+      overflow:hidden;
+      width: 95%; 
+      height:280px;
+      box-shadow: 0 6px 30px rgba(0,0,0,.14);
+      margin-top: 1.5rem;
+    }
+
+    .contact-label {
+  font-weight: 600;
+}
+
+.map-title {
+  font-size: 1.5rem;
+  color: #a5230c;
+  font-weight: bold;
+  margin-bottom: 0.8rem;
+}
+
+.map-description {
+  margin-top: 1rem;
+}

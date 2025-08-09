@@ -38,7 +38,7 @@ const upload = multer({
 });
 
 // Configurar almacenamiento de Multer para guardar imágenes de productos en Protected/img/products
-const productImageStorage = multer.diskStorage({
+const imageStorage = multer.diskStorage({
     destination: function (req, file, cb) {
       // Asegúrate de que la carpeta de destino exista en tu sistema de archivos.
       cb(null, path.join(__dirname, 'Protected', 'img', 'products'));

@@ -1,0 +1,80 @@
+    /* FAQ Styles */
+
+:root {
+  --color-text-light: rgb(255, 255, 255);
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --max-width-container: 1200px;
+  --spacing-standard: 1rem;
+  --borderradius: 20px;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-bg: #f9f9f9;
+  --color-text: #333333;
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --color-accent: #f08a5d;
+  --color-light-bg: #ffffff;
+  --border-radius: 12px;
+  --spacing: 1rem;
+  --transition-fast: 0.3s ease;
+}
+
+    .faq-container {
+      max-width: var(--max-width-container);
+      margin: 4rem auto 1.5rem;
+      padding: 3rem 2rem;
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+    }
+    .faq-title {
+      font-size: 2.5rem; color: #a5230c; margin-bottom: 1.6rem;
+      text-align:center;
+    }
+
+    /* Accordion styles */
+    .accordion-item {
+      margin-top: 1.8rem;
+      border-bottom: 1px solid #ebebeb;
+      padding-bottom: 1rem;
+    }
+    .accordion-question {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      font-size: 1.25rem;
+      color: #30478f;
+      transition: color var(--transition-fast);
+      padding: 0.6rem 0;
+      box-shadow: 0 8px 40px rgba(0,0,0,.07);
+      border-radius: var(--border-radius);
+      min-width: 450px;
+    }
+    .accordion-question:hover {
+      color: var(--color-secondary);
+    }
+    .accordion-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      transition: transform var(--transition-fast);
+    }
+    .accordion-answer {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0.45;
+      font-size: 1rem;
+      margin-top: 0.7rem;
+      line-height: 1.6;
+      transition: 
+        max-height var(--transition-fast) cubic-bezier(0.86,0,0.07,1),
+        opacity var(--transition-fast);
+    }
+    .accordion-question.open + .accordion-answer {
+      max-height: 350px;
+      opacity: 1;
+      margin-top: 1rem;
+    }
