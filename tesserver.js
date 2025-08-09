@@ -12,6 +12,7 @@ const fs         = require('fs').promises;
 const { body, validationResult } = require('express-validator');
 
 const dbInstance = require('./db/dbconnector.js');
+const sql = require('mssql');
 //Servir index y contenido principal Publico
 const app = express();
 app.use(express.static("Public"));

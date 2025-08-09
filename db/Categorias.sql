@@ -256,3 +256,31 @@ BEGIN
     ORDER BY nombre_categoria;
 END;
 GO
+
+/* Cobertura para categorias_get_all y get_list (ORDER BY nombre_categoria) */
+CREATE NONCLUSTERED INDEX categorias_nombre_cover_all
+ON categorias(nombre_categoria)
+INCLUDE (categoria_id, descripcion, image_path);
+GO
+
+/* Índices para logs: buscar por categoria_id y lo más reciente */
+
+/* INSERT LOG */
+CREATE NONCLUSTERED INDEX categorias_insert_log_categoria_fecha
+ON categorias_insert_log (categoria_id, fecha_log DESC)
+INCLUDE (nombre_categoria, descripcion, usuario);
+GO
+
+/* DELETE LOG */
+
+CREATE NONCLUSTERED INDEX categorias_delete_log_categoria_fecha
+ON categorias_delete_log (categoria_id, fecha_log DESC)
+INCLUDE (nombre_categoria, descripcion, usuario);
+GO
+
+/* UPDATE LOG */
+CREATE NONCLUSTERED INDEX categorias_update_log_categoria_fecha
+ON categorias_update_log (categoria_id, fecha_log DESC)
+INCLUDE (nombre_categoria_anterior, descripcion_anterior, 
+         nombre_categoria_nuevo, descripcion_nuevo, usuario);
+GO
