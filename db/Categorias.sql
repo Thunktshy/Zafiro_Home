@@ -257,6 +257,7 @@ BEGIN
 END;
 GO
 
+
 /* Cobertura para categorias_get_all y get_list (ORDER BY nombre_categoria) */
 CREATE NONCLUSTERED INDEX categorias_nombre_cover_all
 ON categorias(nombre_categoria)
@@ -284,3 +285,4 @@ ON categorias_update_log (categoria_id, fecha_log DESC)
 INCLUDE (nombre_categoria_anterior, descripcion_anterior, 
          nombre_categoria_nuevo, descripcion_nuevo, usuario);
 GO
+
