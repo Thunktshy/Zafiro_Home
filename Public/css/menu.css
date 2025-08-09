@@ -1,0 +1,73 @@
+/* Hamburger / user menu */
+.user-menu {
+  position: relative;
+  display: inline-block;
+}
+.user-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.user-menu-button .username {
+  font-weight: 600;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-menu-button i {
+  line-height: 1;
+}
+.user-menu.open .user-menu-dropdown { display: block; }
+
+.user-menu-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 240px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12);
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.user-menu-section {
+  padding: 6px 0;
+  border-top: 1px solid #f1f5f9;
+}
+.user-menu-section:first-child { border-top: 0; }
+
+.user-menu-label {
+  display: block;
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.user-menu-item {
+  display: block;
+  padding: 10px 16px;
+  color: #1f2937;
+  text-decoration: none;
+}
+.user-menu-item:hover { background: #f8fafc; }
+
+.user-menu-item i {
+  width: 18px;
+  margin-right: 8px;
+}
+
+@media (max-width: 768px) {
+  .user-menu-button .username { max-width: 120px; }
+}

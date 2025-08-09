@@ -12,6 +12,7 @@ const passwords = [
 const saltRounds = 10;
 
 // Stored hash from your database
+
 const storedHash = "$2b$10$G0VynUS9FF4cn2.gK2/tF.VAL.zCJlBIzySVKSA3V5UmAg8X6SFqi";
 
 // Plaintext password to check
