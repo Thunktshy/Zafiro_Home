@@ -1,140 +1,162 @@
-/* ==============================================================
-   Tablas, Triggers y Procedimientos para Métodos de Pago y sus logs
-   ============================================================== */
-
--- Tabla de logs
-CREATE TABLE Logs (
-    log_id INT IDENTITY PRIMARY KEY,
-    fecha DATETIME     DEFAULT GETDATE(),
-    mensaje NVARCHAR(MAX),
-    nivel VARCHAR(10),
-    origen NVARCHAR(100)
+-- ==============================================
+-- Tabla de logs generales
+-- ==============================================
+DROP TABLE IF EXISTS logs;
+GO
+CREATE TABLE logs (
+    log_id    INT           IDENTITY(1,1) PRIMARY KEY,
+    fecha     DATETIME      NOT NULL DEFAULT GETDATE(),
+    mensaje   NVARCHAR(MAX) NOT NULL,
+    nivel     VARCHAR(10)   NOT NULL,
+    origen    NVARCHAR(100) NOT NULL
 );
+GO
 
--- Tabla principal de metodos_pago
+-- ==============================================
+-- Tabla principal de métodos de pago
+-- ==============================================
 DROP TABLE IF EXISTS metodos_pago;
 GO
 CREATE TABLE metodos_pago (
-    metodo_id        INT IDENTITY(1,1) PRIMARY KEY,
-    cliente_id       NVARCHAR(20)    NOT NULL,    -- Almacenar varios métodos de pago por cliente
-    tipo             NVARCHAR(20)    NOT NULL,    -- 'tarjeta', 'paypal', 'transferencia', etc.
-    datos            NVARCHAR(MAX)   NOT NULL,    -- JSON con detalles del método
-    es_principal     BIT             DEFAULT 0,   -- Indica si es el método principal
-    fecha_creacion   DATETIME        DEFAULT GETDATE(),
-    CONSTRAINT fk_metodos_pago_clientes
+    metodo_id       INT           IDENTITY(1,1) PRIMARY KEY,
+    cliente_id      NVARCHAR(20)  NOT NULL,
+    tipo            NVARCHAR(20)  NOT NULL,
+    datos           NVARCHAR(MAX) NOT NULL,
+    es_principal    BIT           NOT NULL DEFAULT 0,
+    fecha_creacion  DATETIME      NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT fk_metodos_pago_cliente
         FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
 );
 GO
 
--- Tabla INSERT de metodos_pago
-DROP TABLE IF EXISTS metodos_pago_ins_log;
+-- ==============================================
+-- Tablas de log para INSERT, DELETE y UPDATE
+-- ==============================================
+DROP TABLE IF EXISTS metodos_pago_insert_log;
 GO
-CREATE TABLE metodos_pago_ins_log (
-    log_id          INT IDENTITY(1,1) PRIMARY KEY,
-    metodo_id       INT,
-    cliente_id      NVARCHAR(20),
-    tipo            NVARCHAR(20),
-    datos           NVARCHAR(MAX),
-    es_principal    BIT,
-    fecha_creacion  DATETIME,
-    fecha_log       DATETIME DEFAULT GETDATE(),
-    usuario         NVARCHAR(50) DEFAULT SYSTEM_USER
+CREATE TABLE metodos_pago_insert_log (
+    log_id          INT           IDENTITY(1,1) PRIMARY KEY,
+    metodo_id       INT           NOT NULL,
+    cliente_id      NVARCHAR(20)  NOT NULL,
+    tipo            NVARCHAR(20)  NOT NULL,
+    datos           NVARCHAR(MAX) NOT NULL,
+    es_principal    BIT           NOT NULL,
+    fecha_creacion  DATETIME      NOT NULL,
+    fecha_log       DATETIME      NOT NULL DEFAULT GETDATE(),
+    usuario         NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
 );
 GO
 
--- Tabla DELETE de metodos_pago
-DROP TABLE IF EXISTS metodos_pago_del_log;
+DROP TABLE IF EXISTS metodos_pago_delete_log;
 GO
-CREATE TABLE metodos_pago_del_log (
-    log_id          INT IDENTITY(1,1) PRIMARY KEY,
-    metodo_id       INT,
-    cliente_id      NVARCHAR(20),
-    tipo            NVARCHAR(20),
-    datos           NVARCHAR(MAX),
-    es_principal    BIT,
-    fecha_creacion  DATETIME,
-    fecha_log       DATETIME DEFAULT GETDATE(),
-    usuario         NVARCHAR(50) DEFAULT SYSTEM_USER
+CREATE TABLE metodos_pago_delete_log (
+    log_id          INT           IDENTITY(1,1) PRIMARY KEY,
+    metodo_id       INT           NOT NULL,
+    cliente_id      NVARCHAR(20)  NOT NULL,
+    tipo            NVARCHAR(20)  NOT NULL,
+    datos           NVARCHAR(MAX) NOT NULL,
+    es_principal    BIT           NOT NULL,
+    fecha_creacion  DATETIME      NOT NULL,
+    fecha_log       DATETIME      NOT NULL DEFAULT GETDATE(),
+    usuario         NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
 );
 GO
 
--- Tabla UPDATE de metodos_pago
-DROP TABLE IF EXISTS metodos_pago_upd_log;
+DROP TABLE IF EXISTS metodos_pago_update_log;
 GO
-CREATE TABLE metodos_pago_upd_log (
-    log_id                  INT IDENTITY(1,1) PRIMARY KEY,
-    metodo_id               INT,
-    cliente_id              NVARCHAR(20),
-    tipo_anterior           NVARCHAR(20),
-    datos_anterior          NVARCHAR(MAX),
-    es_principal_anterior   BIT,
-    tipo_nuevo              NVARCHAR(20),
-    datos_nuevo             NVARCHAR(MAX),
-    es_principal_nuevo      BIT,
-    fecha_log               DATETIME DEFAULT GETDATE(),
-    usuario                 NVARCHAR(50) DEFAULT SYSTEM_USER
+CREATE TABLE metodos_pago_update_log (
+    log_id                INT           IDENTITY(1,1) PRIMARY KEY,
+    metodo_id             INT           NOT NULL,
+    cliente_id            NVARCHAR(20)  NOT NULL,
+    tipo_old              NVARCHAR(20)  NULL,
+    datos_old             NVARCHAR(MAX) NULL,
+    es_principal_old      BIT           NULL,
+    tipo_new              NVARCHAR(20)  NULL,
+    datos_new             NVARCHAR(MAX) NULL,
+    es_principal_new      BIT           NULL,
+    fecha_log             DATETIME      NOT NULL DEFAULT GETDATE(),
+    usuario               NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
 );
 GO
 
--- TRIGGER INSERT metodos_pago
-CREATE OR ALTER TRIGGER trg_ins_metodos_pago
+-- ==============================================
+-- Triggers para poblar logs
+-- ==============================================
+CREATE OR ALTER TRIGGER trg_insert_metodos_pago
 ON metodos_pago
 AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO metodos_pago_ins_log (
+    INSERT INTO metodos_pago_insert_log (
         metodo_id, cliente_id, tipo, datos, es_principal, fecha_creacion
     )
     SELECT
-        i.metodo_id, i.cliente_id, i.tipo, i.datos, i.es_principal, i.fecha_creacion
+        i.metodo_id,
+        i.cliente_id,
+        i.tipo,
+        i.datos,
+        i.es_principal,
+        i.fecha_creacion
     FROM inserted AS i;
 END;
 GO
 
--- TRIGGER DELETE metodos_pago
-CREATE OR ALTER TRIGGER trg_del_metodos_pago
+CREATE OR ALTER TRIGGER trg_delete_metodos_pago
 ON metodos_pago
 AFTER DELETE
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO metodos_pago_del_log (
+    INSERT INTO metodos_pago_delete_log (
         metodo_id, cliente_id, tipo, datos, es_principal, fecha_creacion
     )
     SELECT
-        d.metodo_id, d.cliente_id, d.tipo, d.datos, d.es_principal, d.fecha_creacion
+        d.metodo_id,
+        d.cliente_id,
+        d.tipo,
+        d.datos,
+        d.es_principal,
+        d.fecha_creacion
     FROM deleted AS d;
 END;
 GO
 
--- TRIGGER UPDATE metodos_pago
-CREATE OR ALTER TRIGGER trg_upd_metodos_pago
+CREATE OR ALTER TRIGGER trg_update_metodos_pago
 ON metodos_pago
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO metodos_pago_upd_log (
-        metodo_id, cliente_id,
-        tipo_anterior, datos_anterior, es_principal_anterior,
-        tipo_nuevo, datos_nuevo, es_principal_nuevo
+    INSERT INTO metodos_pago_update_log (
+        metodo_id,
+        cliente_id,
+        tipo_old, datos_old, es_principal_old,
+        tipo_new, datos_new, es_principal_new
     )
     SELECT
-        d.metodo_id, d.cliente_id,
-        d.tipo, d.datos, d.es_principal,
-        i.tipo, i.datos, i.es_principal
+        d.metodo_id,
+        d.cliente_id,
+        d.tipo,
+        d.datos,
+        d.es_principal,
+        i.tipo,
+        i.datos,
+        i.es_principal
     FROM deleted AS d
     JOIN inserted AS i
       ON d.metodo_id = i.metodo_id
     WHERE
-        ISNULL(d.tipo,'')           <> ISNULL(i.tipo,'')
-     OR ISNULL(d.datos,'')          <> ISNULL(i.datos,'')
-     OR ISNULL(d.es_principal,0)    <> ISNULL(i.es_principal,0);
+        ISNULL(d.tipo,'')             <> ISNULL(i.tipo,'')
+     OR ISNULL(d.datos,'')            <> ISNULL(i.datos,'')
+     OR ISNULL(d.es_principal,0)      <> ISNULL(i.es_principal,0);
 END;
 GO
 
--- Procedimiento INSERT metodos_pago
+-- ==============================================
+-- Procedimientos almacenados (CRUD completo)
+-- ==============================================
+-- INSERT
 CREATE OR ALTER PROCEDURE metodos_pago_insert
     @cliente_id    NVARCHAR(20),
     @tipo          NVARCHAR(20),
@@ -145,33 +167,27 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar que el cliente existe
-        IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
-        BEGIN
-            RAISERROR('cliente_id no existe.', 16, 1);
-            RETURN;
-        END
-        INSERT INTO metodos_pago (
-            cliente_id, tipo, datos, es_principal
-        ) VALUES (
-            @cliente_id, @tipo, @datos, @es_principal
-        );
-        COMMIT TRANSACTION;
+            IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
+                THROW 52000, 'cliente_id no existe.', 1;
+
+            INSERT INTO metodos_pago (
+                cliente_id, tipo, datos, es_principal
+            )
+            VALUES (
+                @cliente_id, @tipo, @datos, @es_principal
+            );
+        COMMIT;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'metodos_pago_insert'
-        );
+        IF @@TRANCOUNT>0 ROLLBACK;
+        INSERT INTO logs(mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'metodos_pago_insert');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento UPDATE metodos_pago
+-- UPDATE
 CREATE OR ALTER PROCEDURE metodos_pago_update
     @metodo_id     INT,
     @tipo          NVARCHAR(20),
@@ -182,34 +198,27 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar que el método existe
-        IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE metodo_id = @metodo_id)
-        BEGIN
-            RAISERROR('metodo_id no existe.', 16, 1);
-            RETURN;
-        END
-        UPDATE metodos_pago
-        SET
-            tipo         = @tipo,
-            datos        = @datos,
-            es_principal = COALESCE(@es_principal, es_principal)
-        WHERE metodo_id = @metodo_id;
-        COMMIT TRANSACTION;
+            IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE metodo_id = @metodo_id)
+                THROW 52001, 'metodo_id no existe.', 1;
+
+            UPDATE metodos_pago
+            SET
+                tipo         = @tipo,
+                datos        = @datos,
+                es_principal = COALESCE(@es_principal, es_principal)
+            WHERE metodo_id = @metodo_id;
+        COMMIT;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'metodos_pago_update'
-        );
+        IF @@TRANCOUNT>0 ROLLBACK;
+        INSERT INTO logs(mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'metodos_pago_update');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento DELETE metodos_pago
+-- DELETE
 CREATE OR ALTER PROCEDURE metodos_pago_delete
     @metodo_id INT
 AS
@@ -217,25 +226,86 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar que el método existe
-        IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE metodo_id = @metodo_id)
-        BEGIN
-            RAISERROR('metodo_id no existe.', 16, 1);
-            RETURN;
-        END
-        DELETE FROM metodos_pago
-        WHERE metodo_id = @metodo_id;
-        COMMIT TRANSACTION;
+            IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE metodo_id = @metodo_id)
+                THROW 52002, 'metodo_id no existe.', 1;
+
+            DELETE FROM metodos_pago
+            WHERE metodo_id = @metodo_id;
+        COMMIT;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'metodos_pago_delete'
-        );
+        IF @@TRANCOUNT>0 ROLLBACK;
+        INSERT INTO logs(mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'metodos_pago_delete');
         THROW;
     END CATCH
 END;
+GO
+
+-- SELECT por cliente
+CREATE OR ALTER PROCEDURE metodos_pago_select_by_cliente
+    @cliente_id NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        metodo_id,
+        cliente_id,
+        tipo,
+        datos,
+        es_principal,
+        fecha_creacion
+    FROM metodos_pago
+    WHERE cliente_id = @cliente_id;
+END;
+GO
+
+-- SELECT todos
+CREATE OR ALTER PROCEDURE metodos_pago_select_all
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        metodo_id,
+        cliente_id,
+        tipo,
+        datos,
+        es_principal,
+        fecha_creacion
+    FROM metodos_pago;
+END;
+GO
+
+-- ==============================================
+-- Sugerencias de índices
+-- ==============================================
+-- Para búsquedas y joins por cliente_id
+CREATE INDEX idx_metodos_pago_cliente_id
+    ON metodos_pago (cliente_id);
+GO
+
+-- Para consultas frecuentes de método principal por cliente
+CREATE INDEX idx_metodos_pago_cliente_principal
+    ON metodos_pago (cliente_id, es_principal);
+GO
+
+-- Para ordenar o filtrar por fecha de creación
+CREATE INDEX idx_metodos_pago_fecha_creacion
+    ON metodos_pago (fecha_creacion);
+GO
+
+-- Índices en tablas de log para rangos de fecha
+CREATE INDEX idx_metodos_pago_insert_log_fecha
+    ON metodos_pago_insert_log (fecha_log);
+CREATE INDEX idx_metodos_pago_delete_log_fecha
+    ON metodos_pago_delete_log (fecha_log);
+CREATE INDEX idx_metodos_pago_update_log_fecha
+    ON metodos_pago_update_log (fecha_log);
+GO
+
+-- Índices en logs generales
+CREATE INDEX idx_logs_fecha
+    ON logs (fecha);
+CREATE INDEX idx_logs_nivel_origen
+    ON logs (nivel, origen);
 GO

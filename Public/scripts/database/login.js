@@ -1,4 +1,4 @@
-//aunthentication.js
+//login.js
 export async function tryLogin(username, password) {
   const response = await fetch('/login', {
     method: 'POST',
@@ -7,7 +7,7 @@ export async function tryLogin(username, password) {
     body: JSON.stringify({ username, password })
   });
 
-  console.log(response)
+  console.log
 
   // 1) If server returns 4xx/5xx, throw so caller can handle
   if (!response.ok) {

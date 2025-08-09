@@ -13,52 +13,68 @@ CREATE TABLE usuarios (
 );
 GO
 
--- Tabla INSERT de usuarios
+/* ==============================================================
+   Tabla de logs generales
+   ============================================================== */
+DROP TABLE IF EXISTS logs;
+GO
+CREATE TABLE logs (
+    log_id     INT           IDENTITY(1,1) PRIMARY KEY,
+    fecha      DATETIME      DEFAULT GETDATE()        NOT NULL,
+    mensaje    NVARCHAR(MAX) NOT NULL,
+    nivel      VARCHAR(10)   NOT NULL,
+    origen     NVARCHAR(100) NOT NULL
+);
+GO
+
+/* ==============================================================
+   Tablas de log para Usuarios
+   ============================================================== */
 DROP TABLE IF EXISTS usuarios_ins_log;
 GO
 CREATE TABLE usuarios_ins_log (
     log_id        INT IDENTITY(1,1) PRIMARY KEY,
-    usuario_id    INT,
-    cuenta        NVARCHAR(10),
-    contrasena    NVARCHAR(255),
-    puesto        NVARCHAR(10),
-    fecha_log     DATETIME DEFAULT GETDATE(),
-    usuario       NVARCHAR(50) DEFAULT SYSTEM_USER
+    usuario_id    INT                NOT NULL,
+    cuenta        NVARCHAR(10)       NOT NULL,
+    contrasena    NVARCHAR(255)      NOT NULL,
+    puesto        NVARCHAR(10)       NOT NULL,
+    fecha_log     DATETIME DEFAULT GETDATE()   NOT NULL,
+    usuario       NVARCHAR(50) DEFAULT SYSTEM_USER NOT NULL
 );
 GO
 
--- Tabla DELETE de usuarios
 DROP TABLE IF EXISTS usuarios_del_log;
 GO
 CREATE TABLE usuarios_del_log (
     log_id        INT IDENTITY(1,1) PRIMARY KEY,
-    usuario_id    INT,
-    cuenta        NVARCHAR(10),
-    contrasena    NVARCHAR(255),
-    puesto        NVARCHAR(10),
-    fecha_log     DATETIME DEFAULT GETDATE(),
-    usuario       NVARCHAR(50) DEFAULT SYSTEM_USER
+    usuario_id    INT                NOT NULL,
+    cuenta        NVARCHAR(10)       NOT NULL,
+    contrasena    NVARCHAR(255)      NOT NULL,
+    puesto        NVARCHAR(10)       NOT NULL,
+    fecha_log     DATETIME DEFAULT GETDATE()   NOT NULL,
+    usuario       NVARCHAR(50) DEFAULT SYSTEM_USER NOT NULL
 );
 GO
 
--- Tabla UPDATE de usuarios
 DROP TABLE IF EXISTS usuarios_upd_log;
 GO
 CREATE TABLE usuarios_upd_log (
     log_id              INT IDENTITY(1,1) PRIMARY KEY,
-    usuario_id          INT,
-    cuenta_anterior     NVARCHAR(10),
-    contrasena_anterior NVARCHAR(255),
-    puesto_anterior     NVARCHAR(10),
-    cuenta_nuevo        NVARCHAR(10),
-    contrasena_nuevo    NVARCHAR(255),
-    puesto_nuevo        NVARCHAR(10),
-    fecha_log           DATETIME DEFAULT GETDATE(),
-    usuario             NVARCHAR(50) DEFAULT SYSTEM_USER
+    usuario_id          INT                NOT NULL,
+    cuenta_anterior     NVARCHAR(10)       NOT NULL,
+    contrasena_anterior NVARCHAR(255)      NOT NULL,
+    puesto_anterior     NVARCHAR(10)       NOT NULL,
+    cuenta_nuevo        NVARCHAR(10)       NOT NULL,
+    contrasena_nuevo    NVARCHAR(255)      NOT NULL,
+    puesto_nuevo        NVARCHAR(10)       NOT NULL,
+    fecha_log           DATETIME DEFAULT GETDATE()   NOT NULL,
+    usuario             NVARCHAR(50) DEFAULT SYSTEM_USER NOT NULL
 );
 GO
 
--- TRIGGER INSERT usuarios
+/* ==============================================================
+   Triggers para Usuarios
+   ============================================================== */
 CREATE OR ALTER TRIGGER trg_ins_usuarios
 ON usuarios
 AFTER INSERT
@@ -71,7 +87,6 @@ BEGIN
 END;
 GO
 
--- TRIGGER DELETE usuarios
 CREATE OR ALTER TRIGGER trg_del_usuarios
 ON usuarios
 AFTER DELETE
@@ -84,7 +99,6 @@ BEGIN
 END;
 GO
 
--- TRIGGER UPDATE usuarios
 CREATE OR ALTER TRIGGER trg_upd_usuarios
 ON usuarios
 AFTER UPDATE
@@ -104,13 +118,15 @@ BEGIN
     JOIN inserted AS i
       ON d.usuario_id = i.usuario_id
     WHERE
-        ISNULL(d.cuenta,'')      <> ISNULL(i.cuenta,'')
-     OR ISNULL(d.contrasena,'')<> ISNULL(i.contrasena,'')
+        ISNULL(d.cuenta,'')       <> ISNULL(i.cuenta,'')
+     OR ISNULL(d.contrasena,'') <> ISNULL(i.contrasena,'')
      OR ISNULL(d.puesto,'')     <> ISNULL(i.puesto,'');
 END;
 GO
 
--- Procedimiento INSERT usuarios
+/* ==============================================================
+   Procedimientos para Usuarios
+   ============================================================== */
 CREATE OR ALTER PROCEDURE usuarios_insert
     @cuenta      NVARCHAR(10),
     @contrasena  NVARCHAR(255),
@@ -120,30 +136,25 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar unicidad de cuenta
-        IF EXISTS (SELECT 1 FROM usuarios WHERE cuenta = @cuenta)
-        BEGIN
-            RAISERROR('La cuenta ya existe.', 16, 1);
-            RETURN;
-        END
-        INSERT INTO usuarios (cuenta, contrasena, puesto)
-        VALUES (@cuenta, @contrasena, @puesto);
+            IF EXISTS (SELECT 1 FROM usuarios WHERE cuenta = @cuenta)
+            BEGIN
+                RAISERROR('La cuenta ya existe.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            INSERT INTO usuarios (cuenta, contrasena, puesto)
+            VALUES (@cuenta, @contrasena, @puesto);
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'usuarios_insert'
-        );
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'usuarios_insert');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento UPDATE usuarios
 CREATE OR ALTER PROCEDURE usuarios_update
     @usuario_id  INT,
     @cuenta      NVARCHAR(10),
@@ -154,44 +165,39 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar existencia
-        IF NOT EXISTS (SELECT 1 FROM usuarios WHERE usuario_id = @usuario_id)
-        BEGIN
-            RAISERROR('usuario_id no existe.', 16, 1);
-            RETURN;
-        END
-        -- Validar unicidad de cuenta
-        IF EXISTS (
-            SELECT 1 FROM usuarios
-            WHERE cuenta = @cuenta
-              AND usuario_id <> @usuario_id
-        )
-        BEGIN
-            RAISERROR('La cuenta ya está en uso por otro usuario.', 16, 1);
-            RETURN;
-        END
-        UPDATE usuarios
-        SET
-            cuenta     = @cuenta,
-            contrasena = @contrasena,
-            puesto     = @puesto
-        WHERE usuario_id = @usuario_id;
+            IF NOT EXISTS (SELECT 1 FROM usuarios WHERE usuario_id = @usuario_id)
+            BEGIN
+                RAISERROR('usuario_id no existe.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            IF EXISTS (
+                SELECT 1 FROM usuarios
+                WHERE cuenta = @cuenta
+                  AND usuario_id <> @usuario_id
+            )
+            BEGIN
+                RAISERROR('La cuenta ya está en uso por otro usuario.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            UPDATE usuarios
+            SET
+                cuenta     = @cuenta,
+                contrasena = @contrasena,
+                puesto     = @puesto
+            WHERE usuario_id = @usuario_id;
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'usuarios_update'
-        );
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'usuarios_update');
         THROW;
     END CATCH
 END;
 GO
 
--- Procedimiento DELETE usuarios
 CREATE OR ALTER PROCEDURE usuarios_delete
     @usuario_id INT
 AS
@@ -199,25 +205,105 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
-        -- Validar existencia
-        IF NOT EXISTS (SELECT 1 FROM usuarios WHERE usuario_id = @usuario_id)
-        BEGIN
-            RAISERROR('usuario_id no existe.', 16, 1);
-            RETURN;
-        END
-        DELETE FROM usuarios
-        WHERE usuario_id = @usuario_id;
+            IF NOT EXISTS (SELECT 1 FROM usuarios WHERE usuario_id = @usuario_id)
+            BEGIN
+                RAISERROR('usuario_id no existe.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            DELETE FROM usuarios
+            WHERE usuario_id = @usuario_id;
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'usuarios_delete'
-        );
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'usuarios_delete');
         THROW;
     END CATCH
 END;
+GO
+
+/* ==============================================================
+   Procedimiento: Obtener Usuario por ID (todos los campos)
+   ============================================================== */
+CREATE OR ALTER PROCEDURE usuarios_por_id
+    @usuario_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        usuario_id,
+        cuenta,
+        contrasena,
+        puesto
+    FROM dbo.usuarios
+    WHERE usuario_id = @usuario_id;
+END;
+GO
+
+
+/* ==============================================================
+   Procedimiento: Login de Usuario (validar credenciales)
+   — Devuelve sólo los campos necesarios para el proceso de autenticación
+   ============================================================== */
+CREATE OR ALTER PROCEDURE usuarios_login
+    @cuenta     NVARCHAR(10),
+    @contrasena NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Seguridad: sólo devolvemos usuario_id, cuenta y puesto si las credenciales coinciden
+    SELECT
+        usuario_id,
+        cuenta,
+        puesto
+    FROM dbo.usuarios
+    WHERE cuenta     = @cuenta
+      AND contrasena = @contrasena;
+END;
+GO
+
+
+/* ==============================================================
+   Índices recomendados
+   ============================================================== */
+/* Índices en tabla usuarios */
+CREATE NONCLUSTERED INDEX idx_usuarios_cuenta
+  ON usuarios (cuenta);
+GO
+CREATE NONCLUSTERED INDEX idx_usuarios_puesto
+  ON usuarios (puesto);
+GO
+
+/* Índices en logs generales */
+CREATE NONCLUSTERED INDEX idx_logs_fecha
+  ON logs (fecha);
+GO
+CREATE NONCLUSTERED INDEX idx_logs_origen_nivel
+  ON logs (origen, nivel);
+GO
+
+/* Índices en logs específicos de usuarios */
+CREATE NONCLUSTERED INDEX idx_usuarios_ins_log_usuario
+  ON usuarios_ins_log (usuario_id);
+GO
+CREATE NONCLUSTERED INDEX idx_usuarios_ins_log_fecha
+  ON usuarios_ins_log (fecha_log);
+GO
+
+CREATE NONCLUSTERED INDEX idx_usuarios_del_log_usuario
+  ON usuarios_del_log (usuario_id);
+GO
+CREATE NONCLUSTERED INDEX idx_usuarios_del_log_fecha
+  ON usuarios_del_log (fecha_log);
+GO
+
+CREATE NONCLUSTERED INDEX idx_usuarios_upd_log_usuario
+  ON usuarios_upd_log (usuario_id);
+GO
+CREATE NONCLUSTERED INDEX idx_usuarios_upd_log_fecha
+  ON usuarios_upd_log (fecha_log);
 GO

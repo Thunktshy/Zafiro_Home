@@ -1,4 +1,4 @@
-import { tryLogin } from "./database/login.js";
+import { tryLogin } from "./database/authentication.js";
 import { showError } from "./showError.js";
 
 document.addEventListener('DOMContentLoaded', () => {

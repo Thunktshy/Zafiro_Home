@@ -1,27 +1,10 @@
 -- Tablas, Triggers y procedimientos clientes y sus logs
 
--- Tabla de logs
-CREATE TABLE Logs (
-    log_id INT IDENTITY PRIMARY KEY,
-    fecha DATETIME     DEFAULT GETDATE(),
-    mensaje NVARCHAR(MAX),
-    nivel VARCHAR(10),
-    origen NVARCHAR(100)
-);
-
--- Tabla principal de clientes
-DROP TABLE IF EXISTS Clientes;
-CREATE TABLE Clientes (
-    cliente_id        NVARCHAR(20)  PRIMARY KEY,
-    nombre_cliente    NVARCHAR(50)  UNIQUE NOT NULL,
-    password          NVARCHAR(255) NOT NULL,
-    email             NVARCHAR(100) UNIQUE NOT NULL,
-    fecha_registro    DATETIME      DEFAULT GETDATE() NOT NULL,
-    ultimo_login      DATETIME      NULL,
-    estado            TINYINT       DEFAULT 1 NOT NULL CHECK (estado IN (0,1))
-);
-
--- Secuencia para cliente_id
+------------------------------------------------------------------------------
+-- SECUENCIA para generación de cliente_id
+------------------------------------------------------------------------------
+DROP SEQUENCE IF EXISTS seq_clientes;
+GO
 CREATE SEQUENCE seq_clientes
     AS INT
     START WITH 1
@@ -30,160 +13,225 @@ CREATE SEQUENCE seq_clientes
     NO CYCLE;
 GO
 
--- Tabla INSERT en Clientes
-DROP TABLE IF EXISTS Clientes_Ins_Log;
-CREATE TABLE Clientes_Ins_Log (
-    log_id           INT IDENTITY(1,1) PRIMARY KEY,
-    cliente_id       NVARCHAR(20),
-    nombre_cliente   NVARCHAR(50),
-    email            NVARCHAR(100),
-    fecha_registro   DATETIME,
-    fecha_log        DATETIME DEFAULT GETDATE()
+------------------------------------------------------------------------------
+-- TABLA DE LOGS (errores y eventos del sistema)
+------------------------------------------------------------------------------
+DROP TABLE IF EXISTS logs;
+GO
+CREATE TABLE logs (
+    log_id   INT           IDENTITY(1,1) PRIMARY KEY,
+    fecha    DATETIME      DEFAULT GETDATE(),
+    mensaje  NVARCHAR(MAX),
+    nivel    VARCHAR(10),
+    origen   NVARCHAR(100)
 );
+GO
 
--- Tabla DELETE en Clientes
-DROP TABLE IF EXISTS Clientes_Del_Log;
-CREATE TABLE Clientes_Del_Log (
-    log_id           INT IDENTITY(1,1) PRIMARY KEY,
-    cliente_id       NVARCHAR(20),
-    nombre_cliente   NVARCHAR(50),
-    email            NVARCHAR(100),
-    estado           TINYINT,
-    fecha_registro   DATETIME,
-    fecha_log        DATETIME DEFAULT GETDATE()
+------------------------------------------------------------------------------
+-- TABLA PRINCIPAL DE CLIENTES
+------------------------------------------------------------------------------
+DROP TABLE IF EXISTS clientes;
+GO
+CREATE TABLE clientes (
+    cliente_id     NVARCHAR(20)  NOT NULL PRIMARY KEY,       -- ID
+    cuenta         NVARCHAR(20)  NOT NULL UNIQUE,            -- Identificador único de acceso
+    contrasena     NVARCHAR(255) NOT NULL,                   -- Contraseña hasheada
+    email          NVARCHAR(150) NOT NULL UNIQUE,            -- Correo único como dentificador de acceso
+    fecha_registro DATETIME      NOT NULL DEFAULT GETDATE(), -- Fecha de registro
+    ultimo_login   DATETIME      NULL,                       -- Fecha del último login
+    estado         BIT           NOT NULL DEFAULT 1 CHECK (estado IN (0,1))   -- 1=activo, 0=inactivo
 );
+GO
 
--- Tabla UPDATE en Clientes
-DROP TABLE IF EXISTS Clientes_Upd_Log;
-CREATE TABLE Clientes_Upd_Log (
-    log_id                    INT IDENTITY(1,1) PRIMARY KEY,
-    cliente_id                NVARCHAR(20),
-    
-    -- valores anteriores
-    nombre_cliente_anterior   NVARCHAR(50),
-    email_anterior            NVARCHAR(100),
-    estado_anterior           TINYINT,
-    
-    -- valores nuevos
-    nombre_cliente_nuevo      NVARCHAR(50),
-    email_nuevo               NVARCHAR(100),
-    estado_nuevo              TINYINT,
-    
-    fecha_log                 DATETIME DEFAULT GETDATE()
+------------------------------------------------------------------------------
+-- TABLAS DE LOGS DE OPERACIONES EN CLIENTES
+------------------------------------------------------------------------------
+DROP TABLE IF EXISTS clientes_ins_log;
+GO
+CREATE TABLE clientes_ins_log (
+    log_id         INT           IDENTITY(1,1) PRIMARY KEY,
+    cliente_id     NVARCHAR(20)  NOT NULL,   -- ID del cliente insertado
+    cuenta         NVARCHAR(20)  NOT NULL,   -- Cuenta del cliente
+    email          NVARCHAR(150) NOT NULL,   -- Email del cliente
+    fecha_registro DATETIME      NOT NULL,   -- Fecha de registro capturada
+    estado         BIT           NOT NULL,   -- Estado al momento de insert
+    fecha_log      DATETIME      NOT NULL 
+                        DEFAULT GETDATE()    -- Timestamp del log
 );
+GO
 
--- Trigger para INSERT en Clientes
+DROP TABLE IF EXISTS clientes_del_log;
+GO
+CREATE TABLE clientes_del_log (
+    log_id         INT           IDENTITY(1,1) PRIMARY KEY,
+    cliente_id     NVARCHAR(20)  NOT NULL,   -- ID del cliente eliminado
+    cuenta         NVARCHAR(20)  NOT NULL,
+    email          NVARCHAR(150) NOT NULL,
+    fecha_registro DATETIME      NOT NULL,   -- Fecha original de registro
+    estado         BIT           NOT NULL,   -- Estado antes de eliminar
+    fecha_log      DATETIME      NOT NULL 
+                        DEFAULT GETDATE()    -- Timestamp del log
+);
+GO
+
+DROP TABLE IF EXISTS clientes_upd_log;
+GO
+CREATE TABLE clientes_upd_log (
+    log_id              INT           IDENTITY(1,1) PRIMARY KEY,
+    cliente_id          NVARCHAR(20)  NOT NULL,  -- ID del cliente actualizado
+    cuenta_anterior     NVARCHAR(20)  NOT NULL,
+    email_anterior      NVARCHAR(150) NOT NULL,
+    estado_anterior     BIT           NOT NULL,
+    cuenta_nuevo        NVARCHAR(20)  NOT NULL,
+    email_nuevo         NVARCHAR(150) NOT NULL,
+    estado_nuevo        BIT           NOT NULL,
+    fecha_log           DATETIME      NOT NULL 
+                        DEFAULT GETDATE()    -- Timestamp del log
+);
+GO
+
+--Tabla pa monitorear cambios de contraseña
+DROP TABLE IF EXISTS clientes_pass_log;
+GO
+CREATE TABLE clientes_pass_log (
+    log_id               INT           IDENTITY(1,1) PRIMARY KEY,
+    cliente_id           NVARCHAR(20)  NOT NULL,  -- ID del cliente que cambia contraseña
+    contrasena_anterior  NVARCHAR(255) NOT NULL,  -- Contraseña previa
+    fecha_de_cambio      DATETIME      NOT NULL 
+                         DEFAULT GETDATE(),      -- Fecha de cambio
+    CONSTRAINT fk_pass_log_cliente 
+        FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
+);
+GO
+
+------------------------------------------------------------------------------
+-- TRIGGERS DE AUDITORÍA PARA TABLA clientes
+------------------------------------------------------------------------------
+-- Inserción de clientes
 CREATE OR ALTER TRIGGER trg_ins_clientes
-ON Clientes
+ON clientes
 AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    INSERT INTO Clientes_Ins_Log (
-        cliente_id,
-        nombre_cliente,
-        email,
-        fecha_registro
-    )
-    SELECT
-        cliente_id,
-        nombre_cliente,
-        email,
-        fecha_registro
+    -- Registra datos básicos del nuevo cliente
+    -- Se omiten contraseñas
+    INSERT INTO clientes_ins_log (cliente_id, cuenta, email, fecha_registro, estado)
+    SELECT cliente_id, cuenta, email, fecha_registro, estado
     FROM inserted;
 END;
 GO
 
--- Trigger para DELETE en Clientes
+-- Eliminación de clientes
 CREATE OR ALTER TRIGGER trg_del_clientes
-ON Clientes
+ON clientes
 AFTER DELETE
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    INSERT INTO Clientes_Del_Log (
-        cliente_id,
-        nombre_cliente,
-        email,
-        estado,
-        fecha_registro
-    )
-    SELECT
-        cliente_id,
-        nombre_cliente,
-        email,
-        estado,
-        fecha_registro
+    -- Registra datos del cliente eliminado
+    -- Se omiten contraseñas
+    INSERT INTO clientes_del_log (cliente_id, cuenta, email, fecha_registro, estado)
+    SELECT cliente_id, cuenta, email, fecha_registro, estado
     FROM deleted;
 END;
 GO
 
--- Trigger para UPDATE en Clientes
+-- Actualización de clientes
 CREATE OR ALTER TRIGGER trg_upd_clientes
-ON Clientes
+ON clientes
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
-    INSERT INTO Clientes_Upd_Log (
+    -- Solo registra cambios en cuenta, email o estado
+    -- Se omiten contraseñas
+    INSERT INTO clientes_upd_log (
         cliente_id,
-        nombre_cliente_anterior, email_anterior, estado_anterior,
-        nombre_cliente_nuevo,    email_nuevo,     estado_nuevo
+        cuenta_anterior, email_anterior, estado_anterior,
+        cuenta_nuevo,   email_nuevo,     estado_nuevo
     )
     SELECT
         d.cliente_id,
-        d.nombre_cliente, d.email, d.estado,
-        i.nombre_cliente, i.email, i.estado
+        d.cuenta, d.email, d.estado,
+        i.cuenta, i.email, i.estado
     FROM deleted AS d
-    JOIN inserted AS i
-      ON d.cliente_id = i.cliente_id
+    INNER JOIN inserted AS i
+        ON d.cliente_id = i.cliente_id
     WHERE
-        d.nombre_cliente <> i.nombre_cliente
-        OR d.email         <> i.email
-        OR d.estado        <> i.estado;
+        ISNULL(d.cuenta,'')    <> ISNULL(i.cuenta,'')
+     OR ISNULL(d.email,'')      <> ISNULL(i.email,'')
+     OR ISNULL(d.estado,-1)     <> ISNULL(i.estado,-1);
 END;
 GO
 
--- Procedimiento de insert de cliente
-CREATE OR ALTER PROCEDURE Clientes_Insert
-    @nombre_cliente NVARCHAR(50),
-    @password       NVARCHAR(255),
-    @email          NVARCHAR(100)
+-- Cambio de contraseña
+CREATE OR ALTER TRIGGER trg_upd_contrasena
+ON clientes
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    -- Registra cuando realmente cambia la contraseña
+    INSERT INTO clientes_pass_log (cliente_id, contrasena_anterior)
+    SELECT d.cliente_id, d.contrasena
+    FROM deleted AS d
+    INNER JOIN inserted AS i
+        ON d.cliente_id = i.cliente_id
+    WHERE ISNULL(d.contrasena,'') <> ISNULL(i.contrasena,'');
+END;
+GO
+
+------------------------------------------------------------------------------
+-- PROCEDIMIENTOS ALMACENADOS PARA GESTIÓN DE CLIENTES
+------------------------------------------------------------------------------
+-- Inserta un nuevo cliente
+CREATE OR ALTER PROCEDURE clientes_insert
+    @cuenta      NVARCHAR(20),
+    @contrasena  NVARCHAR(255),
+    @email       NVARCHAR(150)
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Validación básica de email
+        -- Validar formato de email
         IF @email NOT LIKE '%_@__%.__%'
         BEGIN
             RAISERROR('Formato de email inválido.', 16, 1);
             RETURN;
         END;
 
-        -- Duplicado de email
-        IF EXISTS (SELECT 1 FROM Clientes WHERE email = @email)
+        -- Verificar unicidad de cuenta
+        IF EXISTS (SELECT 1 FROM clientes WHERE cuenta = @cuenta)
+        BEGIN
+            RAISERROR('La cuenta ya existe.', 16, 1);
+            RETURN;
+        END;
+
+        -- Verificar unicidad de email
+        IF EXISTS (SELECT 1 FROM clientes WHERE email = @email)
         BEGIN
             RAISERROR('El email ya está registrado.', 16, 1);
             RETURN;
         END;
 
-        -- Duplicado de nombre
-        IF EXISTS (SELECT 1 FROM Clientes WHERE nombre_cliente = @nombre_cliente)
-        BEGIN
-            RAISERROR('El nombre de cliente ya está en uso.', 16, 1);
-            RETURN;
-        END;
+        -- Generar nuevo ID usando la secuencia
+        DECLARE @new_cliente_id NVARCHAR(20) =
+            CONCAT('cl-', NEXT VALUE FOR seq_clientes);
 
-        INSERT INTO Clientes (cliente_id, nombre_cliente, password, email)
+        -- Insertar el registro con el ID generado
+        INSERT INTO clientes (
+            cliente_id,
+            cuenta,
+            contrasena,
+            email
+        )
         VALUES (
-            CONCAT('cl-', NEXT VALUE FOR seq_clientes),
-            @nombre_cliente,
-            @password,
+            @new_cliente_id,
+            @cuenta,
+            @contrasena,
             @email
         );
 
@@ -192,73 +240,61 @@ BEGIN
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
-        INSERT INTO Logs (mensaje, nivel, origen)
+        -- Registrar el error en la tabla de logs
+        INSERT INTO logs (mensaje, nivel, origen)
         VALUES (
             ERROR_MESSAGE(),
             'ERROR',
-            'error_al_insertar_cliente'
+            'clientes_insert'
         );
+
         THROW;
     END CATCH
 END;
 GO
 
--- Ejecución
-EXECUTE Clientes_Insert
-    @nombre_cliente = '',
-    @password       = '',
-    @email          = '';
-GO
-
--- Procedimiento de actualización de cliente
-CREATE OR ALTER PROCEDURE Clientes_Update
-    @cliente_id     NVARCHAR(20),
-    @nombre_cliente NVARCHAR(50),
-    @password       NVARCHAR(255),
-    @email          NVARCHAR(100)
+-- Actualiza datos de un cliente
+CREATE OR ALTER PROCEDURE clientes_update
+    @cliente_id  NVARCHAR(20),
+    @cuenta      NVARCHAR(20),
+    @email       NVARCHAR(150)
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        IF @email NOT LIKE '%_@__%.__%'
+        -- Verificar existencia del cliente
+        IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
         BEGIN
-            RAISERROR('Formato de email inválido.', 16, 1);
+            RAISERROR('cliente_id no existe.', 16, 1);
             RETURN;
         END;
 
-        IF NOT EXISTS (SELECT 1 FROM Clientes WHERE cliente_id = @cliente_id)
-        BEGIN
-            RAISERROR('Cliente no encontrado.', 16, 1);
-            RETURN;
-        END;
-
+        -- Validar unicidad de cuenta
         IF EXISTS (
-            SELECT 1 FROM Clientes
-            WHERE nombre_cliente = @nombre_cliente
-              AND cliente_id <> @cliente_id
+            SELECT 1 FROM clientes
+            WHERE cuenta = @cuenta AND cliente_id <> @cliente_id
         )
         BEGIN
-            RAISERROR('El nombre de cliente ya está en uso.', 16, 1);
+            RAISERROR('La cuenta ya está en uso por otro cliente.', 16, 1);
             RETURN;
         END;
 
+        -- Validar unicidad de email
         IF EXISTS (
-            SELECT 1 FROM Clientes
-            WHERE email = @email
-              AND cliente_id <> @cliente_id
+            SELECT 1 FROM clientes
+            WHERE email = @email AND cliente_id <> @cliente_id
         )
         BEGIN
-            RAISERROR('El email ya está registrado por otro cliente.', 16, 1);
+            RAISERROR('El email ya está en uso por otro cliente.', 16, 1);
             RETURN;
         END;
 
-        UPDATE Clientes
-        SET
-            nombre_cliente = @nombre_cliente,
-            password       = @password,
-            email          = @email
+        -- Actualiza cuenta y email
+        UPDATE clientes
+        SET cuenta = @cuenta,
+            email  = @email
         WHERE cliente_id = @cliente_id;
 
         COMMIT TRANSACTION;
@@ -266,27 +302,16 @@ BEGIN
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
-        INSERT INTO Logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'error_al_actualizar_cliente'
-        );
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'clientes_update');
+
         THROW;
     END CATCH
 END;
 GO
 
--- Ejecución
-EXECUTE Clientes_Update
-    @cliente_id     = '',
-    @nombre_cliente = '',
-    @password       = '',
-    @email          = '';
-GO
-
--- Procedimiento para desactivar cliente
-CREATE OR ALTER PROCEDURE Clientes_Desactivar
+-- Elimina físicamente un cliente
+CREATE OR ALTER PROCEDURE clientes_delete
     @cliente_id NVARCHAR(20)
 AS
 BEGIN
@@ -294,23 +319,54 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        IF NOT EXISTS (SELECT 1 FROM Clientes WHERE cliente_id = @cliente_id)
+        -- Verificar existencia
+        IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
         BEGIN
-            RAISERROR('Cliente no encontrado.', 16, 1);
+            RAISERROR('cliente_id no existe.', 16, 1);
             RETURN;
         END;
 
-        IF EXISTS (
-            SELECT 1 FROM Clientes
-            WHERE cliente_id = @cliente_id
-              AND estado = 0
-        )
+        DELETE FROM clientes
+        WHERE cliente_id = @cliente_id;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'clientes_delete');
+
+        THROW;
+    END CATCH
+END;
+GO
+
+-- Desactiva (soft delete) un cliente
+CREATE OR ALTER PROCEDURE clientes_soft_delete
+    @cliente_id NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Verificar existencia
+        IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
+        BEGIN
+            RAISERROR('cliente_id no existe.', 16, 1);
+            RETURN;
+        END;
+
+        -- Verificar estado actual
+        IF (SELECT estado FROM clientes WHERE cliente_id = @cliente_id) = 0
         BEGIN
             RAISERROR('El cliente ya está desactivado.', 16, 1);
             RETURN;
         END;
 
-        UPDATE Clientes
+        -- Cambiar estado a inactivo
+        UPDATE clientes
         SET estado = 0
         WHERE cliente_id = @cliente_id;
 
@@ -319,57 +375,51 @@ BEGIN
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
-        INSERT INTO Logs (mensaje, nivel, origen)
-        VALUES (
-            ERROR_MESSAGE(),
-            'ERROR',
-            'error_al_desactivar_cliente'
-        );
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'clientes_soft_delete');
+
         THROW;
     END CATCH
 END;
 GO
 
--- Ejecución
-EXECUTE Clientes_Desactivar
-    @cliente_id = '';
+-- Registra la hora de último acceso del cliente
+CREATE OR ALTER PROCEDURE clientes_registrar_login
+    @cliente_id NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        -- Actualiza el campo ultimo_login
+        UPDATE clientes
+        SET ultimo_login = GETDATE()
+        WHERE cliente_id = @cliente_id;
+    END TRY
+    BEGIN CATCH
+        INSERT INTO logs (mensaje, nivel, origen)
+        VALUES (ERROR_MESSAGE(), 'ERROR', 'clientes_registrar_login');
+    END CATCH
+END;
 GO
 
--- Tabla de auditoría de cambios de contraseña
-DROP TABLE IF EXISTS Clientes_Pass_Log;
-GO
-CREATE TABLE Clientes_Pass_Log (
-    log_id               INT IDENTITY(1,1) PRIMARY KEY,
-    cliente_id           NVARCHAR(20)    NOT NULL,
-    password_anterior    NVARCHAR(255)   NOT NULL,
-    fecha_de_cambio      DATETIME        NOT NULL
-    CONSTRAINT PassLog_Fecha DEFAULT GETDATE(),
-    CONSTRAINT FK_PassLog_Clientes FOREIGN KEY(cliente_id)
-    REFERENCES Clientes(cliente_id)
-);
-GO
-
--- Trigger que registra el cambio de contraseña
-CREATE OR ALTER TRIGGER trg_upd_password
-ON Clientes
-AFTER UPDATE
+-- Obtiene la contraseña (hash) de un cliente activo
+CREATE OR ALTER PROCEDURE cliente_contrasena
+    @cliente_id NVARCHAR(20)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    INSERT INTO Clientes_Pass_Log (cliente_id, password_anterior)
-    SELECT d.cliente_id, d.password
-    FROM deleted AS d
-    INNER JOIN inserted AS i
-        ON d.cliente_id = i.cliente_id
-    WHERE
-        -- Sólo cuando realmente cambió la contraseña
-        ISNULL(d.password, '') <> ISNULL(i.password, '');
+    SELECT contrasena
+    FROM clientes
+    WHERE cliente_id = @cliente_id
+      AND estado = 1;
 END;
 GO
 
---  Función para calcular días desde el último cambio de contraseña
-CREATE OR ALTER FUNCTION DiasDesdeUltimoCambio
+------------------------------------------------------------------------------
+-- FUNCIÓN para calcular días desde el último cambio de contraseña
+------------------------------------------------------------------------------
+CREATE OR ALTER FUNCTION dias_desde_ultimo_cambio
 (
     @cliente_id NVARCHAR(20)
 )
@@ -378,15 +428,66 @@ AS
 BEGIN
     DECLARE @ult_fecha DATETIME;
 
+    -- Fecha del último registro en clientes_pass_log
     SELECT @ult_fecha = MAX(fecha_de_cambio)
-    FROM Clientes_Pass_Log
+    FROM clientes_pass_log
     WHERE cliente_id = @cliente_id;
 
     IF @ult_fecha IS NULL
-        RETURN NULL;  -- o 0, según convenga
+        RETURN NULL;  -- Sin cambios registrados
 
+    -- Diferencia en días
     RETURN DATEDIFF(DAY, @ult_fecha, GETDATE());
 END;
 GO
 
-EXECUTE DiasDesdeUltimoCambio @cliente_id = " ";
+
+
+/* ==============================================================================
+   Procedimiento: Obtener cliente_id por cuenta o email 
+   — Devuelve sólo el campo cliente_id para logica de login
+   ============================================================================== */
+
+CREATE OR ALTER PROCEDURE buscar_cliente
+    @termino_busqueda NVARCHAR(150),  -- Puede ser parte de cuenta o email
+    @solo_activos BIT = 1             -- Por defecto solo usuarios activos
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Seguridad: No mostrar contraseñas en los resultados
+    SELECT 
+        cliente_id
+    FROM 
+        clientes
+    WHERE 
+        (cuenta LIKE '%' + @termino_busqueda + '%' OR 
+         email LIKE '%' + @termino_busqueda + '%')
+        AND (@solo_activos = 0 OR estado = 1)
+    ORDER BY 
+        cuenta;
+END;
+GO
+
+/* ==============================================================================
+   Procedimiento: Obtener cliente por ID (todos los campos)
+   — Devuelve todas las columnas de la tabla clientes
+   ============================================================================== */
+CREATE OR ALTER PROCEDURE clientes_por_id
+    @cliente_id NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT
+        cliente_id,
+        cuenta,
+        contrasena,
+        email,
+        fecha_registro,
+        ultimo_login,
+        estado
+    FROM clientes
+    WHERE cliente_id = @cliente_id;
+END;
+GO
