@@ -2,16 +2,6 @@
    Tablas, Triggers y Procedimientos para Empleados y sus logs
    ============================================================== */
 
--- Tabla de logs para referencia
-CREATE TABLE logs (
-    log_id     INT           IDENTITY PRIMARY KEY,
-    fecha      DATETIME      DEFAULT GETDATE(),
-    mensaje    NVARCHAR(MAX),
-    nivel      VARCHAR(10),
-    origen     NVARCHAR(100)
-);
-
-
 -- Tabla principal de empleados
 DROP TABLE IF EXISTS empleados;
 GO
@@ -391,7 +381,9 @@ BEGIN
     SELECT 
         empleado_id
     FROM 
-        empleados
+
+       empleados 
+
     WHERE 
         (cuenta LIKE '%' + @termino_busqueda + '%' OR 
          email LIKE '%' + @termino_busqueda + '%')
