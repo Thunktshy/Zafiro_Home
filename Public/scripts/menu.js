@@ -1,3 +1,4 @@
+
 // scripts/menu.js
 (() => {
   const menuBtn = document.getElementById('menu');       // bars icon <li id="menu">

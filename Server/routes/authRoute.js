@@ -136,4 +136,3 @@ module.exports = router;
 module.exports.requireAdmin  = requireAdmin;
 module.exports.requireClient = requireClient;
 
-module.exports = router;

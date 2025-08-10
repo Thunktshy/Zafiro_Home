@@ -119,7 +119,6 @@ textarea:focus {
     display: flex !important;
     flex-basis: auto;
     align-items: center;
-    
   }
   .navbar-toggler {
     display: none;

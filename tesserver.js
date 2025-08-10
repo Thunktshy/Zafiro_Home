@@ -11,7 +11,6 @@ const sharp      = require('sharp');
 const fs         = require('fs').promises;
 const { body, validationResult } = require('express-validator');
 
-
 const { db, sql } = require('./db/dbconnector.js');
 
 //Servir index y contenido principal Publico
