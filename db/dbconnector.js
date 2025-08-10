@@ -34,11 +34,16 @@ class DBConnector {
   // Normaliza el shape de resultado a array de filas
   static toRows(result) {
     if (!result) return [];
-    if (Array.isArray(result)) return result;               // Ya es un array de filas
-    if (Array.isArray(result.recordset)) return result.recordset; // node-mssql
-    if (Array.isArray(result[0])) return result[0];         // Algunos drivers: [[rows], ...]
-    return []; // Forma desconocida
+    if (Array.isArray(result.recordsets) && result.recordsets.length) {
+      for (const rs of result.recordsets) if (Array.isArray(rs) && rs.length) return rs;
+      return result.recordsets[0] ?? [];
+    }
+    if (Array.isArray(result.recordset)) return result.recordset;
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result[0])) return result[0];
+    return [];
   }
+
 
   // Ejecuta SQL crudo (SELECT/EXEC ...) y REGRESA array de filas
   async queryWithParams(sqlQuery, params = {}) {

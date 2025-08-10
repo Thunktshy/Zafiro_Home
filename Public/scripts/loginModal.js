@@ -55,8 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loginForm?.addEventListener('submit', async ev => {
     ev.preventDefault();
-    const username = loginForm.Usuario.value.trim();
-    const password = loginForm.Contraseña.value.trim();
+
+    // NOTE: make sure your inputs are really named "Usuario" and "Contraseña"
+    const username = loginForm.Usuario?.value?.trim();
+    const password = loginForm.Contraseña?.value?.trim();
 
     if (!username || !password) {
       showError("Por favor llena todos los campos.");
@@ -65,20 +67,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const loginResult = await tryLogin(username, password);
-      if (loginResult?.success) {
-        isLoggedIn = true;
-        upgradeNavForLoggedIn();
-        loginForm.reset();
-        closeLoginModal();
 
-        // notify everyone (hamburger menu will refresh)
-        window.dispatchEvent(new CustomEvent('auth:status-changed'));
-
-        // Optionally: redirect admins here if you want
-        // if (loginResult.isAdmin) window.location.href = '/admin-resources/admin.html';
-      } else {
+      if (!loginResult?.success) {
         showError(loginResult?.message || "Inicio de sesión fallido. Verifique su usuario y contraseña.");
+        return;
       }
+
+      // success
+      isLoggedIn = true;
+
+      // persist username once (server already defaults to "Bienvenido")
+      const safeName = loginResult.username || 'Bienvenido';
+      try { sessionStorage.setItem('username', safeName); } catch {}
+
+      // Primary: server-provided redirect (covers admin/client)
+      if (loginResult.redirect) {
+        window.location.href = loginResult.redirect;
+        return;
+      }
+
+      // Fallback: if redirect wasn't provided, use isAdmin hint
+      if (loginResult.isAdmin) {
+        window.location.href = '/admin-resources/pages/admin.html';
+        return;
+      }
+
+      // Final fallback: keep user in place and update UI
+      upgradeNavForLoggedIn();
+      loginForm.reset();
+      closeLoginModal();
+      window.dispatchEvent(new CustomEvent('auth:status-changed'));
+
     } catch (error) {
       const msg = (error?.message?.includes("500"))
         ? "No hay conexión con la base de datos"

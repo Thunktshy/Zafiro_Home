@@ -9,6 +9,10 @@ const { db, sql } = require('../../db/dbconnector.js');
 const router = express.Router();
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'connect.sid';
 
+const ADMIN_HOME  = process.env.ADMIN_HOME  || '/admin-resources/pages/admin.html';
+const CLIENT_HOME = process.env.CLIENT_HOME || '/user-resources/pages/home.html'; // <- change if different
+
+
 // Helper: ensure session is saved before responding
 function saveSession(req) {
   return new Promise((resolve, reject) =>
@@ -64,7 +68,16 @@ router.post(
       req.session.username = username;           // for /auth/status & menu
 
       await saveSession(req);
-      return res.json({ success: true, message: 'Inicio de sesión exitoso.' });
+
+      const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
+
+      return res.json({
+        success: true,
+        message: 'Inicio de sesión exitoso.',
+        isAdmin: req.session.isAdmin === true,
+        username: req.session.username || 'Bienvenido',
+        redirect
+      });
     } catch (err) {
       console.error('Error en el login:', err);
       return res.status(500).json({ success: false, message: 'Error en el servidor.' });
@@ -103,12 +116,13 @@ router.get('/logout', logoutHandler);
 ---------------------------- */
 router.get('/auth/status', (req, res) => {
   const authenticated = !!req.session?.userID;
+  const name = authenticated && req.session.username ? req.session.username : 'Bienvenido';
   res.set('Cache-Control', 'no-store');
   return res.json({
     authenticated,
     userType: authenticated ? (req.session.userType || 'cliente') : 'guest',
     isAdmin: !!req.session?.isAdmin,
-    username: authenticated ? (req.session.username || null) : null
+    username: name
   });
 });
 
