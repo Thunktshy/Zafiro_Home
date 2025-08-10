@@ -1,223 +1,128 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Zafiro Home - Página Principal</title>
-  <!-- Font Awesome -->
-  <link 
-    rel="stylesheet" 
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-  >
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../css/forms/forms.css">
-  <link rel="stylesheet" href="../../css/styles/index.css">
-  <link rel="stylesheet" href="../../css/ayuda.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zafiro Home — Administrar Categorías</title>
 
+  <!-- Bootstrap 5 (CSS) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- DataTables 2.x (CSS) -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.css" />
+  <!-- Font Awesome (opcional, para íconos de acciones) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfG4rH4GIC1PpXg5HfQmB8G6Cwyg9YB6Q6vS4QhE6x2sG1XGxCwX2h3g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <link rel="stylesheet" href="/admin-resources/css/categorias.css" />
 </head>
-<body class="page-body">
+<body>
+  <!-- NAV / ENCABEZADO SIMPLE -->
+  <header class="header-bar py-3 shadow-sm">
+    <div class="container d-flex align-items-center justify-content-between">
+      <h1 class="h3 m-0">Zafiro Home — Panel Admin</h1>
+      <a href="/admin-resources/pages/admin.html" class="btn btn-light btn-sm">Volver al Panel</a>
+    </div>
+  </header>
 
-  <!-- =========================
-       Header / Navbar
-       ============================== -->
-  <nav class="navbar">
-    <div class="navbarcontainer">
-      <!-- Logo y marca -->
-      <a class="navbar-store-title" href="#">
-        <img src="./Images/logo.png"
-          alt="Zafiro Home" height="40" class="navbar-logo me-2">
-        <span>Zafiro Home</span>
-      </a>
-
-      <!-- Menú colapsable -->
-      <div class="collapse navbar-collapse" id="mainNavbar">
-
-        <!-- Barra de búsqueda -->
-        <form class="navbar-search" action="/search" method="get" role="search">
-          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
-          <button class="btn-seacrh" type="submit" aria-label="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
-        </form>
-
-        <!-- Iconos carrito y login -->
-        <ul class="navbarshopingicon">
-          <li class="nav-item">
-            <a class="nav-cart-icon" aria-label="Carrito de Compras">
-              <i class="fa-solid fa-basket-shopping fa-lg"></i>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-iniciar-sesion" >Iniciar sesión</a>
-          </li>
-        </ul>
+  <main class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="page-title h2 m-0">Administrar Categorías</h2>
+      <div class="d-flex gap-2 card-actions">
+        <button id="btnConsultar" class="btn btn-outline-primary">
+          <i class="fa-solid fa-table-list me-2"></i>Consultar Categorías
+        </button>
+        <button id="btnAbrirModalNueva" class="btn btn-primary">
+          <i class="fa-solid fa-plus me-2"></i>Añadir Categoría
+        </button>
       </div>
     </div>
-  </nav>
 
-  <!-- =========================
-       Sub-Navbar con dropdowns
-       ============================== -->
-  <nav class="subnavbar">
-    <ul class="subnav-menu">
-      <li class="subnav-item">
-        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Electrónica</a></li>
-          <li><a href="#">Moda</a></li>
-          <li><a href="#">Hogar</a></li>
-          <li><a href="#">Jardín</a></li>
-        </ul>
-      </li>
+    <!-- Mensajes -->
+    <div id="alertBox" class="alert d-none" role="alert"></div>
 
-      <li class="subnav-item">
-        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Ofertas del día</a></li>
-          <li><a href="#">Promociones</a></li>
-          <li><a href="#">Mayoristas</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Cómo funciona</a></li>
-          <li><a href="#">Beneficios</a></li>
-          <li><a href="#">Puntos Acumulados</a></li>
-        </ul>
-      </li>
-
-      <li class="subnav-item">
-        <a href="./pages/facturacion.html">Facturación <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="./pages/facturacion.html">Consulta CFDI</a></li>
-          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
-        </ul>
-      </li>
-
-      <li class="subnav-item">
-        <a href="./pages/ayuda.html">Ayuda <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="./pages/contacto.html">Contacto</a></li>
-          <li><a href="./pages/ayuda.html">Preguntas Frecuentes</a></li>
-        </ul>
-      </li>
-    </ul>
-  </nav>
-
-  <main class="container py-5">
-    <h1>Gestionar Categorías</h1>
-    <button id="loadCategories" class="btn btn-primary">Cargar Categorías</button>
-    <button id="createCategoryBtn" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
-      Nueva Categoría
-    </button>
-    <table id="categoriesTable" class="table table-striped table-bordered mt-4" style="width:100%">
-      <thead class="table-dark">
-        <tr>
-          <th>ID</th>
-          <th>Nombre</th>
-          <th>Descripción</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <!-- TABLA -->
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table id="tabla-categorias" class="table table-striped table-hover w-100 align-middle">
+            <thead>
+              <tr>
+                <th>Categoría Id</th>
+                <th>Nombre Categoría</th>
+                <th>Descripción</th>
+                <th style="width:160px">Administrar</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <!-- Modal Crear -->
-  <div class="modal fade" id="createModal" tabindex="-1">
-    <div class="modal-dialog">
-      <form id="createCategoryForm" class="modal-content" enctype="multipart/form-data">
-        <div class="modal-header">
-          <h5 class="modal-title">Nueva Categoría</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="closeModalCreate"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label for="newName" class="form-label">Nombre</label>
-            <input type="text" id="newName" name="nombre_categoria" class="form-control" required maxlength="50">
-          </div>
-          <div class="mb-3">
-            <label for="newDesc" class="form-label">Descripción</label>
-            <textarea id="newDesc" name="descripcion" class="form-control" maxlength="255"></textarea>
-          </div>
-          <div class="mb-3">
-            <label for="newImage" class="form-label">Imagen (opcional)</label>
-            <input type="file" id="newImage" name="imageFile" class="form-control">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal Editar -->
-  <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-      <form id="editCategoryForm" class="modal-content" enctype="multipart/form-data">
-        <div class="modal-header">
-          <h5 class="modal-title">Editar Categoría</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="closeModalEdit"></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="editId" name="categoria_id">
-          <div class="mb-3">
-            <label for="editName" class="form-label">Nombre</label>
-            <input type="text" id="editName" name="nombre_categoria" class="form-control" required maxlength="50">
-          </div>
-          <div class="mb-3">
-            <label for="editDesc" class="form-label">Descripción</label>
-            <textarea id="editDesc" name="descripcion" class="form-control" maxlength="255"></textarea>
-          </div>
-          <div class="mb-3">
-            <label for="editImage" class="form-label">Imagen (opcional)</label>
-            <input type="file" id="editImage" name="imageFile" class="form-control">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Actualizar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal Eliminar -->
-  <div class="modal fade" id="deleteModal" tabindex="-1">
+  <!-- MODAL: AÑADIR / EDITAR -->
+  <div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-        <div class="modal-body text-center">
-          <p>¿Eliminar categoría <strong id="deleteName"></strong>?</p>
-          <button id="confirmDeleteBtn" class="btn btn-danger">Sí, eliminar</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form id="formCategoria" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalCategoriaTitulo">Añadir categoría</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="categoria_id" name="categoria_id" />
+
+            <div class="mb-3">
+              <label for="nombre_categoria" class="form-label">Nombre de la categoría <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nombre_categoria" name="nombre_categoria" maxlength="50" required />
+              <div class="form-text">Máximo 50 caracteres. Sólo letras, números, espacios y - _ . , ( ) & /</div>
+              <div class="invalid-feedback" id="errNombre"></div>
+            </div>
+
+            <div class="mb-2">
+              <label for="descripcion" class="form-label">Descripción</label>
+              <textarea class="form-control" id="descripcion" name="descripcion" rows="3" maxlength="255"></textarea>
+              <div class="form-text">Máximo 255 caracteres.</div>
+              <div class="invalid-feedback" id="errDesc"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMAR ELIMINAR -->
+  <div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Eliminar categoría</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1">¿Seguro que deseas eliminar la categoría?</p>
+          <p class="fw-semibold" id="delNombre"></p>
+          <input type="hidden" id="delId" />
+          <div class="alert alert-warning small mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>Esta acción no se puede deshacer.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">
+            <i class="fa-solid fa-trash me-2"></i>Eliminar
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <footer>
-    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
-  </footer>
-
-  <!-- Bootstrap Bundle with Popper -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Scripts para carrusel interactivo -->
-  <!-- Scripts para scroll interactivo -->
-  <script src="./scripts/index/animations.js"></script>
-  <!-- Scripts para modal y login -->
-  <script type="module" src="./scripts/loginModal.js"></script>
-
-  <!-- jQuery (required by DataTables) -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
-
-  <!-- DataTables (core CSS/JS) -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.css" />
+  <!-- Bootstrap 5 (JS) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- DataTables 2.x (JS - sin jQuery) -->
   <script src="https://cdn.datatables.net/2.3.2/js/dataTables.js"></script>
-
-  <!-- Page logic -->
-  <script type="module" src="./scripts/pages/categoriesPage.js"></script>
-
-
+  <script type="module" src="/admin-resources/scripts/formularios/categorias.js"></script>
 </body>
 </html>
 

@@ -1,35 +1,38 @@
-// /scripts/apis/categoriesManager.js
+// Envíos a la API de categorías (usa cookies de sesión)
+const BASE = '/categories';
 
-export async function insertNewCategory(formData) {
-  return sendRequest('/categories/inser', 'POST', formData);
-}
+async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
+  const opts = {
+    method,
+    credentials: 'include',
+    headers: { Accept: 'application/json' }
+  };
 
-export async function updateCategory(formData) {
-  return sendRequest('/categories/update', 'POST', formData);
-}
-
-export async function deleteCategory(formData) {
-  return sendRequest('/categories/delete', 'POST', formData);
-}
-
-export async function getAllCategories() {
-  return sendRequest('/categories/getAll', 'GET');
-}
-
-async function sendRequest(url, method, body = null) {
-  const options = { method };
-  if (body) options.body = body;
-
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    let errMsg = response.statusText;
-    try {
-      const errJson = await response.json();
-      if (errJson.error) errMsg = errJson.error;
-    } catch {}
-    throw new Error(`Error: ${response.status}: ${errMsg}`);
+  if (body != null) {
+    if (!bodyType || bodyType === 'json') {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    } else {
+      // p.ej. multipart/form-data (FormData)
+      opts.body = body;
+    }
   }
 
-  return response.json();
+  const res = await fetch(`${BASE}${path}`, opts);
+  const ct = res.headers.get('content-type') || '';
+  const data = ct.includes('application/json') ? await res.json() : await res.text();
+  if (!res.ok) throw new Error((data && data.message) || `Error ${res.status}`);
+  return data;
 }
+
+export const categoriasAPI = {
+  getAll: () => apiFetch('/get_all'),
+  getOne: (id) => apiFetch(`/get_one?id=${encodeURIComponent(id)}`),
+  insert: ({ nombre_categoria, descripcion }) =>
+    apiFetch('/insert', { method: 'POST', body: { nombre_categoria, descripcion: descripcion || null } }),
+  update: ({ categoria_id, nombre_categoria, descripcion }) =>
+    apiFetch('/update', { method: 'POST', body: { categoria_id, nombre_categoria, descripcion: descripcion || null } }),
+  remove: (categoria_id) =>
+    apiFetch('/delete', { method: 'POST', body: { categoria_id } })
+};
+

@@ -147,3 +147,24 @@
     .form-button:hover {
       background-color: #f97316;                   /* hover:bg-orange-600 */
     }
+
+    :root{
+      --primary:#2d4778; --secondary:#648cbc; --accent:#f08a5d; --light:#fff; --muted:#6c757d;
+    }
+    body{ background:#f7f7fb; }
+    header.header-bar{ background:var(--primary); color:var(--light); }
+    .page-title{ letter-spacing:-.5px; }
+
+    .card-actions .btn{ min-width:200px; }
+    .dt-container .dt-search input{ border-radius:.5rem; }
+
+    #alertBox{ display:none; }
+    #alertBox.show{ display:block; }
+
+    .invalid-feedback{ display:block; }
+
+    /* Tabla */
+    table.dataTable tbody tr:hover{ background: #f8f9ff; }
+
+    /* Botones de acción */
+    .btn-group .btn{ min-width:42px; }
