@@ -9,6 +9,9 @@ const { db, sql } = require('../../db/dbconnector.js');
 const router = express.Router();
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'connect.sid';
 
+const ADMIN_HOME  = '/admin-resources/pages/admin.html';
+const CLIENT_HOME = '/client-resourses/pages/miCuenta.html';
+
 // Helper: ensure session is saved before responding
 function saveSession(req) {
   return new Promise((resolve, reject) =>
@@ -37,10 +40,12 @@ router.post(
     const { username, password } = req.body;
 
     try {
-      // SP returns: [{ id, contrasena, tipo, (optional) puesto }]
+      // Asegúrate de tener `sql` definido/importado
+      // SP expected to return: [{ id, contrasena, tipo, (optional) puesto }]
       const rows = await db.executeProc('buscar_id_para_login', {
         termino_busqueda: { type: sql.NVarChar(150), value: username }
       });
+      // console.log(rows);
 
       if (!rows?.length) {
         return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
@@ -56,15 +61,28 @@ router.post(
         return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
       }
 
+      // Normaliza para evitar diferencias de mayúsculas/minúsculas
+      const normTipo   = String(tipo || '').toLowerCase();
+      const normPuesto = String(puesto || '').toLowerCase();
+
       // Set session
-      req.session.userID   = id;                 // string OK
-      req.session.userType = tipo;               // 'cliente' | 'empleado'
-      req.session.isClient = (tipo === 'cliente');
-      req.session.isAdmin  = (tipo === 'empleado' && puesto === 'Administrador'); // puesto may be null
-      req.session.username = username;           // for /auth/status & menu
+      req.session.userID   = id;
+      req.session.userType = normTipo;                  // 'cliente' | 'empleado'
+      req.session.isClient = (normTipo === 'cliente');
+      req.session.isAdmin  = (normTipo === 'empleado' && normPuesto === 'administrador');
+      req.session.username = username; // cámbialo si quieres mostrar nombre real de BD
 
       await saveSession(req);
-      return res.json({ success: true, message: 'Inicio de sesión exitoso.' });
+
+      const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
+
+      return res.json({
+        success: true,
+        message: 'Inicio de sesión exitoso.',
+        isAdmin: req.session.isAdmin === true,
+        username: req.session.username || 'Bienvenido',
+        redirect
+      });
     } catch (err) {
       console.error('Error en el login:', err);
       return res.status(500).json({ success: false, message: 'Error en el servidor.' });

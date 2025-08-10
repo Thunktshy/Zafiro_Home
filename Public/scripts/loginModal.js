@@ -9,13 +9,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modal      = document.getElementById('loginmodal');
   const closeBtn   = modal?.querySelector('.btn-close');
   const loginForm  = document.getElementById('form-login');
-  const errorBox   = document.getElementById('error-message-box'); // <- corrected id
+  const errorBox   = document.getElementById('error-message-box');
 
   // 2. HELPERS
   function upgradeNavForLoggedIn() {
+    const name = (sessionStorage.getItem('username') || '').trim();
     if (loginLink) {
-      loginLink.textContent = 'Mi cuenta';
+      loginLink.textContent = name || 'Mi cuenta';
       loginLink.href        = 'miCuenta.html';
+      loginLink.title       = name ? `Sesión de ${name}` : 'Mi cuenta';
     }
     if (cartLink) cartLink.href = 'miCarrito.html';
   }
@@ -39,7 +41,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (r.ok) {
       const s = await r.json();
       isLoggedIn = !!s.authenticated;
-      if (isLoggedIn) upgradeNavForLoggedIn();
+      // Si el backend provee username/isAdmin aquí, persístelos
+      if (isLoggedIn) {
+        try {
+          if (s.username) sessionStorage.setItem('username', s.username);
+          if (typeof s.isAdmin === 'boolean') sessionStorage.setItem('isAdmin', String(s.isAdmin));
+        } catch {}
+        upgradeNavForLoggedIn();
+      }
     }
   } catch { /* ignore */ }
 
@@ -55,8 +64,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loginForm?.addEventListener('submit', async ev => {
     ev.preventDefault();
-    const username = loginForm.Usuario.value.trim();
-    const password = loginForm.Contraseña.value.trim();
+
+    // Usa elements[] para evitar problemas con nombres con acentos
+    const username = loginForm.elements['Usuario']?.value?.trim();
+    const password = loginForm.elements['Contraseña']?.value?.trim();
 
     if (!username || !password) {
       showError("Por favor llena todos los campos.");
@@ -65,25 +76,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const loginResult = await tryLogin(username, password);
-      if (loginResult?.success) {
-        isLoggedIn = true;
-        upgradeNavForLoggedIn();
-        loginForm.reset();
-        closeLoginModal();
-
-        // notify everyone (hamburger menu will refresh)
-        window.dispatchEvent(new CustomEvent('auth:status-changed'));
-
-        // Optionally: redirect admins here if you want
-        // if (loginResult.isAdmin) window.location.href = '/admin-resources/admin.html';
-      } else {
+      console.log(loginResult); 
+     
+      if (!loginResult?.success) {
         showError(loginResult?.message || "Inicio de sesión fallido. Verifique su usuario y contraseña.");
+        return;
       }
+
+      // Éxito
+      isLoggedIn = true;
+
+      // Persistir username e isAdmin (el backend ya manda 'Bienvenido' por defecto)
+      const safeName = loginResult.username || 'Bienvenido';
+      try {
+        sessionStorage.setItem('username', safeName);
+        sessionStorage.setItem('isAdmin', String(loginResult.isAdmin === true));
+      } catch {}
+
+      // Redirección prioritaria desde el servidor (admin/cliente)
+      if (loginResult.redirect) {
+        window.location.assign(loginResult.redirect);
+        return;
+      }
+
+      // Fallback: redirige por isAdmin
+      if (loginResult.isAdmin) {
+        window.location.assign('/admin-resources/pages/admin.html');
+        return;
+      }
+
+      // Fallback final: permanecer y actualizar UI
+      upgradeNavForLoggedIn();
+      loginForm.reset();
+      closeLoginModal();
+      window.dispatchEvent(new CustomEvent('auth:status-changed', {
+        detail: { isLoggedIn: true, isAdmin: loginResult.isAdmin === true, username: safeName }
+      }));
+
     } catch (error) {
-      const msg = (error?.message?.includes("500"))
+      const msg = (String(error?.message || '').includes("500"))
         ? "No hay conexión con la base de datos"
         : ("Error while trying to log in: " + (error?.message || error));
       showError(msg);
     }
   });
 });
+
+

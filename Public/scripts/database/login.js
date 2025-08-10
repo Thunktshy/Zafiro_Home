@@ -1,20 +1,31 @@
-//login.js
+// /scripts/database/login.js
 export async function tryLogin(username, password) {
   const response = await fetch('/login', {
     method: 'POST',
-    credentials: 'include',           // send cookies for session
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
     body: JSON.stringify({ username, password })
   });
 
-  console.log
+  const ct = response.headers.get('content-type') || '';
+  const raw = await response.text();
+  const payload = ct.includes('application/json') ? JSON.parse(raw || '{}') : {};
 
-  // 1) If server returns 4xx/5xx, throw so caller can handle
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.message || 'Error al iniciar sesión');
+    // Propaga el mensaje del servidor si existe
+    throw new Error(payload.message || `Error al iniciar sesión (HTTP ${response.status})`);
   }
 
-  // 2) Otherwise return JSON
-  return response.json();
+  // Normaliza el shape esperado
+  return {
+    success: !!payload.success,
+    message: payload.message ?? '',
+    isAdmin: payload.isAdmin === true,
+    username: payload.username ?? 'Bienvenido',
+    redirect: payload.redirect || ''
+  };
 }
+
