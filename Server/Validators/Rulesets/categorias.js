@@ -1,52 +1,65 @@
-// ruleset de validación para categorías (server-side)
-module.exports = {
+// Server/Validators/Rulesets/categorias.js
+
+const NombreCategoriaRegex = /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñÜü\s\.\,\-_]{1,50}$/;
+// Permitimos rutas relativas tipo Protected/img/categorias/123-file.jpg (jpg/png/gif)
+const ImagePathRegex = /^[-A-Za-z0-9_\/\.]{1,255}\.(jpe?g|png|gif)$/i;
+
+const Common = {
   categoria_id: {
     required: true,
-    type: 'integer',
-    min: 1,
-    exists: { table: 'categorias', column: 'categoria_id' },
+    type: 'number',
     messages: {
-      required: 'El ID de categoría es obligatorio',
-      type: 'El ID de categoría debe ser un número entero',
-      min: 'El ID de categoría debe ser mayor que 0',
-      exists: 'La categoría ya no se encuentra en la base de datos'
+      required: 'categoria_id es obligatorio',
+      type: 'categoria_id debe ser numérico'
     }
   },
   nombre_categoria: {
     required: true,
     type: 'string',
     maxLength: 50,
-    trim: true,
-    unique: { table: 'categorias', column: 'nombre_categoria' },
-    pattern: /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñÜü\s\.\,\-]+$/,
+    pattern: NombreCategoriaRegex,
     messages: {
-      required: 'El nombre de categoría es obligatorio',
-      type: 'El nombre de categoría debe ser texto',
-      maxLength: 'El nombre de categoría no puede exceder 50 caracteres',
-      unique: 'La categoría ya existe',
-      pattern: 'El nombre de categoría contiene caracteres inválidos'
+      required: 'nombre_categoria es obligatorio',
+      type: 'nombre_categoria debe ser texto',
+      maxLength: 'nombre_categoria no puede exceder 50 caracteres',
+      pattern: 'nombre_categoria tiene formato inválido'
     }
   },
   descripcion: {
     required: false,
     type: 'string',
     maxLength: 255,
-    trim: true,
     messages: {
-      type: 'La descripción debe ser texto',
-      maxLength: 'La descripción no puede exceder 255 caracteres'
+      type: 'descripcion debe ser texto',
+      maxLength: 'descripcion no puede exceder 255 caracteres'
     }
   },
   image_path: {
     required: false,
     type: 'string',
     maxLength: 255,
-    trim: true,
-    pattern: /^(?!\s*$).+\.(jpg|jpeg|png|gif)$/i,
+    pattern: ImagePathRegex,
     messages: {
-      type: 'La ruta de la imagen debe ser texto',
-      maxLength: 'La ruta de la imagen no puede exceder 255 caracteres',
-      pattern: 'La ruta de la imagen debe ser un archivo válido (jpg, jpeg, png, gif)'
+      type: 'image_path debe ser texto',
+      maxLength: 'image_path no puede exceder 255 caracteres',
+      pattern: 'image_path tiene formato inválido'
     }
+  }
+};
+
+module.exports = {
+  InsertRules: {
+    nombre_categoria: Common.nombre_categoria,
+    descripcion: Common.descripcion,
+    image_path: Common.image_path
+  },
+  UpdateRules: {
+    categoria_id: Common.categoria_id,
+    nombre_categoria: Common.nombre_categoria,
+    descripcion: Common.descripcion,
+    image_path: Common.image_path
+  },
+  DeleteRules: {
+    categoria_id: Common.categoria_id
   }
 };

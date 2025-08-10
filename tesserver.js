@@ -91,10 +91,36 @@ const personalInfoRules = require('./Server/Validators/Rulesets/personalinfo.js'
 const categoriesRoutes = require('./Server/routes/categoriesRoute.js');
 app.use('/categories', categoriesRoutes);
 
-const authRouter = require('./Server/routes/authRoute.js'); // adjust path
+const authRouter = require('./Server/routes/authRoute.js'); 
 app.use(authRouter);
 
 //Rutas para Clientes
+const ClientesRoutes = require('./Server/routes/clientesRoute.js');
+app.use('/clientes', ClientesRoutes);
+
+const BuscarRoutes = require('./Server/routes/buscarCliente.js');
+app.use('/buscar', BuscarRoutes);
+
+//Rutas Empleados
+const EmpleadosRoutes = require('./Server/routes/empleadosRoute.js');
+app.use('/empleados', EmpleadosRoutes);
+
+//Rutas Categorias
+const CategoriasRoutes = require('./Server/routes/categoriesRoute.js');
+app.use('/categorias', CategoriasRoutes);
+
+//Rutas datos personales
+const DatosPersonalesRoutes = require('./Server/routes/datos_personalesRoute.js');
+app.use('/datos_personales', DatosPersonalesRoutes);
+
+//Rutas datos de facturacion
+const DatosFacturacionRoutes = require('./Server/routes/datos_facturacionRoute.js');
+app.use('/datos_facturacion', DatosFacturacionRoutes);
+
+//Rutas Metodos de pago
+const MetodosPagoRoutes = require('./Server/routes/metodos_pagoRoute.js');
+app.use('/metodos_pago', MetodosPagoRoutes);
+
 
 app.post('/users/submitpersonalInformation',
   requireClient,

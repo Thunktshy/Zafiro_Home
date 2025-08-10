@@ -1,38 +1,23 @@
-// /Server/routes/categoriesRoute.js
+// Server/routes/categoriasRoute.js
 const express = require('express');
 const path = require('path');
-const fs = require('fs').promises;
 const multer = require('multer');
 const sharp = require('sharp');
-const sql = require('mssql');
+const fs = require('fs/promises');
 
-const router = express.Router();
-
-// ─────────────────────────────────────────────────────────────
-// Dependencias del proyecto
-// ─────────────────────────────────────────────────────────────
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
-const categoriasRulesRaw = require('../Validators/Rulesets/categorias.js');
-const dbInstance = require('../../db/dbconnector.js');
+const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/categorias.js');
+const { requireAdmin } = require('./authRoute.js');
 
-// ─────────────────────────────────────────────────────────────
-// Middleware requireAdmin (usa el de tu app si ya lo exportas)
-// ─────────────────────────────────────────────────────────────
-function requireAdmin(req, res, next) {
-  if (!req.session || !req.session.isAdmin) {
-    return res
-      .status(403)
-      .json({ success: false, message: 'Prohibido: se requieren privilegios de administrador' });
-  }
-  next();
-}
+const CategoriasRouter = express.Router();
 
-// ─────────────────────────────────────────────────────────────
-// Multer en memoria (acepta imageFile)
-// ─────────────────────────────────────────────────────────────
-const uploadImage = multer({
+/* ─────────────────────────────────────────────────────────────
+   Multer en memoria: aceptamos ~10MB (pruebas ~6MB OK)
+───────────────────────────────────────────────────────────── */
+const UploadImage = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     if (!file.originalname.match(/\.(jpe?g|png|gif)$/i)) {
       return cb(new Error('Please upload a valid image file'));
@@ -41,21 +26,20 @@ const uploadImage = multer({
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-const IMAGES_DIR = path.join(process.cwd(), 'Protected', 'img', 'products');
-const PUBLIC_PATH_PREFIX = 'Protected/img/products'; // lo que guardarás en image_path
+/* ─────────────────────────────────────────────────────────────
+   Directorios de imágenes: Protected/img/categorias
+───────────────────────────────────────────────────────────── */
+const IMAGES_DIR = path.join(process.cwd(), 'Protected', 'img', 'categorias');
+const PUBLIC_PREFIX = path.join('Protected', 'img', 'categorias');
 
-async function ensureImagesDir() {
-  try {
-    await fs.mkdir(IMAGES_DIR, { recursive: true });
-  } catch (_) {}
+async function EnsureImagesDir() {
+  try { await fs.mkdir(IMAGES_DIR, { recursive: true }); } catch (_) {}
 }
 
-// Guarda buffer -> JPEG comprimido (quality 80, máx 800px ancho)
-async function saveCompressedImageToDisk(file) {
-  await ensureImagesDir();
+// Guarda buffer -> JPEG comprimido (quality 80, máx 800px)
+async function SaveCompressedImageToDisk(file) {
+  await EnsureImagesDir();
   const timestamp = Date.now();
-  // Siempre guardamos .jpg para cumplir el regex del ruleset
   const safeName = file.originalname.replace(/[^\w.\-]+/g, '_');
   const filename = `${timestamp}-${safeName}`.replace(/\.(png|gif|jpeg)$/i, '.jpg');
   const absPath = path.join(IMAGES_DIR, filename);
@@ -65,182 +49,132 @@ async function saveCompressedImageToDisk(file) {
     .jpeg({ quality: 80 })
     .toFile(absPath);
 
-  return `${PUBLIC_PATH_PREFIX}/${filename}`;
+  return path.join(PUBLIC_PREFIX, filename).replace(/\\/g, '/');
 }
 
-// ─────────────────────────────────────────────────────────────
-// Normalización de reglas para ValidationService
-//   - convierte type 'integer' -> 'number'
-//   - elimina claves no soportadas: exists, unique, trim
-// ─────────────────────────────────────────────────────────────
-function normalizeRules(rules) {
-  const out = {};
-  for (const [field, rule] of Object.entries(rules)) {
-    const r = { ...rule };
-    if (r.type === 'integer') r.type = 'number';
-    delete r.exists;
-    delete r.unique;
-    delete r.trim;
-    out[field] = r;
-  }
-  return out;
-}
-const categoriasRules = normalizeRules(categoriasRulesRaw);
-
-// Coerción básica de tipos desde multipart/form-urlencoded
-function coerceBody(body) {
-  const data = { ...body };
-
-  if (data.categoria_id !== undefined) {
-    const n = Number(data.categoria_id);
-    data.categoria_id = Number.isNaN(n) ? data.categoria_id : n;
-  }
-  if (typeof data.nombre_categoria === 'string') {
-    data.nombre_categoria = data.nombre_categoria.trim();
-  }
-  if (typeof data.descripcion === 'string') {
-    data.descripcion = data.descripcion.trim();
-  }
-  if (typeof data.image_path === 'string') {
-    data.image_path = data.image_path.trim();
-  }
-
-  return data;
+// Helper para armar params { type, value }
+function BuildParams(entries) {
+  const params = {};
+  for (const e of entries) params[e.name] = { type: e.type, value: e.value };
+  return params;
 }
 
-// Handler genérico de errores SQL (basado en tus códigos del .sql)
-function mapSqlError(err) {
-  // err.number puede venir de MSSQL cuando se lanza THROW 5100X
-  const code = err && (err.number || err.code || err.errno);
-  switch (code) {
-    case 51001: // nombre empty (insert)
-    case 51004: // nombre empty (update)
-      return { status: 422, message: 'El nombre de categoría no puede estar vacío.' };
-    case 51002: // ya existe (insert)
-    case 51005: // nombre en uso (update)
-      return { status: 409, message: 'La categoría ya existe con ese nombre.' };
-    case 51003: // no existe para update
-    case 51006: // no existe para delete
-      return { status: 404, message: 'La categoría ya no se encuentra en la base de datos.' };
-    default:
-      return { status: 500, message: 'Error en el servidor.' };
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// GET /categories/getAll  → categorias_get_all
-// ─────────────────────────────────────────────────────────────
-router.get('/getAll', requireAdmin, async (_req, res) => {
+/* ============================================================================
+   GET /categorias/get_all   -> SP: categorias_get_all
+============================================================================ */
+CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
   try {
-    const rows = await dbInstance.queryWithParams('EXEC categorias_get_all', {});
-    return res.json(rows);
-  } catch (err) {
-    console.error('Error al obtener categorías:', err);
-    return res.status(500).json({ success: false, error: 'Error al obtener categorías' });
+    await db.executeProc('categorias_get_all', {});
+    return res.status(200).json({ success: true, message: 'Categorías obtenidas' });
+  } catch (Error_) {
+    console.error('categorias_get_all error:', Error_);
+    return res.status(500).json({ success: false, message: 'Error al obtener categorías' });
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-// POST /categories/insert  → categorias_insert
-// campos esperados: nombre_categoria, descripcion?, imageFile?(multipart)
-// ─────────────────────────────────────────────────────────────
-router.post('/insert', requireAdmin, uploadImage.single('imageFile'), async (req, res) => {
+/* ============================================================================
+   GET /categorias/get_list  -> SP: categorias_get_list
+============================================================================ */
+CategoriasRouter.get('/get_list', requireAdmin, async (req, res) => {
   try {
-    const bodyData = coerceBody(req.body);
+    await db.executeProc('categorias_get_list', {});
+    return res.status(200).json({ success: true, message: 'Lista de categorías obtenida' });
+  } catch (Error_) {
+    console.error('categorias_get_list error:', Error_);
+    return res.status(500).json({ success: false, message: 'Error al obtener la lista de categorías' });
+  }
+});
 
-    // Procesar imagen si viene
+/* ============================================================================
+   POST /categorias/insert   -> SP: categorias_insert
+   Acepta imageFile; si llega, comprimimos y guardamos en Protected/img/categorias
+============================================================================ */
+CategoriasRouter.post('/insert', requireAdmin, UploadImage.single('imageFile'), async (req, res) => {
+  try {
+    const Body = { ...req.body };
+
+    // Si llega imagen, generamos image_path (esta tabla lo tiene)
     if (req.file) {
-      bodyData.image_path = await saveCompressedImageToDisk(req.file); // e.g. Protected/img/products/xxxxx.jpg
+      Body.image_path = await SaveCompressedImageToDisk(req.file);
     }
 
-    // Validación (usa ruleset completo)
-    const { isValid, errors } = await ValidationService.validateData(bodyData, categoriasRules);
+    const { isValid } = await ValidationService.validateData(Body, InsertRules);
     if (!isValid) {
-      return res.status(422).json({ success: false, message: 'Errores de validación', errors });
+      return res.status(400).json({ success: false, message: 'Datos inválidos (insert)' });
     }
 
-    // Ejecutar SP
-    await dbInstance.queryWithParams(
-      'EXEC categorias_insert @nombre_categoria, @descripcion, @image_path',
-      {
-        nombre_categoria: { type: sql.NVarChar(50), value: bodyData.nombre_categoria },
-        descripcion: { type: sql.NVarChar(255), value: bodyData.descripcion || null },
-        image_path: { type: sql.NVarChar(255), value: bodyData.image_path || null }
-      }
-    );
+    const Params = BuildParams([
+      { name: 'nombre_categoria', type: sql.NVarChar(50),  value: Body.nombre_categoria },
+      { name: 'descripcion',      type: sql.NVarChar(255), value: Body.descripcion ?? null },
+      { name: 'image_path',       type: sql.NVarChar(255), value: Body.image_path ?? null }
+    ]);
 
-    return res.status(201).json({ success: true, message: 'Categoría insertada correctamente' });
-  } catch (err) {
-    console.error('Error al insertar categoría:', err);
-    const mapped = mapSqlError(err);
-    return res.status(mapped.status).json({ success: false, error: mapped.message });
+    await db.executeProc('categorias_insert', Params);
+    return res.status(201).json({ success: true, message: 'Categoría creada correctamente' });
+  } catch (Error_) {
+    console.error('categorias_insert error:', Error_);
+    return res.status(500).json({ success: false, message: 'Error al crear la categoría' });
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-// POST /categories/update  → categorias_update
-// campos esperados: categoria_id, nombre_categoria, descripcion?, imageFile?(multipart)
-// ─────────────────────────────────────────────────────────────
-router.post('/update', requireAdmin, uploadImage.single('imageFile'), async (req, res) => {
+/* ============================================================================
+   POST /categorias/update   -> SP: categorias_update
+   Si llega imageFile, actualizamos image_path con el nuevo archivo
+============================================================================ */
+CategoriasRouter.post('/update', requireAdmin, UploadImage.single('imageFile'), async (req, res) => {
   try {
-    const bodyData = coerceBody(req.body);
+    const Body = {
+      ...req.body,
+      categoria_id: Number(req.body.categoria_id)
+    };
 
     if (req.file) {
-      bodyData.image_path = await saveCompressedImageToDisk(req.file);
+      Body.image_path = await SaveCompressedImageToDisk(req.file);
+      // (Opcional) borrar imagen anterior si tienes la ruta almacenada
     }
 
-    // Validar con el ruleset completo (categoria_id, etc.)
-    const { isValid, errors } = await ValidationService.validateData(bodyData, categoriasRules);
+    const { isValid } = await ValidationService.validateData(Body, UpdateRules);
     if (!isValid) {
-      return res.status(422).json({ success: false, message: 'Errores de validación', errors });
+      return res.status(400).json({ success: false, message: 'Datos inválidos (update)' });
     }
 
-    await dbInstance.queryWithParams(
-      'EXEC categorias_update @categoria_id, @nombre_categoria, @descripcion, @image_path',
-      {
-        categoria_id: { type: sql.Int, value: bodyData.categoria_id },
-        nombre_categoria: { type: sql.NVarChar(50), value: bodyData.nombre_categoria },
-        descripcion: { type: sql.NVarChar(255), value: bodyData.descripcion || null },
-        image_path: { type: sql.NVarChar(255), value: bodyData.image_path || null }
-      }
-    );
+    const Params = BuildParams([
+      { name: 'categoria_id',     type: sql.Int,           value: Body.categoria_id },
+      { name: 'nombre_categoria', type: sql.NVarChar(50),  value: Body.nombre_categoria },
+      { name: 'descripcion',      type: sql.NVarChar(255), value: Body.descripcion ?? null },
+      { name: 'image_path',       type: sql.NVarChar(255), value: Body.image_path ?? null }
+    ]);
 
-    return res.json({ success: true, message: 'Categoría actualizada correctamente' });
-  } catch (err) {
-    console.error('Error al actualizar categoría:', err);
-    const mapped = mapSqlError(err);
-    return res.status(mapped.status).json({ success: false, error: mapped.message });
+    await db.executeProc('categorias_update', Params);
+    return res.status(200).json({ success: true, message: 'Categoría actualizada correctamente' });
+  } catch (Error_) {
+    console.error('categorias_update error:', Error_);
+    return res.status(500).json({ success: false, message: 'Error al actualizar la categoría' });
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-// POST /categories/delete  → categorias_delete
-// campos esperados: categoria_id
-// ─────────────────────────────────────────────────────────────
-router.post('/delete', requireAdmin, async (req, res) => {
+/* ============================================================================
+   POST /categorias/delete   -> SP: categorias_delete
+============================================================================ */
+CategoriasRouter.post('/delete', requireAdmin, async (req, res) => {
   try {
-    const bodyData = coerceBody(req.body);
+    const Body = { categoria_id: Number(req.body.categoria_id) };
 
-    // Validar SOLO el id usando el sub-ruleset
-    const { isValid, errors } = await ValidationService.validateData(
-      { categoria_id: bodyData.categoria_id },
-      normalizeRules({ categoria_id: categoriasRulesRaw.categoria_id })
-    );
+    const { isValid } = await ValidationService.validateData(Body, DeleteRules);
     if (!isValid) {
-      return res.status(422).json({ success: false, message: 'Errores de validación', errors });
+      return res.status(400).json({ success: false, message: 'Datos inválidos (delete)' });
     }
 
-    await dbInstance.queryWithParams(
-      'EXEC categorias_delete @categoria_id',
-      { categoria_id: { type: sql.Int, value: bodyData.categoria_id } }
-    );
+    const Params = BuildParams([
+      { name: 'categoria_id', type: sql.Int, value: Body.categoria_id }
+    ]);
 
-    return res.json({ success: true, message: 'Categoría eliminada correctamente' });
-  } catch (err) {
-    console.error('Error al eliminar categoría:', err);
-    const mapped = mapSqlError(err);
-    return res.status(mapped.status).json({ success: false, error: mapped.message });
+    await db.executeProc('categorias_delete', Params);
+    return res.status(200).json({ success: true, message: 'Categoría eliminada correctamente' });
+  } catch (Error_) {
+    console.error('categorias_delete error:', Error_);
+    return res.status(500).json({ success: false, message: 'Error al eliminar la categoría' });
   }
 });
 
-module.exports = router;
+module.exports = CategoriasRouter;
