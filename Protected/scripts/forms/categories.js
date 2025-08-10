@@ -1,5 +1,5 @@
 // Controlador de UI: DataTable, modales y validaciones
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriasManager.js';
+import { categoriasAPI } from '/admin-resources/scripts/apis/categoriessManager.js';
 
 // ======= Helpers DOM =======
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
