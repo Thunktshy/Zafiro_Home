@@ -10,7 +10,8 @@
   <!-- DataTables 2.x (CSS) -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.css" />
   <!-- Font Awesome (opcional, para íconos de acciones) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfG4rH4GIC1PpXg5HfQmB8G6Cwyg9YB6Q6vS4QhE6x2sG1XGxCwX2h3g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Font Awesome (sin SRI para evitar bloqueo por hash) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
 
     <link rel="stylesheet" href="/admin-resources/css/categorias.css" />
 </head>
@@ -46,9 +47,9 @@
           <table id="tabla-categorias" class="table table-striped table-hover w-100 align-middle">
             <thead>
               <tr>
-                <th>Categoría Id</th>
-                <th>Nombre Categoría</th>
-                <th>Descripción</th>
+                <th>categoria_id</th>
+                <th>nombre_categoria</th>
+                <th>descripcion</th>
                 <th style="width:160px">Administrar</th>
               </tr>
             </thead>
@@ -120,9 +121,10 @@
 
   <!-- Bootstrap 5 (JS) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- DataTables 2.x (JS - sin jQuery) -->
+    <!-- jQuery (necesario si el build de DataTables requiere jQuery) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- DataTables 2.x (JS) -->
   <script src="https://cdn.datatables.net/2.3.2/js/dataTables.js"></script>
   <script type="module" src="/admin-resources/scripts/formularios/categorias.js"></script>
 </body>
 </html>
-
