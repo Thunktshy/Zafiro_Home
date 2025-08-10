@@ -19,76 +19,65 @@ function saveSession(req) {
   );
 }
 
-/* ---------------------------
-   POST /login
-   Body: { username, password }
----------------------------- */
-router.post(
-  '/login',
-  [
-    body('username').trim().notEmpty().isLength({ max: 150 }),
-    body('password').notEmpty().isLength({ min: 6 })
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res
-        .status(422)
-        .json({ success: false, message: 'Errores de validación', errors: errors.array() });
-    }
+// Login
 
-    const { username, password } = req.body;
-
-    try {
-      // Asegúrate de tener `sql` definido/importado
-      // SP expected to return: [{ id, contrasena, tipo, (optional) puesto }]
-      const rows = await db.executeProc('buscar_id_para_login', {
-        termino_busqueda: { type: sql.NVarChar(150), value: username }
-      });
-      // console.log(rows);
-
-      if (!rows?.length) {
-        return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
-      }
-
-      const { id, contrasena, tipo, puesto } = rows[0] || {};
-      if (!id || !contrasena || !tipo) {
-        return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
-      }
-
-      const match = await bcrypt.compare(password, contrasena);
-      if (!match) {
-        return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
-      }
-
-      // Normaliza para evitar diferencias de mayúsculas/minúsculas
-      const normTipo   = String(tipo || '').toLowerCase();
-      const normPuesto = String(puesto || '').toLowerCase();
-
-      // Set session
-      req.session.userID   = id;
-      req.session.userType = normTipo;                  // 'cliente' | 'empleado'
-      req.session.isClient = (normTipo === 'cliente');
-      req.session.isAdmin  = (normTipo === 'empleado' && normPuesto === 'administrador');
-      req.session.username = username; // cámbialo si quieres mostrar nombre real de BD
-
-      await saveSession(req);
-
-      const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
-
-      return res.json({
-        success: true,
-        message: 'Inicio de sesión exitoso.',
-        isAdmin: req.session.isAdmin === true,
-        username: req.session.username || 'Bienvenido',
-        redirect
-      });
-    } catch (err) {
-      console.error('Error en el login:', err);
-      return res.status(500).json({ success: false, message: 'Error en el servidor.' });
-    }
+router.post('/login', [
+  body('username').trim().notEmpty().isLength({ max: 150 }),
+  body('password').notEmpty().isLength({ min: 6 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(422).json({ success: false, message: 'Errores de validación', errors: errors.array() });
   }
-);
+
+  const { username, password } = req.body;
+
+  try {
+    const rows = await db.executeProc('buscar_id_para_login', {
+      termino_busqueda: { type: sql.NVarChar(150), value: username }
+    });
+
+    if (!rows?.length) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
+    }
+
+    const { id, contrasena, tipo, puesto } = rows[0] || {};
+    if (!id || !contrasena || !tipo) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
+    }
+
+    const match = await bcrypt.compare(password, contrasena);
+    if (!match) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
+    }
+
+    // Normalize and decide by tipo only
+    const normTipo = String(tipo || '').trim().toLowerCase(); // 'cliente' | 'empleado'
+    req.session.userID   = id;
+    req.session.userType = normTipo;
+    req.session.isClient = (normTipo === 'cliente');
+    req.session.isAdmin  = (normTipo === 'empleado'); // <-- only tipo decides
+    req.session.username = username;
+
+    await saveSession(req);
+
+    const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
+
+    return res.json({
+      success: true,
+      message: 'Inicio de sesión exitoso.',
+      isAdmin: req.session.isAdmin === true,
+      username: req.session.username || 'Bienvenido',
+      redirect,
+      userType: normTipo
+    });
+
+  } catch (err) {
+    console.error('Error en el login:', err);
+    return res.status(500).json({ success: false, message: 'Error en el servidor.' });
+  }
+});
+
 
 /* ---------------------------
    POST /logout  &  GET /logout
