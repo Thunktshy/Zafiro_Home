@@ -112,4 +112,27 @@ router.get('/auth/status', (req, res) => {
   });
 });
 
+function requireAdmin(req, res, next) {
+  if (!req.session?.isAdmin) {
+    if (req.headers.accept && req.headers.accept.includes('text/html')) {
+      return res.redirect('/index.html');
+    }
+    return res.status(403).json({ success: false, message: "Prohibido: se requieren privilegios de administrador" });
+  }
+  next();
+}
+
+function requireClient(req, res, next) {
+  if (!req.session?.isClient) {
+    if (req.headers.accept && req.headers.accept.includes('text/html')) {
+      return res.redirect('/index.html');
+    }
+    return res.status(403).json({ success: false, message: "Prohibido: solo para clientes" });
+  }
+  next();
+}
+
 module.exports = router;
+module.exports.requireAdmin  = requireAdmin;
+module.exports.requireClient = requireClient;
+

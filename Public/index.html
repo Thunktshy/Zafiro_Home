@@ -52,8 +52,13 @@
               <i class="fa-solid fa-basket-shopping fa-lg"></i>
             </a>
           </li>
+          
+          <li class="nav-iniciar-sesion">
+            <i>Iniciar Sesión</i>
+          </li>
 
-          <li class="nav-item" id="user-menu-mount">
+          <li class="nav-item" id="menu">
+
             <i class="fa-solid fa-bars"></i>
           </li>
         </ul>
@@ -429,6 +434,67 @@
   <script type="module" src="./scripts/loginModal.js"></script>
 
   <script type="module" src="./scripts/menu.js"></script>
+
+  <!-- Hamburger Overlay + Drawer -->
+  <div id="hm-overlay" class="hm-overlay" hidden></div>
+
+  <aside id="hm-drawer" class="hm-drawer" aria-hidden="true" aria-labelledby="hm-title" role="dialog">
+    <header class="hm-header">
+      <h2 id="hm-title" class="sr-only">Menú</h2>
+      <div class="hm-user">
+        <i class="fa-solid fa-circle-user hm-user-icon" aria-hidden="true"></i>
+        <div>
+          <div class="hm-hello">Hola,</div>
+          <div class="hm-username" id="hm-username">username</div>
+        </div>
+      </div>
+      <button class="hm-close" type="button" aria-label="Cerrar menú">&times;</button>
+    </header>
+
+    <nav class="hm-nav" aria-label="Navegación lateral">
+      <ul class="hm-list">
+        <!-- Carrito de Compras -->
+        <li class="hm-group">
+          <button class="hm-toggle" type="button" aria-expanded="false">
+            <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+            Carrito de Compras
+          </button>
+          <ul class="hm-sub" hidden>
+            <li><a href="miCarrito.html">Mi carrito</a></li>
+            <li><a href="comprasRecientes.html">Compras recientes</a></li>
+          </ul>
+        </li>
+
+        <!-- Mis datos -->
+        <li class="hm-group">
+          <button class="hm-toggle" type="button" aria-expanded="false">
+            <i class="fa-solid fa-user" aria-hidden="true"></i>
+            Mis datos
+          </button>
+          <ul class="hm-sub" hidden>
+            <li><a href="direccionesEnvio.html">Direcciones de envío</a></li>
+            <li><a href="metodosPago.html">Métodos de pago</a></li>
+          </ul>
+        </li>
+
+        <!-- Facturación -->
+        <li class="hm-group">
+          <button class="hm-toggle" type="button" aria-expanded="false">
+            <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+            Facturación
+          </button>
+          <ul class="hm-sub" hidden>
+            <li><a href="./pages/facturacion.html">Facturar</a></li>
+            <li><a href="./pages/facturacion.html">Consultar facturas</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <footer class="hm-footer">
+      <small>Plantilla: <strong>username</strong></small>
+    </footer>
+  </aside>
 
 
 </body>
