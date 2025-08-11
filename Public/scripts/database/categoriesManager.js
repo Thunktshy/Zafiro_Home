@@ -5,42 +5,43 @@
     );
   }
 
-  async function safeText(res) {
-    try { return await res.text(); } catch { return ''; }
-  }
-
-  function normalizeRows(payload) {
-    // Supports {success, data:[...]} or an array directly
-    const rows = Array.isArray(payload?.data) ? payload.data
-               : Array.isArray(payload)       ? payload
-               : [];
-    return rows.map(r => ({
-      categoria_id: r.categoria_id,
-      nombre_categoria: r.nombre_categoria
-    }));
-  }
-
   async function fetchCategories() {
     try {
-      const res = await fetch('/categorias/get_list', {
+      const res = await fetch('/categories/get_list', {
         credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
 
       if (!res.ok) {
-        console.error('HTTP error', res.status, await safeText(res));
+        console.error('HTTP error', res.status, await res.text());
         return [];
       }
 
-      const payload = await res.json().catch(() => null);
-      if (!payload) return [];
+      const raw = await res.text();
+      let payload;
+      try { payload = JSON.parse(raw); }
+      catch {
+        console.warn('Respuesta no-JSON (primeros 200 chars):', raw.slice(0, 200));
+        return [];
+      }
 
-      // If server wraps with {success:false}, surface the message
       if (payload?.success === false) {
         console.warn('API respondió con error:', payload?.message);
       }
 
-      return normalizeRows(payload);
+      const rows = Array.isArray(payload?.data) ? payload.data
+                 : Array.isArray(payload)       ? payload
+                 : [];
+
+      // Ordenar alfabéticamente (opcional)
+      rows.sort((a, b) =>
+        String(a?.nombre_categoria ?? '').localeCompare(String(b?.nombre_categoria ?? ''), 'es', { sensitivity: 'base' })
+      );
+
+      return rows.map(r => ({
+        categoria_id: r.categoria_id,
+        nombre_categoria: r.nombre_categoria ?? '(Sin nombre)'
+      }));
     } catch (e) {
       console.error('Error cargando categorías:', e);
       return [];
@@ -55,7 +56,7 @@
     for (const row of rows) {
       const opt = document.createElement('option');
       opt.value = String(row.categoria_id);
-      opt.textContent = row.nombre_categoria ?? '(Sin nombre)';
+      opt.textContent = row.nombre_categoria;
       select.appendChild(opt);
     }
   }
@@ -72,7 +73,7 @@
     ul.innerHTML = rows.map(r => `
       <li>
         <a href="/buscar?categoria=${encodeURIComponent(r.categoria_id)}">
-          ${escapeHtml(r.nombre_categoria ?? '(Sin nombre)')}
+          ${escapeHtml(r.nombre_categoria)}
         </a>
       </li>
     `).join('');
@@ -80,6 +81,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const rows = await fetchCategories();
+    console.debug('Categorías normalizadas:', rows); // útil para verificar
     renderSelect(rows, 'categoryFilter');
     renderDropdown(rows, '.subnavbar .dropdown-menu');
   });
