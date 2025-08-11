@@ -1,61 +1,78 @@
 // Server/Validators/Rulesets/pedidos.js
-// Código en PascalCase/Inglés; mensajes en español.
+'use strict';
 
-const Id10Regex = /^[A-Za-z0-9\-]{1,10}$/;  // ej. ped-1, cl-1 (NVARCHAR(10))
-const Id20Regex = /^[A-Za-z0-9\-]{1,20}$/;  // producto_id (NVARCHAR(20))
-const MetodoRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.\,\-_]{1,20}$/;
-const EstadoRegex = /^(Por confirmar|Pendiente|Completado|Cancelado)$/;
+/**
+ * Convenciones de IDs
+ * - cliente_id:  "cl-<número>"   (ej. cl-1)
+ * - pedido_id:   "ped-<número>"  (ej. ped-1)
+ * - producto_id: alfanumérico/hífen/guion_bajo (hasta 20)
+ */
+const idRegex = {
+  cliente: /^cl-\d+$/i,
+  pedido: /^ped-\d+$/i,
+  producto: /^[A-Za-z0-9_-]{1,20}$/
+};
+
+/**
+ * Reglas para SP: pedidos_insert(@cliente_id, @metodo_pago)
+ */
+const InsertRules = {
+  cliente_id:   { required: true,  type: 'string', pattern: idRegex.cliente,  maxLength: 20 },
+  metodo_pago:  { required: false, type: 'string',                                 maxLength: 20 }
+};
+
+/**
+ * Reglas para SP: pedido_add_item(@pedido_id, @producto_id, @cantidad, @precio_unitario=NULL)
+ */
+const AddItemRules = {
+  pedido_id:       { required: true,  type: 'string', pattern: idRegex.pedido,   maxLength: 10 },
+  producto_id:     { required: true,  type: 'string', pattern: idRegex.producto, maxLength: 20 },
+  cantidad:        { required: true,  type: 'number', integer: true, min: 1 },
+  precio_unitario: { required: false, type: 'number', min: 0 }
+};
+
+/**
+ * Reglas para SP: pedido_remove_item(@pedido_id, @producto_id, @cantidad=NULL)
+ */
+const RemoveItemRules = {
+  pedido_id:   { required: true,  type: 'string', pattern: idRegex.pedido,   maxLength: 10 },
+  producto_id: { required: true,  type: 'string', pattern: idRegex.producto, maxLength: 20 },
+  cantidad:    { required: false, type: 'number', integer: true, min: 1 }
+};
+
+/**
+ * Reglas para SP: pedidos_set_estado(@pedido_id, @estado)
+ */
+const SetEstadoRules = {
+  pedido_id: { required: true,  type: 'string', pattern: idRegex.pedido, maxLength: 10 },
+  estado:    { required: true,  type: 'string',
+               enum: ['Por confirmar','Pendiente','Completado','Cancelado'] }
+};
+
+/**
+ * Reglas para SP: pedidos_get(@pedido_id) y otros GET por id
+ */
+const GetByIdRules = {
+  pedido_id: { required: true, type: 'string', pattern: idRegex.pedido, maxLength: 10 }
+};
+
+/**
+ * Reglas para SP: pedidos_select_by_cliente(@cliente_id, @estado=NULL, @desde=NULL, @hasta=NULL)
+ * (la ruta la solemos nombrar /pedidos/select_by_cliente/:cliente_id)
+ */
+const SelectByClienteRules = {
+  cliente_id: { required: true,  type: 'string', pattern: idRegex.cliente, maxLength: 20 },
+  estado:     { required: false, type: 'string',
+                enum: ['Por confirmar','Pendiente','Completado','Cancelado'] },
+  desde:      { required: false, type: 'date' },
+  hasta:      { required: false, type: 'date' }
+};
 
 module.exports = {
-  InsertRules: {
-    cliente_id: {
-      required: true, type: 'string', maxLength: 10, pattern: Id10Regex,
-      messages: {
-        required: 'cliente_id es obligatorio',
-        type: 'cliente_id debe ser texto',
-        maxLength: 'cliente_id excede 10 caracteres',
-        pattern: 'cliente_id tiene formato inválido'
-      }
-    },
-    metodo_pago: {
-      required: false, type: 'string', maxLength: 20, pattern: MetodoRegex,
-      messages: {
-        type: 'metodo_pago debe ser texto',
-        maxLength: 'metodo_pago excede 20 caracteres',
-        pattern: 'metodo_pago tiene formato inválido'
-      }
-    }
-  },
-
-  AddItemRules: {
-    pedido_id:   { required: true, type: 'string', maxLength: 10, pattern: Id10Regex,
-      messages: { required: 'pedido_id es obligatorio', type: 'pedido_id debe ser texto', maxLength: 'pedido_id excede 10', pattern: 'pedido_id inválido' } },
-    producto_id: { required: true, type: 'string', maxLength: 20, pattern: Id20Regex,
-      messages: { required: 'producto_id es obligatorio', type: 'producto_id debe ser texto', maxLength: 'producto_id excede 20', pattern: 'producto_id inválido' } },
-    cantidad:    { required: true, type: 'number',
-      messages: { required: 'cantidad es obligatoria', type: 'cantidad debe ser numérica' } },
-    precio_unitario: { required: false, type: 'number',
-      messages: { type: 'precio_unitario debe ser numérico' } }
-  },
-
-  RemoveItemRules: {
-    pedido_id:   { required: true, type: 'string', maxLength: 10, pattern: Id10Regex,
-      messages: { required: 'pedido_id es obligatorio', type: 'pedido_id debe ser texto', maxLength: 'pedido_id excede 10', pattern: 'pedido_id inválido' } },
-    producto_id: { required: true, type: 'string', maxLength: 20, pattern: Id20Regex,
-      messages: { required: 'producto_id es obligatorio', type: 'producto_id debe ser texto', maxLength: 'producto_id excede 20', pattern: 'producto_id inválido' } },
-    cantidad:    { required: false, type: 'number',
-      messages: { type: 'cantidad debe ser numérica' } } // opcional: si no viene, elimina toda la línea
-  },
-
-  SetEstadoRules: {
-    pedido_id: { required: true, type: 'string', maxLength: 10, pattern: Id10Regex,
-      messages: { required: 'pedido_id es obligatorio', type: 'pedido_id debe ser texto', maxLength: 'pedido_id excede 10', pattern: 'pedido_id inválido' } },
-    estado:    { required: true, type: 'string', maxLength: 20, pattern: EstadoRegex,
-      messages: { required: 'estado es obligatorio', type: 'estado debe ser texto', maxLength: 'estado excede 20', pattern: 'estado no válido' } }
-  },
-
-  GetByIdRules: {
-    pedido_id: { required: true, type: 'string', maxLength: 10, pattern: Id10Regex,
-      messages: { required: 'pedido_id es obligatorio', type: 'pedido_id debe ser texto', maxLength: 'pedido_id excede 10', pattern: 'pedido_id inválido' } }
-  }
+  InsertRules,
+  AddItemRules,
+  RemoveItemRules,
+  SetEstadoRules,
+  GetByIdRules,
+  SelectByClienteRules
 };
