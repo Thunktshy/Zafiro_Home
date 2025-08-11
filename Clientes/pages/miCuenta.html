@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zafiro Home — Mi Cuenta</title>
+
+  <!-- Fuentes e iconos -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  <!-- Estilos del portal de clientes -->
+  <link rel="stylesheet" href="/client-resources/css/style.css">
+</head>
+<body class="page-body">
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="brand">
+      <a class="brand-link" href="/index.html">
+        <img class="brand-logo" alt="Zafiro Home" src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80">
+        <span class="brand-title">Zafiro Home</span>
+      </a>
+    </div>
+
+    <div class="account">
+      <span class="account-hello">Hola,</span>
+      <strong id="account-username">Usuario</strong>
+      <button id="btn-logout" class="btn btn-light" type="button" title="Cerrar sesión">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Sidebar que compartiste -->
+    <aside class="sidebar">
+      <nav class="hm-nav" aria-label="Navegación lateral">
+        <ul class="hm-list">
+          <!-- Carrito de Compras -->
+          <li class="hm-group">
+            <button class="hm-toggle" type="button" aria-expanded="false">
+              <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+              Carrito de Compras
+            </button>
+            <ul class="hm-sub" hidden>
+              <li><a href="miCarrito.html" data-keep-uid="true">Mi carrito</a></li>
+              <li><a href="comprasRecientes.html" data-keep-uid="true">Compras recientes</a></li>
+            </ul>
+          </li>
+
+          <!-- Mis datos -->
+          <li class="hm-group">
+            <button class="hm-toggle" type="button" aria-expanded="false">
+              <i class="fa-solid fa-user" aria-hidden="true"></i>
+              Mis datos
+            </button>
+            <ul class="hm-sub" hidden>
+              <li><a href="direccionesEnvio.html" data-keep-uid="true">Direcciones de envío</a></li>
+              <li><a href="metodosPago.html" data-keep-uid="true">Métodos de pago</a></li>
+            </ul>
+          </li>
+
+          <!-- Facturación -->
+          <li class="hm-group">
+            <button class="hm-toggle" type="button" aria-expanded="false">
+              <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+              Facturación
+            </button>
+            <ul class="hm-sub" hidden>
+              <li><a href="facturacion.html" data-keep-uid="true">Facturar</a></li>
+              <li><a href="facturacion.html#consultar" data-keep-uid="true">Consultar facturas</a></li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Contenido principal: Portales -->
+    <section class="content">
+      <header class="content-header">
+        <h1 class="content-title">Mi Cuenta</h1>
+        <p class="content-subtitle">Accede rápido a tus secciones</p>
+      </header>
+
+      <div id="portal-links" class="cards-grid">
+        <!-- Carrito -->
+        <article class="card">
+          <div class="card-head">
+            <h3 class="card-title"><i class="fa-solid fa-basket-shopping"></i> Carrito de Compras</h3>
+          </div>
+          <div class="card-body">
+            <p>Revisa tu carrito y tu historial de compras.</p>
+            <div class="card-actions">
+              <a class="btn" href="miCarrito.html" data-keep-uid="true">Mi carrito</a>
+              <a class="btn btn-ghost" href="comprasRecientes.html" data-keep-uid="true">Compras recientes</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Mis datos -->
+        <article class="card">
+          <div class="card-head">
+            <h3 class="card-title"><i class="fa-solid fa-user"></i> Mis datos</h3>
+          </div>
+          <div class="card-body">
+            <p>Gestiona direcciones y métodos de pago.</p>
+            <div class="card-actions">
+              <a class="btn" href="direccionesEnvio.html" data-keep-uid="true">Direcciones</a>
+              <a class="btn btn-ghost" href="metodosPago.html" data-keep-uid="true">Métodos de pago</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Facturación -->
+        <article class="card">
+          <div class="card-head">
+            <h3 class="card-title"><i class="fa-solid fa-file-invoice"></i> Facturación</h3>
+          </div>
+          <div class="card-body">
+            <p>Genera facturas y consulta tu historial.</p>
+            <div class="card-actions">
+              <a class="btn" href="facturacion.html" data-keep-uid="true">Facturar</a>
+              <a class="btn btn-ghost" href="facturacion.html#consultar" data-keep-uid="true">Consultar</a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Script de la cuenta (auth, uid, enlaces, logout y sidebar) -->
+  <script src="/client-resources/scripts/account.js" defer></script>
+</body>
+</html>
