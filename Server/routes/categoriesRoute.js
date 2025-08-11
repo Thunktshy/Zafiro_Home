@@ -69,7 +69,7 @@ CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
     return res.status(200).json({
       success: true,
       message: data.length ? 'Categorías obtenidas' : 'Sin categorías',
-      data
+      data //Construccion de Resutado exitoso
     });
   } catch (err) {
     console.error('categorias_get_all error:', err);
@@ -91,7 +91,7 @@ CategoriasRouter.get('/get_list', async (req, res) => {
     return res.status(200).json({
       success: true,
       message: data.length ? 'Lista de categorías obtenida' : 'Sin categorías',
-      data
+      data  //Construccion de Resutado exitoso
     });
   } catch (err) {
     console.error('categorias_get_list error:', err);
