@@ -120,6 +120,11 @@ app.use('/datos_facturacion', DatosFacturacionRoutes);
 const MetodosPagoRoutes = require('./Server/routes/metodos_pagoRoute.js');
 app.use('/metodos_pago', MetodosPagoRoutes);
 
+//Rutas Productos
+const ProductosRoutes = require('./Server/routes/productosRoute.js');
+app.use('/productos', ProductosRoutes);
+
+
 
 app.post('/users/submitpersonalInformation',
   requireClient,

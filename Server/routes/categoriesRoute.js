@@ -65,7 +65,6 @@ function BuildParams(entries) {
 CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
   try {
     const data = await db.executeProc('categorias_get_all', {});
-    console.log(data);
     return res.status(200).json({
       success: true,
       message: data.length ? 'Categorías obtenidas' : 'Sin categorías',

@@ -1,6 +1,5 @@
 /* ==============================================================
-   Productos: esquema, triggers y procedimientos normalizados
-   Estilo alineado a categorias.sql
+   Productos
    ============================================================== */
 
 -- Secuencia
