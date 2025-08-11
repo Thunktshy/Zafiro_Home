@@ -91,7 +91,7 @@ CategoriasRouter.get('/get_list', async (req, res) => {
     return res.status(200).json({
       success: true,
       message: data.length ? 'Lista de categorías obtenida' : 'Sin categorías',
-      data: [] // keep response shape consistent
+      data
     });
   } catch (err) {
     console.error('categorias_get_list error:', err);
