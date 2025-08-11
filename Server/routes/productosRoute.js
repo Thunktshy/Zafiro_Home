@@ -1,10 +1,9 @@
 // Server/routes/productosRoute.js
 const express = require('express');
-const { db, sql } = require('../../db/dbconnector.js'); // ajusta si difiere
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService');
 const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/productos');
-const { requireAdmin } = require('./auth.routes.js'); // asegúrate de exportarlo
-
+const { requireAdmin } = require('./authRoute.js');
 const ProductosRouter = express.Router();
 
 // Helper { type, value }
