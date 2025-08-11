@@ -28,7 +28,7 @@ IF OBJECT_ID('pedidos', 'U') IS NOT NULL
 GO
 CREATE TABLE pedidos (
     pedido_id      NVARCHAR(10)  PRIMARY KEY,                     -- ejemplo: ped-1
-    cliente_id     NVARCHAR(10)  NOT NULL,
+    cliente_id     NVARCHAR(20)  NOT NULL,
     fecha_pedido   DATETIME      NOT NULL DEFAULT GETDATE(),
     estado_pedido  NVARCHAR(20)  NOT NULL DEFAULT N'Por confirmar',
     total_pedido   DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -94,7 +94,7 @@ GO
 CREATE TABLE pedidos_insert_log (
     log_id         INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id      NVARCHAR(10),
-    cliente_id     NVARCHAR(10),
+    cliente_id     NVARCHAR(20),
     fecha_pedido   DATETIME,
     estado_pedido  NVARCHAR(20),
     total_pedido   DECIMAL(10,2),
@@ -107,7 +107,7 @@ GO
 CREATE TABLE pedidos_delete_log (
     log_id         INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id      NVARCHAR(10),
-    cliente_id     NVARCHAR(10),
+    cliente_id     NVARCHAR(20),
     fecha_pedido   DATETIME,
     estado_pedido  NVARCHAR(20),
     total_pedido   DECIMAL(10,2),
@@ -121,13 +121,13 @@ CREATE TABLE pedidos_update_log (
     log_id              INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id           NVARCHAR(10),
     -- valores anteriores
-    cliente_id_ant      NVARCHAR(10),
+    cliente_id_ant      NVARCHAR(20),
     fecha_pedido_ant    DATETIME,
     estado_pedido_ant   NVARCHAR(20),
     total_pedido_ant    DECIMAL(10,2),
     metodo_pago_ant     NVARCHAR(20),
     -- valores nuevos
-    cliente_id_nvo      NVARCHAR(10),
+    cliente_id_nvo      NVARCHAR(20),
     fecha_pedido_nvo    DATETIME,
     estado_pedido_nvo   NVARCHAR(20),
     total_pedido_nvo    DECIMAL(10,2),
@@ -327,7 +327,7 @@ GO
 
 -- Crear pedido (encabezado); devuelve el nuevo pedido_id
 CREATE OR ALTER PROCEDURE pedidos_insert
-    @cliente_id   NVARCHAR(10),
+    @cliente_id   NVARCHAR(20),
     @metodo_pago  NVARCHAR(20) = NULL
 AS
 BEGIN
@@ -669,7 +669,7 @@ GO
 
 -- Si no existe, créalo (CREATE OR ALTER es idempotente)
 CREATE OR ALTER PROCEDURE pedidos_select_by_cliente
-    @cliente_id NVARCHAR(10),
+    @cliente_id NVARCHAR(20),
     @estado     NVARCHAR(20) = NULL,   -- opcional
     @desde      DATETIME = NULL,       -- opcional 
     @hasta      DATETIME = NULL        -- opcional 
