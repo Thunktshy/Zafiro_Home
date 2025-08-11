@@ -67,6 +67,7 @@ async function cargarCategorias() {
     const res = await categoriasAPI.getAll();
     console.log(res);
     const rows = Array.isArray(res?.data) ? res.data : [];
+    console.log(rows);
 
     if (!dt) {
       dt = new DataTable('#tabla-categorias', {

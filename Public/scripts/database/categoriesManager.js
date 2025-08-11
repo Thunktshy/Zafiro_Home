@@ -20,7 +20,8 @@
         console.error('HTTP error', res.status, await safeText(res));
         return [];
       }
-      const payload = await res.json();
+      
+      const payload = await res.Array.isArray(res?.data) ? res.data : [];
       // Soporta { success, data: [...] } o un array directo
       const rows = Array.isArray(payload?.data) ? payload.data
                  : Array.isArray(payload)       ? payload

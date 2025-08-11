@@ -18,13 +18,13 @@ GO
 DROP TABLE IF EXISTS productos;
 GO
 CREATE TABLE productos (
-    producto_id      NVARCHAR(20)  PRIMARY KEY,                 -- 'prd-<n>'
+    producto_id      NVARCHAR(20)  PRIMARY KEY, 
     nombre_producto  NVARCHAR(50)  NOT NULL,
     descripcion      NVARCHAR(150) NULL,
     precio_unitario  DECIMAL(10,2) NOT NULL,
     stock            INT           NOT NULL DEFAULT 0,
     categoria_id     INT           NOT NULL,
-    fecha_creacion   DATETIME      DEFAULT GETDATE(),           -- igual que categorias
+    fecha_creacion   DATETIME      DEFAULT GETDATE(), 
     estado_producto  NVARCHAR(20)  NOT NULL DEFAULT N'activo',
     CONSTRAINT fk_productos_categoria
         FOREIGN KEY (categoria_id) REFERENCES categorias(categoria_id)
