@@ -70,33 +70,26 @@
 
     // Mapear a { nombre, descripcion, precio } y limitar a 8
     const offers = rows.slice(0, 8).map(p => ({
-      nombre: p.nombre_producto ?? p.nombre ?? '',
-      descripcion: p.descripcion ?? '',
-      precio: Number(p.precio_unitario ?? p.precio ?? 0) || 0
+    id: p.producto_id ?? p.id ?? '',
+    nombre: p.nombre_producto ?? p.nombre ?? '',
+    descripcion: p.descripcion ?? '',
+    precio: Number(p.precio_unitario ?? p.precio ?? 0) || 0
     }));
 
     const grid = document.querySelector('.ofertas-grid');
     if (grid) {
       grid.innerHTML = offers.map(o => `
-        <div class="offer-card">
-          <!-- // todo: imagen del producto -->
-          <div class="offer-details">
+        <div class="offer-card" data-id="${o.id}">
+            <!-- // todo: imagen del producto -->
+            <div class="offer-details">
             <h3 class="offer-title">${escapeHtml(o.nombre)}</h3>
             <p>${escapeHtml(o.descripcion)}</p>
             <p class="offer-price">$${o.precio.toFixed(2)}</p>
-            <button class="btn-buy">Comprar ahora</button>
-            <button class="btn-ad-to-cart">Agregar al carrito</button>
-          </div>
+            <button class="btn-buy" data-id="${o.id}">Comprar ahora</button>
+            <button class="btn-ad-to-cart" data-id="${o.id}">Agregar al carrito</button>
+            </div>
         </div>
-      `).join('') || `
-        <div class="offer-card">
-          <div class="offer-details">
-            <h3 class="offer-title">(Sin ofertas públicas)</h3>
-            <p>Cuando exista el endpoint de ofertas públicas, se mostrarán aquí.</p>
-            <p class="offer-price">$0.00</p>
-          </div>
-        </div>
-      `;
+        `).join('') || `...`;
 
       // Si estamos usando el fallback admin, muestra una notita en consola (no visible al usuario)
       if (used === '/productos/get_all') {
