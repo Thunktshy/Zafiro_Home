@@ -1,6 +1,6 @@
 (() => {
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"'`=\/]/g, s =>
+    return String(str ?? '').replace(/[&<>"'`=\/]/g, s =>
       ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s])
     );
   }
@@ -9,28 +9,38 @@
     try { return await res.text(); } catch { return ''; }
   }
 
+  function normalizeRows(payload) {
+    // Supports {success, data:[...]} or an array directly
+    const rows = Array.isArray(payload?.data) ? payload.data
+               : Array.isArray(payload)       ? payload
+               : [];
+    return rows.map(r => ({
+      categoria_id: r.categoria_id,
+      nombre_categoria: r.nombre_categoria
+    }));
+  }
+
   async function fetchCategories() {
     try {
-      const res = await fetch('/categories/get_list', {
+      const res = await fetch('/categorias/get_list', {
         credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
-      console.log(res);
+
       if (!res.ok) {
         console.error('HTTP error', res.status, await safeText(res));
         return [];
       }
-      
-      const payload = await res.Array.isArray(res?.data) ? res.data : [];
-      // Soporta { success, data: [...] } o un array directo
-      const rows = Array.isArray(payload?.data) ? payload.data
-                 : Array.isArray(payload)       ? payload
-                 : [];
-      // Normaliza campos que necesitamos
-      return rows.map(r => ({
-        categoria_id: r.categoria_id,
-        nombre_categoria: r.nombre_categoria
-      }));
+
+      const payload = await res.json().catch(() => null);
+      if (!payload) return [];
+
+      // If server wraps with {success:false}, surface the message
+      if (payload?.success === false) {
+        console.warn('API respondió con error:', payload?.message);
+      }
+
+      return normalizeRows(payload);
     } catch (e) {
       console.error('Error cargando categorías:', e);
       return [];
@@ -44,8 +54,8 @@
     select.innerHTML = '<option value="">Selecciona una categoría</option>';
     for (const row of rows) {
       const opt = document.createElement('option');
-      opt.value = row.categoria_id;
-      opt.textContent = row.nombre_categoria;
+      opt.value = String(row.categoria_id);
+      opt.textContent = row.nombre_categoria ?? '(Sin nombre)';
       select.appendChild(opt);
     }
   }
@@ -62,7 +72,7 @@
     ul.innerHTML = rows.map(r => `
       <li>
         <a href="/buscar?categoria=${encodeURIComponent(r.categoria_id)}">
-          ${escapeHtml(r.nombre_categoria)}
+          ${escapeHtml(r.nombre_categoria ?? '(Sin nombre)')}
         </a>
       </li>
     `).join('');
@@ -70,7 +80,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const rows = await fetchCategories();
-    renderSelect(rows, 'categoryFilter');               // llena el <select>
-    renderDropdown(rows, '.subnavbar .dropdown-menu');  // llena el dropdown
+    renderSelect(rows, 'categoryFilter');
+    renderDropdown(rows, '.subnavbar .dropdown-menu');
   });
 })();
