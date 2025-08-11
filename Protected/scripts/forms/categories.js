@@ -64,7 +64,8 @@ function renderActions(row) {
 
 async function cargarCategorias() {
   try {
-    const res = await categoriasAPI.getAll(); // { success, data:[...] }
+    const res = await categoriasAPI.getAll();
+    console.log(res);
     const rows = Array.isArray(res?.data) ? res.data : [];
 
     if (!dt) {

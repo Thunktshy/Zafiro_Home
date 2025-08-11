@@ -64,13 +64,23 @@ function BuildParams(entries) {
 ============================================================================ */
 CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
   try {
-    await db.executeProc('categorias_get_all', {});
-    return res.status(200).json({ success: true, message: 'Categorías obtenidas' });
-  } catch (Error_) {
-    console.error('categorias_get_all error:', Error_);
-    return res.status(500).json({ success: false, message: 'Error al obtener categorías' });
+    const data = await db.executeProc('categorias_get_all', {});
+    console.log(data);
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Categorías obtenidas' : 'Sin categorías',
+      data
+    });
+  } catch (err) {
+    console.error('categorias_get_all error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener categorías',
+      data: [] // keep response shape consistent
+    });
   }
 });
+
 
 /* ============================================================================
    GET /categorias/get_list  -> SP: categorias_get_list
