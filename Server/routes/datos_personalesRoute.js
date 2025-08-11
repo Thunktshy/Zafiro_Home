@@ -1,13 +1,13 @@
 // Server/routes/datos_personalesRoute.js
 const express = require('express');
-const { db, sql } = require('../../db/dbconnector.js'); // ajusta si tu path difiere
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const {
   InsertRules,
   UpdateRules,
   DeleteRules,
   SelectByClienteRules
-} = require('../Validators/Rulesets/datos_personales');
+} = require('../Validators/Rulesets/datos_personales.js');
 
 const { requireAdmin } = require('./authRoute.js'); // asegúrate de exportarlo
 

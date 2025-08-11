@@ -1,6 +1,6 @@
 // Server/routes/datos_facturacionRoute.js
 const express = require('express');
-const { db, sql } = require('../../db/dbconnector.js'); // ajusta si tu path difiere
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const {
   InsertRules,
@@ -9,7 +9,7 @@ const {
   SelectByClienteRules
 } = require('../Validators/Rulesets/datos_facturacion.js');
 
-const { requireAdmin } = require('./authRoute.js'); // exportado desde tu auth.routes
+const { requireAdmin } = require('./authRoute.js'); 
 
 const DatosFacturacionRouter = express.Router();
 

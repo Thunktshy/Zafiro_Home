@@ -7,9 +7,9 @@ const {
   UpdateRules,
   DeleteRules,
   SelectByClienteRules
-} = require('../Validators/Rulesets/metodos_pago');
+} = require('../Validators/Rulesets/metodos_pago.js');
 
-const { requireAdmin } = require('./authRoute.js'); // asegúrate de exportarlo
+const { requireAdmin } = require('../routes/authRoute.js'); // asegúrate de exportarlo
 
 const MetodosPagoRouter = express.Router();
 

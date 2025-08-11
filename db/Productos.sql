@@ -289,6 +289,23 @@ BEGIN
 END;
 GO
 
+/* =========================
+   PRODUCTOS: productos_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE productos_por_id
+  @producto_id NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT
+    producto_id, nombre_producto, descripcion, precio_unitario,
+    stock, categoria_id, fecha_creacion, estado_producto
+  FROM productos
+  WHERE producto_id = @producto_id;
+END;
+GO
+
+
 /* ========================
    Índices para logs
    ======================== */

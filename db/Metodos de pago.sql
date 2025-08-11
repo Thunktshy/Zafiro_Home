@@ -282,6 +282,20 @@ BEGIN
 END;
 GO
 
+/* =========================
+   MÉTODOS DE PAGO: metodos_pago_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE metodos_pago_por_id
+  @metodo_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT metodo_id, cliente_id, tipo, datos, es_principal, fecha_creacion
+  FROM metodos_pago
+  WHERE metodo_id = @metodo_id;
+END;
+GO
+
 -- ==============================================
 -- Sugerencias de índices
 -- ==============================================

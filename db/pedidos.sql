@@ -618,6 +618,34 @@ BEGIN
 END;
 GO
 
+/* =========================
+   PEDIDOS: pedidos_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE pedidos_por_id
+  @pedido_id NVARCHAR(10)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
+  FROM pedidos
+  WHERE pedido_id = @pedido_id;
+END;
+GO
+
+/* =========================
+   DETALLE PEDIDOS: detalle_pedidos_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE detalle_pedidos_por_id
+  @detalle_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT detalle_id, pedido_id, producto_id, cantidad, precio_unitario, subtotal
+  FROM detalle_pedidos
+  WHERE detalle_id = @detalle_id;
+END;
+GO
+
 -- Obtener detalles del pedido con JOIN a productos (nombre, etc.)
 CREATE OR ALTER PROCEDURE pedidos_get_detalles
     @pedido_id NVARCHAR(10)
@@ -638,3 +666,33 @@ BEGIN
     ORDER BY d.detalle_id;
 END;
 GO
+
+-- Si no existe, créalo (CREATE OR ALTER es idempotente)
+CREATE OR ALTER PROCEDURE pedidos_select_by_cliente
+    @cliente_id NVARCHAR(10),
+    @estado     NVARCHAR(20) = NULL,   -- opcional
+    @desde      DATETIME = NULL,       -- opcional 
+    @hasta      DATETIME = NULL        -- opcional 
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        p.pedido_id,
+        p.cliente_id,
+        p.fecha_pedido,
+        p.estado_pedido,
+        p.total_pedido,
+        p.metodo_pago
+    FROM pedidos AS p
+    WHERE p.cliente_id = @cliente_id
+      AND (@estado IS NULL OR p.estado_pedido = @estado)
+      AND (@desde IS NULL OR p.fecha_pedido >= @desde)
+      AND (
+            @hasta IS NULL
+         OR p.fecha_pedido < DATEADD(DAY, 1, CONVERT(date, @hasta))
+      )
+    ORDER BY p.fecha_pedido DESC;
+END;
+GO
+

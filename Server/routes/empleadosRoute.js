@@ -1,6 +1,6 @@
 // Server/routes/empleadosRoute.js
 const express = require('express');
-const { db, sql } = require('../../db/dbconnector.js'); // ajusta si tu path difiere
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const {
   InsertRules,
@@ -10,7 +10,7 @@ const {
   ReactivarRules,
   RegistrarLoginRules,
   PorIdRules
-} = require('../Validators/Rulesets/clientes.js');
+} = require('../Validators/Rulesets/empleados.js');
 
 const { requireAdmin } = require('../routes/authRoute.js');
 

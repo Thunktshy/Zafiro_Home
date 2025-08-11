@@ -293,6 +293,21 @@ BEGIN
 END;
 GO
 
+/* =========================
+   DATOS FACTURACIÓN: datos_facturacion_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE datos_facturacion_por_id
+  @datos_facturacion_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT
+    datos_facturacion_id, cliente_id, rfc, razon_social, direccion_fiscal
+  FROM datos_facturacion
+  WHERE datos_facturacion_id = @datos_facturacion_id;
+END;
+GO
+
 -- ==============================================
 -- Sugerencias de índices para optimizar consultas
 -- ==============================================

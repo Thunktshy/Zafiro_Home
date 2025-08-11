@@ -1,8 +1,8 @@
 // Server/routes/productosRoute.js
 const express = require('express');
 const { db, sql } = require('../../db/dbconnector.js');
-const ValidationService = require('../validatorService');
-const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/productos');
+const ValidationService = require('../validatorService.js');
+const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/productos.js');
 const { requireAdmin } = require('./authRoute.js');
 const ProductosRouter = express.Router();
 

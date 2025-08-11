@@ -257,6 +257,19 @@ BEGIN
 END;
 GO
 
+/* =========================
+   CATEGORÍAS: categorias_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE categorias_por_id
+  @categoria_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT categoria_id, nombre_categoria, descripcion, image_path
+  FROM categorias
+  WHERE categoria_id = @categoria_id;
+END;
+GO
 
 /* Cobertura para categorias_get_all y get_list (ORDER BY nombre_categoria) */
 CREATE NONCLUSTERED INDEX categorias_nombre_cover_all

@@ -350,14 +350,19 @@ CREATE INDEX idx_logs_nivel_origen
     ON logs (nivel, origen);
 GO
 
--- (Opcional) Verificar índice en clientes(cliente_id) para mejorar integridad referencial
--- IF NOT EXISTS (
---     SELECT 1 FROM sys.indexes 
---     WHERE name = 'idx_clientes_cliente_id' 
---       AND object_id = OBJECT_ID('clientes')
--- )
--- BEGIN
---     CREATE INDEX idx_clientes_cliente_id ON clientes (cliente_id);
--- END;
--- GO
+/* =========================
+   DATOS PERSONALES: datos_personales_por_id
+   ========================= */
+CREATE OR ALTER PROCEDURE datos_personales_por_id
+  @datos_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT
+    datos_id, cliente_id, nombre, apellidos, telefono,
+    direccion, ciudad, codigo_postal, pais
+  FROM datos_personales
+  WHERE datos_id = @datos_id;
+END;
+GO
 
