@@ -219,7 +219,7 @@
     }
 
     // 3) Enlaces a miCarrito.html (menu lateral)
-    const links = [...document.querySelectorAll('a[href="miCarrito.html"]')];
+    const links = [...document.querySelectorAll('a[href="../pages/miCarrito.html"]')];
     console.log('enlaces a miCarrito.html encontrados ->', links.length);
     links.forEach(a => {
       a.addEventListener('click', async (e) => {
