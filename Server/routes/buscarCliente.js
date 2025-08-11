@@ -7,6 +7,7 @@ const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService');
 const { BuscarClienteRules } = require('../Validators/Rulesets/clientes');
 const { requireAdmin } = require('../routes/authRoute.js'); // para pruebas
+const { requireClient } = require('../routes/authRoute.js'); // para pruebas
 
 const BuscarRouter = express.Router();
 
@@ -21,7 +22,7 @@ function BuildParams(Entries) {
 /* ============================================================================
    POST /buscar/cliente -> SP: buscar_cliente
 ============================================================================ */
-BuscarRouter.post('/cliente', requireAdmin, async (req, res) => {
+BuscarRouter.post('/cliente', async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, BuscarClienteRules);

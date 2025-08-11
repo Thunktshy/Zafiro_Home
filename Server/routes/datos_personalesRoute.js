@@ -9,7 +9,8 @@ const {
   SelectByClienteRules
 } = require('../Validators/Rulesets/datos_personales.js');
 
-const { requireAdmin } = require('./authRoute.js'); // asegúrate de exportarlo
+const { requireAdmin } = require('./authRoute.js');
+const { requireClient } = require('./authRoute.js'); 
 
 const DatosPersonalesRouter = express.Router();
 
@@ -39,7 +40,7 @@ function MapSqlErrorToHttp(err) {
 /* ============================================================================
    POST /datos_personales/insert  -> SP: datos_personales_insert
 ============================================================================ */
-DatosPersonalesRouter.post('/insert', requireAdmin, async (req, res) => {
+DatosPersonalesRouter.post('/insert', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -71,7 +72,7 @@ DatosPersonalesRouter.post('/insert', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /datos_personales/update  -> SP: datos_personales_update
 ============================================================================ */
-DatosPersonalesRouter.post('/update', requireAdmin, async (req, res) => {
+DatosPersonalesRouter.post('/update', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, UpdateRules);
@@ -103,7 +104,7 @@ DatosPersonalesRouter.post('/update', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /datos_personales/delete  -> SP: datos_personales_delete
 ============================================================================ */
-DatosPersonalesRouter.post('/delete', requireAdmin, async (req, res) => {
+DatosPersonalesRouter.post('/delete', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, DeleteRules);
@@ -129,7 +130,7 @@ DatosPersonalesRouter.post('/delete', requireAdmin, async (req, res) => {
    GET /datos_personales/select_by_cliente/:cliente_id  -> SP: datos_personales_select_by_cliente
    (Solo status + message; sin data en la respuesta, como acordamos)
 ============================================================================ */
-DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async (req, res) => {
+DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireClient, async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, SelectByClienteRules);

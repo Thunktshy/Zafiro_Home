@@ -7,7 +7,8 @@ const {
 } = require('../Validators/Rulesets/pedidos.js');
 
 
-const { requireAdmin } = require('./authRoute.js'); 
+const { requireAdmin } = require('./authRoute.js');
+const { requireClient } = require('./authRoute.js'); 
 
 const PedidosRouter = express.Router();
 
@@ -61,7 +62,7 @@ function MapSqlError(err) {
 /* ============================================================================
    POST /pedidos/insert  -> SP: pedidos_insert (devuelve pedido_id)
 ============================================================================ */
-PedidosRouter.post('/insert', requireAdmin, async (req, res) => {
+PedidosRouter.post('/insert', requireClient, async (req, res) => {
   try {
     const Body = { ...req.body };
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -94,7 +95,7 @@ PedidosRouter.post('/insert', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /pedidos/add_item  -> SP: pedido_add_item
 ============================================================================ */
-PedidosRouter.post('/add_item', requireAdmin, async (req, res) => {
+PedidosRouter.post('/add_item', requireClient, async (req, res) => {
   try {
     const Body = {
       ...req.body,
@@ -129,7 +130,7 @@ PedidosRouter.post('/add_item', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /pedidos/remove_item  -> SP: pedido_remove_item
 ============================================================================ */
-PedidosRouter.post('/remove_item', requireAdmin, async (req, res) => {
+PedidosRouter.post('/remove_item', requireClient, async (req, res) => {
   try {
     const Body = { ...req.body };
     if (typeof Body.cantidad !== 'undefined') Body.cantidad = Number(Body.cantidad);
@@ -158,7 +159,7 @@ PedidosRouter.post('/remove_item', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /pedidos/set_estado  -> SP: pedidos_set_estado
 ============================================================================ */
-PedidosRouter.post('/set_estado', requireAdmin, async (req, res) => {
+PedidosRouter.post('/set_estado', requireClient, async (req, res) => {
   try {
     const Body = { ...req.body };
     const { isValid } = await ValidationService.validateData(Body, SetEstadoRules);
@@ -185,7 +186,7 @@ PedidosRouter.post('/set_estado', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /pedidos/get/:pedido_id  -> SP: pedidos_get
 ============================================================================ */
-PedidosRouter.get('/get/:pedido_id', requireAdmin, async (req, res) => {
+PedidosRouter.get('/get/:pedido_id', requireClient, async (req, res) => {
   try {
     const Body = { pedido_id: req.params.pedido_id };
     const { isValid } = await ValidationService.validateData(Body, GetByIdRules);
@@ -209,7 +210,7 @@ PedidosRouter.get('/get/:pedido_id', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /pedidos/get_detalles/:pedido_id  -> SP: pedidos_get_detalles
 ============================================================================ */
-PedidosRouter.get('/get_detalles/:pedido_id', requireAdmin, async (req, res) => {
+PedidosRouter.get('/get_detalles/:pedido_id', requireClient, async (req, res) => {
   try {
     const Body = { pedido_id: req.params.pedido_id };
     const { isValid } = await ValidationService.validateData(Body, GetByIdRules);

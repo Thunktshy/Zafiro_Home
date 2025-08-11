@@ -1,4 +1,5 @@
-  // Helpers
+  // LlenarPagina.js
+
   function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"'`=\/]/g, s =>
       ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s])

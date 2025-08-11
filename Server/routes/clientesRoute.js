@@ -16,6 +16,7 @@ const {
 } = require('../Validators/Rulesets/clientes.js');
 
 const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
 
 const ClientesRouter = express.Router();
 
@@ -62,7 +63,7 @@ ClientesRouter.post('/insert', async (req, res) => {
 /* ============================================================================
    POST /clientes/update    -> SP: clientes_update(@cliente_id NVARCHAR(20), @cuenta NVARCHAR(20), @email NVARCHAR(150))
 ============================================================================ */
-ClientesRouter.post('/update', requireAdmin, async (req, res) => {
+ClientesRouter.post('/update', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, UpdateRules);
@@ -133,7 +134,7 @@ ClientesRouter.post('/soft_delete', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /clientes/registrar_login  -> SP: clientes_registrar_login(@cliente_id NVARCHAR(20))
 ============================================================================ */
-ClientesRouter.post('/registrar_login', requireAdmin, async (req, res) => {
+ClientesRouter.post('/registrar_login', async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, RegistrarLoginRules);
@@ -155,9 +156,8 @@ ClientesRouter.post('/registrar_login', requireAdmin, async (req, res) => {
 
 /* ============================================================================
    GET /clientes/por_id/:cliente_id  -> SP: clientes_por_id(@cliente_id NVARCHAR(20))
-   * Mantengo GET con path param como pediste, pero sin retornar data al front.
 ============================================================================ */
-ClientesRouter.get('/por_id/:cliente_id', requireAdmin, async (req, res) => {
+ClientesRouter.get('/por_id/:cliente_id', async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, PorIdRules);

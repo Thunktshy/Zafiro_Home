@@ -36,7 +36,7 @@ function MapSqlErrorToHttp(err) {
 /* ============================================================================
    POST /datos_facturacion/insert  -> SP: datos_facturacion_insert
 ============================================================================ */
-DatosFacturacionRouter.post('/insert', requireAdmin, async (req, res) => {
+DatosFacturacionRouter.post('/insert', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -64,7 +64,7 @@ DatosFacturacionRouter.post('/insert', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /datos_facturacion/update  -> SP: datos_facturacion_update
 ============================================================================ */
-DatosFacturacionRouter.post('/update', requireAdmin, async (req, res) => {
+DatosFacturacionRouter.post('/update', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, UpdateRules);
@@ -92,7 +92,7 @@ DatosFacturacionRouter.post('/update', requireAdmin, async (req, res) => {
 /* ============================================================================
    POST /datos_facturacion/delete  -> SP: datos_facturacion_delete
 ============================================================================ */
-DatosFacturacionRouter.post('/delete', requireAdmin, async (req, res) => {
+DatosFacturacionRouter.post('/delete', requireClient, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, DeleteRules);
@@ -135,7 +135,7 @@ DatosFacturacionRouter.get('/select_by_cliente/:cliente_id', requireClient, asyn
   }
 });
 
-// GET /datos_facturacion/select_all  (si lo quieres mantener para admin)
+// GET /datos_facturacion/select_all
 DatosFacturacionRouter.get('/select_all', requireAdmin, async (_req, res) => {
   try {
     const data = await db.executeProc('datos_facturacion_select_all', {});

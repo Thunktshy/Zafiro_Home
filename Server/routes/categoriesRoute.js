@@ -8,7 +8,8 @@ const fs = require('fs/promises');
 const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/categorias.js');
-const { requireAdmin } = require('./authRoute.js');
+const { requireAdmin } = require('../routes/authRoute.js'); // para pruebas
+const { requireClient } = require('../routes/authRoute.js'); // para pruebas
 
 const CategoriasRouter = express.Router();
 
@@ -62,7 +63,7 @@ function BuildParams(entries) {
 /* ============================================================================
    GET /categorias/get_all   -> SP: categorias_get_all
 ============================================================================ */
-CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
+CategoriasRouter.get('/get_all', async (req, res) => {
   try {
     const data = await db.executeProc('categorias_get_all', {});
     return res.status(200).json({
