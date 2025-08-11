@@ -9,7 +9,8 @@ const {
   SelectByClienteRules
 } = require('../Validators/Rulesets/datos_facturacion.js');
 
-const { requireAdmin } = require('../routes/authRoute.js'); 
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js'); 
 
 const DatosFacturacionRouter = express.Router();
 
