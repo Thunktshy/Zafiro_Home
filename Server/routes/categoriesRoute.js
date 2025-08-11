@@ -85,15 +85,20 @@ CategoriasRouter.get('/get_all', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /categorias/get_list  -> SP: categorias_get_list
 ============================================================================ */
-CategoriasRouter.get('/get_list', requireAdmin, async (req, res) => {
+CategoriasRouter.get('/get_list', async (req, res) => {
   try {
-    await db.executeProc('categorias_get_list', {});
-    return res.status(200).json({ success: true, message: 'Lista de categorías obtenida' });
-  } catch (Error_) {
-    console.error('categorias_get_list error:', Error_);
-    return res.status(500).json({ success: false, message: 'Error al obtener la lista de categorías' });
+    const data = await db.executeProc('categorias_get_list', {}); // <= OBTÉN LAS FILAS
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Lista de categorías obtenida' : 'Sin categorías',
+      data: [] // keep response shape consistent
+    });
+  } catch (err) {
+    console.error('categorias_get_list error:', err);
+    return res.status(500).json({ success: false, message: 'Error al obtener la lista de categorías', data: [] });
   }
 });
+
 
 /* ============================================================================
    POST /categorias/insert   -> SP: categorias_insert
