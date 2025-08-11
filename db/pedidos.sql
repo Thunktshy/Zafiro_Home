@@ -3,9 +3,6 @@
    Estilo alineado a categorias.sql
    ============================================================== */
 
-SET XACT_ABORT ON;
-GO
-
 /* ========================
    SECUENCIA PARA PEDIDOS
    ======================== */
@@ -23,8 +20,7 @@ GO
 /* ========================
    TABLA: PEDIDOS
    ======================== */
-IF OBJECT_ID('pedidos', 'U') IS NOT NULL
-    DROP TABLE pedidos;
+DROP TABLE IF EXISTS pedidos;
 GO
 CREATE TABLE pedidos (
     pedido_id      NVARCHAR(10)  PRIMARY KEY,                     -- ejemplo: ped-1
