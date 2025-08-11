@@ -10,7 +10,7 @@ const router = express.Router();
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'connect.sid';
 
 const ADMIN_HOME  = '/admin-resources/pages/admin.html';
-const CLIENT_HOME = '/client-resourses/pages/miCuenta.html';
+const CLIENT_HOME = '/client-resources/pages/miCuenta.html';
 
 // Helper: ensure session is saved before responding
 function saveSession(req) {
@@ -56,8 +56,7 @@ router.post('/login', [
     req.session.userID   = id;
     req.session.userType = normTipo;
     req.session.isClient = (normTipo === 'cliente');
-    req.session.isAdmin  = (normTipo === 'empleado'); // <-- only tipo decides
-    req.session.username = username;
+    req.session.isAdmin  = (normTipo === 'empleado');
 
     await saveSession(req);
 
@@ -65,8 +64,11 @@ router.post('/login', [
 
     return res.json({
       success: true,
-      message: 'Inicio de sesión exitoso.',
+      message: 'Inicio de sesión exitoso.', 
+      //Devolver tipo de sesion
       isAdmin: req.session.isAdmin === true,
+      isClient: req.session.isClient === true,
+      userID:  req.session.userID || null,
       username: req.session.username || 'Bienvenido',
       redirect,
       userType: normTipo
@@ -115,6 +117,8 @@ router.get('/auth/status', (req, res) => {
     authenticated,
     userType: authenticated ? (req.session.userType || 'cliente') : 'guest',
     isAdmin: !!req.session?.isAdmin,
+    isClient: !!req.session?.isClient,
+    userID:  authenticated ? (req.session.userID || null) : null,
     username: authenticated ? (req.session.username || null) : null
   });
 });

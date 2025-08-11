@@ -66,7 +66,7 @@ const requireClient = (req, res, next) => {
 };
 
 
-// Middleware de validacion
+// Middleware de validacion se carpetas de sesion
 const PROTECTED_DIR = path.resolve(process.cwd(), 'Protected');
 
 // static con cache privado (el cliente no compartirá en cachés públicas)
@@ -80,6 +80,21 @@ const adminStatic = express.static(PROTECTED_DIR, {
 
 // Servir servicios protegidos
 app.use('/admin-resources', requireAdmin, adminStatic);
+
+// Resuelve la carpeta física "Clientes"
+const CLIENT_DIR = path.resolve(process.cwd(), 'Clientes');
+
+// Static con caché privada (igual que admin)
+const clientStatic = express.static(CLIENT_DIR, {
+  index: false,
+  maxAge: '1h',
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+  }
+});
+
+// Monta los recursos del portal de clientes, protegidos
+app.use('/client-resources', requireClient, clientStatic);
 
 const ValidationService = require('./Server/validatorService.js');
 //Reglas
