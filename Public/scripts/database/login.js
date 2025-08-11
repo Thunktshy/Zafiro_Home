@@ -21,11 +21,13 @@ export async function tryLogin(username, password) {
 
   // Normaliza el shape esperado
   return {
-    success: !!payload.success,
-    message: payload.message ?? '',
-    isAdmin: payload.isAdmin === true,
-    username: payload.username ?? 'Bienvenido',
-    redirect: payload.redirect || ''
-  };
+  success: !!payload.success,
+  message: payload.message ?? '',
+  isAdmin: payload.isAdmin === true,
+  isClient: payload.isClient === true,
+  username: payload.username ?? 'Bienvenido',
+  redirect: payload.redirect || '',
+  userID: payload.userID ?? null
+};
 }
 

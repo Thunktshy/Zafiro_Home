@@ -182,7 +182,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Intenta obtener isClient/uid frescos
       const fresh = await Auth.refresh();
-      uid = fresh.uid;
+      // Si es CLIENTE, ir a index.html y listo (ignoramos redirect del backend)
+      if (result.isClient === true || fresh.isClient === true) {
+        const target = Auth.appendUid('/index.html', uid);
+
+        // Si ya estamos en index con el mismo query, recarga dura; si no, navega.
+        try {
+          const t = new URL(target, location.origin);
+          const c = new URL(location.href);
+          if (c.pathname === t.pathname && c.search === t.search) {
+            location.reload();                  // recarga para refrescar navbar, etc.
+          } else {
+            location.assign(t.pathname + t.search + t.hash);
+          }
+        } catch {
+          location.assign(target);
+        }
+        return;
+      }
 
       // Persiste y actualiza UI
       upgradeNavForLoggedIn(uid);
