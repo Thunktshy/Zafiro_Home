@@ -143,4 +143,28 @@ ProductosRouter.post('/delete', requireAdmin, async (req, res) => {
   }
 });
 
+/* ============================================================================
+   GET /productos/get_one  -> SP: productos_por_id
+============================================================================ */
+ProductosRouter.get('/get_one', requireAdmin, async (req, res) => {
+  try {
+    const producto_id = req.query.id;
+    if (!producto_id) {
+      return res.status(400).json({ success: false, message: 'Falta parámetro id', data: [] });
+    }
+
+    const Params = { producto_id: { type: sql.NVarChar(20), value: producto_id } };
+    const data = await db.executeProc('productos_por_id', Params);
+
+    return res.status(200).json({
+      success: true,
+      message: data?.length ? 'Producto encontrado' : 'No se encontró el producto',
+      data
+    });
+  } catch (err) {
+    console.error('productos_get_one error:', err);
+    return res.status(500).json({ success: false, message: 'Error al obtener el producto', data: [] });
+  }
+});
+
 module.exports = ProductosRouter;
