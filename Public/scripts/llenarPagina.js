@@ -61,7 +61,7 @@
 
   // ===== OFERTAS =====
   async function loadOffers() {
-    // Ideal: endpoint público de ofertas. Fallback: get_all (solo si hay sesión admin).
+
     const endpoints = ['/productos/ofertas_public', '/productos/get_all'];
     let rows = null, used = '';
     for (const url of endpoints) {
@@ -94,7 +94,6 @@
 
       // Si estamos usando el fallback admin, muestra una notita en consola (no visible al usuario)
       if (used === '/productos/get_all') {
-        console.info('[Aviso] Usando /productos/get_all (requiere admin). Recomiendo exponer /productos/ofertas_public.');
       }
     }
   }
