@@ -1,7 +1,9 @@
 // Server/routes/clientesRoute.js
+const bcrypt = require('bcrypt');
+const SALT_ROUNDS = 10; 
 
 const express = require('express');
-const { db, sql } = require('../../db/dbconnector.js'); // Ajusta si tu dbconnector está en otra ruta
+const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const {
   InsertRules,
@@ -28,9 +30,9 @@ function BuildParams(Entries) {
 }
 
 /* ============================================================================
-   POST /clientes/insert    -> SP: clientes_insert(@cuenta NVARCHAR(20), @contrasena NVARCHAR(255), @email NVARCHAR(150))
+   POST /clientes/insert -> SP: clientes_insert(@cuenta NVARCHAR(20), @contrasena NVARCHAR(255), @email NVARCHAR(150))
 ============================================================================ */
-ClientesRouter.post('/insert', requireAdmin, async (req, res) => {
+ClientesRouter.post('/insert', async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -38,9 +40,13 @@ ClientesRouter.post('/insert', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Datos inválidos (insert)' });
     }
 
+    // 1) Hash plain-text password from the request
+    const hashed = await bcrypt.hash(Body.contrasena, SALT_ROUNDS);
+
+    // 2) Build params using the HASHED password
     const Params = BuildParams([
       { name: 'cuenta',     type: sql.NVarChar(20),  value: Body.cuenta },
-      { name: 'contrasena', type: sql.NVarChar(255), value: Body.contrasena },
+      { name: 'contrasena', type: sql.NVarChar(255), value: hashed },
       { name: 'email',      type: sql.NVarChar(150), value: Body.email }
     ]);
 
@@ -51,6 +57,7 @@ ClientesRouter.post('/insert', requireAdmin, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Error al crear el cliente' });
   }
 });
+
 
 /* ============================================================================
    POST /clientes/update    -> SP: clientes_update(@cliente_id NVARCHAR(20), @cuenta NVARCHAR(20), @email NVARCHAR(150))

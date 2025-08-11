@@ -1,26 +1,24 @@
-//nuevoUsuario.js
+// Public/scripts/database/submitNewUser.js
 
 /**
- * Envía un nuevo usuario al backend para registro.
+ * Sends a new client registration to the API.
+ * Expects payload: { cuenta, contrasena, email }
+ * Returns: { ok: boolean, data: object|null, status: number }
  */
-export async function submitNewUser(user) {
+export async function submitNewUser(payload) {
   try {
-    const response = await fetch('/users/register', {
+    const res = await fetch('/clientes/insert', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(user)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || response.statusText);
-    }
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
 
-    return await response.json();
-  } catch (error) {
-    console.error("Error al crear usuario:", error);
-    throw error;
+    return { ok: res.ok, data, status: res.status };
+  } catch (err) {
+    console.error('submitNewUser error:', err);
+    return { ok: false, data: null, status: 0 };
   }
 }
