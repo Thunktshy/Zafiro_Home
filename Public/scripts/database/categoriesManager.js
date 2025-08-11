@@ -15,6 +15,7 @@
         credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
+      console.log(res);
       if (!res.ok) {
         console.error('HTTP error', res.status, await safeText(res));
         return [];
