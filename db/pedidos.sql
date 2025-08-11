@@ -40,11 +40,6 @@ CREATE TABLE pedidos (
 );
 GO
 
-/* Cobertura de consultas por estado y fecha */
-CREATE NONCLUSTERED INDEX ix_pedidos_estado_fecha
-ON pedidos(estado_pedido, fecha_pedido DESC)
-INCLUDE (cliente_id, total_pedido, metodo_pago);
-GO
 
 /* ========================
    TABLA: DETALLE_PEDIDOS
@@ -55,7 +50,7 @@ GO
 CREATE TABLE detalle_pedidos (
     detalle_id       INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id        NVARCHAR(10)  NOT NULL,
-    producto_id      NVARCHAR(20)  NOT NULL, -- normalizado para empatar con productos.producto_id
+    producto_id      NVARCHAR(20)  NOT NULL,
     cantidad         INT           NOT NULL,
     precio_unitario  DECIMAL(10,2) NOT NULL,
     subtotal         AS (cantidad * precio_unitario) PERSISTED,
@@ -70,26 +65,6 @@ CREATE TABLE detalle_pedidos (
 );
 GO
 
-/* Una línea por producto por pedido (opcional, facilita upsert) */
-CREATE UNIQUE INDEX ux_detalle_pedido_producto
-ON detalle_pedidos(pedido_id, producto_id);
-GO
-
-/* Cobertura para recálculo rápido del total */
-CREATE NONCLUSTERED INDEX ix_detalle_pedidos_pedido
-ON detalle_pedidos(pedido_id)
-INCLUDE (cantidad, precio_unitario);
-GO
-
-/* ========================
-   LOGS (estilo categorias.sql)
-   ======================== */
-
--- PEDIDOS logs
-IF OBJECT_ID('pedidos_insert_log','U') IS NOT NULL DROP TABLE pedidos_insert_log;
-IF OBJECT_ID('pedidos_delete_log','U') IS NOT NULL DROP TABLE pedidos_delete_log;
-IF OBJECT_ID('pedidos_update_log','U') IS NOT NULL DROP TABLE pedidos_update_log;
-GO
 
 CREATE TABLE pedidos_insert_log (
     log_id         INT IDENTITY(1,1) PRIMARY KEY,
@@ -135,12 +110,6 @@ CREATE TABLE pedidos_update_log (
     fecha_log           DATETIME      DEFAULT GETDATE(),
     usuario             NVARCHAR(50)  DEFAULT SYSTEM_USER
 );
-GO
-
--- DETALLE_PEDIDOS logs (opcional pero recomendable)
-IF OBJECT_ID('detalle_pedidos_insert_log','U') IS NOT NULL DROP TABLE detalle_pedidos_insert_log;
-IF OBJECT_ID('detalle_pedidos_delete_log','U') IS NOT NULL DROP TABLE detalle_pedidos_delete_log;
-IF OBJECT_ID('detalle_pedidos_update_log','U') IS NOT NULL DROP TABLE detalle_pedidos_update_log;
 GO
 
 CREATE TABLE detalle_pedidos_insert_log (
@@ -230,7 +199,7 @@ GO
 
 /* ========================
    TRIGGERS DETALLE_PEDIDOS
-   - Log + recalcular total del pedido
+
    ======================== */
 CREATE OR ALTER TRIGGER trg_insert_detalle_pedidos
 ON detalle_pedidos
@@ -325,7 +294,7 @@ GO
    PROCEDIMIENTOS
    ======================== */
 
--- Crear pedido (encabezado); devuelve el nuevo pedido_id
+-- Crear pedido
 CREATE OR ALTER PROCEDURE pedidos_insert
     @cliente_id   NVARCHAR(20),
     @metodo_pago  NVARCHAR(20) = NULL
@@ -379,7 +348,6 @@ BEGIN
         IF @estado IN (N'Completado', N'Cancelado')
             THROW 54003, 'El pedido no permite modificaciones.', 1;
 
-        -- Bloqueo la fila del producto para lectura/actualización segura del stock
         DECLARE @stock_actual INT, @precio DECIMAL(10,2);
         SELECT @stock_actual = p.stock,
                @precio       = COALESCE(@precio_unitario, p.precio_unitario)
@@ -389,7 +357,7 @@ BEGIN
         IF @stock_actual IS NULL
             THROW 54004, 'El producto no existe.', 1;
 
-        -- ¿La línea ya existe? Sumo cantidad, pero descuesto del stock solo lo adicional
+
         DECLARE @cantidad_actual INT, @precio_linea DECIMAL(10,2);
         SELECT @cantidad_actual = d.cantidad,
                @precio_linea   = d.precio_unitario
@@ -409,8 +377,8 @@ BEGIN
         END
         ELSE
         BEGIN
-            SET @a_descontar = @cantidad;               -- solo lo que se incrementa ahora
-            SET @precio_final = @precio_linea;          -- conservar precio de la línea
+            SET @a_descontar = @cantidad; 
+            SET @precio_final = @precio_linea;
             IF @a_descontar > @stock_actual
                 THROW 54005, 'Stock insuficiente para incrementar la cantidad.', 1;
 
@@ -419,13 +387,12 @@ BEGIN
             WHERE pedido_id = @pedido_id AND producto_id = @producto_id;
         END
 
-        -- Descontar stock del producto
         UPDATE productos
         SET stock = stock - @a_descontar
         WHERE producto_id = @producto_id;
 
         COMMIT;
-        -- total_pedido se recalcula por triggers de detalle
+
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
@@ -437,7 +404,7 @@ END;
 GO
 
 /* ========================
-   Quitar/restar producto (reintegra stock)
+   Quitar/restar producto 
    ======================== */
 CREATE OR ALTER PROCEDURE pedido_remove_item
     @pedido_id    NVARCHAR(10),
@@ -456,7 +423,7 @@ BEGIN
         IF @estado IN (N'Completado', N'Cancelado')
             THROW 54007, 'El pedido no permite modificaciones.', 1;
 
-        -- Bloqueo la línea y el producto
+
         DECLARE @actual INT;
         SELECT @actual = d.cantidad
         FROM detalle_pedidos AS d WITH (UPDLOCK, ROWLOCK)
@@ -467,7 +434,7 @@ BEGIN
 
         IF @cantidad IS NULL OR @cantidad >= @actual
         BEGIN
-            -- Devolver todo el stock de esa línea y eliminarla
+
             UPDATE p WITH (UPDLOCK, ROWLOCK)
             SET p.stock = p.stock + @actual
             FROM productos p
@@ -485,7 +452,7 @@ BEGIN
             SET cantidad = cantidad - @cantidad
             WHERE pedido_id = @pedido_id AND producto_id = @producto_id;
 
-            -- Devolver el stock removido
+
             UPDATE p WITH (UPDLOCK, ROWLOCK)
             SET p.stock = p.stock + @cantidad
             FROM productos p
@@ -493,7 +460,7 @@ BEGIN
         END
 
         COMMIT;
-        -- total_pedido se recalcula por triggers de detalle
+
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
@@ -506,9 +473,6 @@ GO
 
 /* ========================
    Cambiar estado del pedido
-   - Completar: exige líneas y total > 0
-   - Cancelar: reintegra TODO el stock del pedido (una sola vez)
-   - No se puede salir de Completado/Cancelado
    ======================== */
 CREATE OR ALTER PROCEDURE pedidos_set_estado
     @pedido_id NVARCHAR(10),
@@ -576,7 +540,6 @@ GO
 
 /* ========================
    Verificación de configuración del pedido
-   - Lista problemas: productos inexistentes (si alguien insertó mal) o líneas sin cantidad/precio
    ======================== */
 CREATE OR ALTER PROCEDURE pedidos_verificar_configuracion
     @pedido_id NVARCHAR(10)
@@ -584,7 +547,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Productos inexistentes (por FK no debería ocurrir, pero por si hay datos legacy)
     SELECT 'PRODUCTO_INEXISTENTE' AS tipo,
            d.detalle_id, d.producto_id, d.cantidad, d.precio_unitario
     FROM detalle_pedidos d
@@ -593,7 +555,6 @@ BEGIN
 
     UNION ALL
 
-    -- Cantidades o precios inválidos
     SELECT 'LINEA_INVALIDA' AS tipo,
            d.detalle_id, d.producto_id, d.cantidad, d.precio_unitario
     FROM detalle_pedidos d
@@ -606,7 +567,6 @@ GO
    Consultas de lectura
    ======================== */
 
--- Obtener encabezado del pedido
 CREATE OR ALTER PROCEDURE pedidos_get
     @pedido_id NVARCHAR(10)
 AS
@@ -619,7 +579,7 @@ END;
 GO
 
 /* =========================
-   PEDIDOS: pedidos_por_id
+   PEDIDOS
    ========================= */
 CREATE OR ALTER PROCEDURE pedidos_por_id
   @pedido_id NVARCHAR(10)
@@ -633,7 +593,7 @@ END;
 GO
 
 /* =========================
-   DETALLE PEDIDOS: detalle_pedidos_por_id
+   DETALLE PEDIDOS
    ========================= */
 CREATE OR ALTER PROCEDURE detalle_pedidos_por_id
   @detalle_id INT
@@ -646,7 +606,7 @@ BEGIN
 END;
 GO
 
--- Obtener detalles del pedido con JOIN a productos (nombre, etc.)
+
 CREATE OR ALTER PROCEDURE pedidos_get_detalles
     @pedido_id NVARCHAR(10)
 AS
@@ -667,7 +627,7 @@ BEGIN
 END;
 GO
 
--- Si no existe, créalo (CREATE OR ALTER es idempotente)
+
 CREATE OR ALTER PROCEDURE pedidos_select_by_cliente
     @cliente_id NVARCHAR(20),
     @estado     NVARCHAR(20) = NULL,   -- opcional
