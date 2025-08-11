@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zafiro Home - Mi Carrito</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./css/index.css" />
+  <style>
+    .cart-wrap{max-width:1100px;margin:2rem auto;padding:1rem}
+    .cart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+    .cart-card{background:#fff;border-radius:12px;box-shadow:0 6px 15px rgba(0,0,0,.08);padding:1rem;margin-bottom:1rem;display:flex;gap:1rem;align-items:center}
+    .cart-img{width:96px;height:96px;object-fit:cover;border-radius:10px}
+    .cart-title{font-weight:700}
+    .cart-meta{color:#666;font-size:.9rem}
+    .qty{display:flex;align-items:center;gap:.5rem}
+    .qty > button{width:32px;height:32px;border:none;border-radius:8px;background:#2d4778;color:#fff;cursor:pointer}
+    .qty input{width:56px;text-align:center}
+    .price{margin-left:auto;font-weight:800;color:#a5230c}
+    .actions{display:flex;gap:.5rem}
+    .pill{display:inline-block;background:#f3f4f6;border-radius:999px;padding:.2rem .6rem;font-size:.75rem;color:#374151}
+    .group{margin-top:2rem}
+    .group h3{margin:.25rem 0 1rem 0}
+    .btn-primary{background:#2d4778;color:#fff;border:none;border-radius:10px;padding:.6rem 1rem;cursor:pointer}
+    .btn-danger{background:#a5230c;color:#fff;border:none;border-radius:10px;padding:.5rem .9rem;cursor:pointer}
+    .empty{padding:2rem;text-align:center;color:#666}
+  </style>
+</head>
+<body class="page-body">
+  <div class="top-banner">¡Tu carrito de compras!</div>
+
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <a class="navbar-store-title" href="./index.html">
+        <img src="./Images/logo.png" alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+      <ul class="navbarshopingicon">
+        <li class="nav-item"><a class="nav-cart-icon"><i class="fa-solid fa-basket-shopping fa-lg"></i></a></li>
+        <li class="nav-iniciar-sesion"><i>Iniciar Sesión</i></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="cart-wrap">
+    <header class="cart-header">
+      <h1>Mi Carrito</h1>
+      <div id="pedido-badge" class="pill">Sin pedido</div>
+    </header>
+
+    <!-- Pedido actual -->
+    <section id="pedido-actual">
+      <div class="empty">Cargando tu carrito…</div>
+    </section>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem">
+      <div>
+        <button id="btn-vaciar" class="btn-danger">Vaciar carrito</button>
+      </div>
+      <div>
+        <span id="total-label" class="pill">Total: $0.00</span>
+        <button id="btn-comprar" class="btn-primary">Comprar ahora</button>
+      </div>
+    </div>
+
+    <!-- Mis pedidos (histórico / abiertos) -->
+    <section class="group">
+      <h3>Mis pedidos</h3>
+      <div id="mis-pedidos">
+        <div class="empty">Sin pedidos aún.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="./pages/ayuda.html">Ayuda</a>
+      <a href="./pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="./pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Dependencias (usa lo mismo que en index) -->
+  <script src="https://kit.fontawesome.com/a2e0e6adad.js" crossorigin="anonymous"></script>
+  <script type="module" src="../scripts/loginModal.js"></script>
+  <script type="module" src="../scripts/miCarrito.js"></script>
+</body>
+</html>
