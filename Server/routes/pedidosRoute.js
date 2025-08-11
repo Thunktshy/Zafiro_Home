@@ -254,4 +254,31 @@ PedidosRouter.get('/verificar_configuracion/:pedido_id', requireAdmin, async (re
   }
 });
 
+/* ============================================================================
+   GET /pedidos/por_cliente/:cliente_id  -> SP: pedidos_por_cliente_id
+   ============================================================================ */
+PedidosRouter.get('/por_cliente/:cliente_id', requireClient, async (req, res) => {
+  try {
+    const Body = { cliente_id: req.params.cliente_id };
+
+    // Si usas ValidationService, valida longitud (<=20) con tu ruleset;
+    // aquí lo dejamos minimal y directo para no bloquear.
+    const Params = {
+      cliente_id: { type: sql.NVarChar(20), value: Body.cliente_id }
+    };
+
+    const data = await db.executeProc('pedidos_por_cliente_id', Params);
+    return res.status(200).json({
+      success: true,
+      message: Array.isArray(data) && data.length
+        ? 'Pedidos del cliente obtenidos'
+        : 'Este cliente no tiene pedidos',
+      data
+    });
+  } catch (err) {
+    console.error('pedidos_por_cliente_id error:', err);
+    return res.status(500).json({ success: false, message: 'Error al obtener pedidos del cliente', data: [] });
+  }
+});
+
 module.exports = PedidosRouter;

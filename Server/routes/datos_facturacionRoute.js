@@ -113,40 +113,41 @@ DatosFacturacionRouter.post('/delete', requireAdmin, async (req, res) => {
   }
 });
 
-/* ============================================================================
-   GET /datos_facturacion/select_by_cliente/:cliente_id  -> SP: datos_facturacion_select_by_cliente
-============================================================================ */
-DatosFacturacionRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async (req, res) => {
+// GET /datos_facturacion/select_by_cliente/:cliente_id
+DatosFacturacionRouter.get('/select_by_cliente/:cliente_id', requireClient, async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, SelectByClienteRules);
     if (!isValid) {
-      return res.status(400).json({ success: false, message: 'Datos inválidos (select_by_cliente)' });
+      return res.status(400).json({ success: false, message: 'Datos inválidos (select_by_cliente)', data: [] });
     }
-
-    const Params = BuildParams([
-      { name: 'cliente_id', type: sql.NVarChar(20), value: Body.cliente_id }
-    ]);
-
-    await db.executeProc('datos_facturacion_select_by_cliente', Params);
-    return res.status(200).json({ success: true, message: 'Datos de facturación obtenidos por cliente' });
+    const Params = { cliente_id: { type: sql.NVarChar(20), value: Body.cliente_id } };
+    const data = await db.executeProc('datos_facturacion_select_by_cliente', Params);
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Datos de facturación obtenidos' : 'Sin datos de facturación',
+      data
+    });
   } catch (Error_) {
     console.error('datos_facturacion_select_by_cliente error:', Error_);
-    return res.status(500).json({ success: false, message: 'Error al obtener datos de facturación por cliente' });
+    return res.status(500).json({ success: false, message: 'Error al obtener datos de facturación', data: [] });
   }
 });
 
-/* ============================================================================
-   GET /datos_facturacion/select_all  -> SP: datos_facturacion_select_all
-============================================================================ */
+// GET /datos_facturacion/select_all  (si lo quieres mantener para admin)
 DatosFacturacionRouter.get('/select_all', requireAdmin, async (_req, res) => {
   try {
-    await db.executeProc('datos_facturacion_select_all', {});
-    return res.status(200).json({ success: true, message: 'Datos de facturación listados' });
+    const data = await db.executeProc('datos_facturacion_select_all', {});
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Datos de facturación listados' : 'Sin registros',
+      data
+    });
   } catch (Error_) {
     console.error('datos_facturacion_select_all error:', Error_);
-    return res.status(500).json({ success: false, message: 'Error al listar datos de facturación' });
+    return res.status(500).json({ success: false, message: 'Error al listar datos de facturación', data: [] });
   }
 });
+
 
 module.exports = DatosFacturacionRouter;

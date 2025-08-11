@@ -150,8 +150,12 @@ MetodosPagoRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async (req
       { name: 'cliente_id', type: sql.NVarChar(20), value: Body.cliente_id }
     ]);
 
-    await db.executeProc('metodos_pago_select_by_cliente', Params);
-    return res.status(200).json({ success: true, message: 'Métodos de pago obtenidos por cliente' });
+    const data = await db.executeProc('metodos_pago_select_by_cliente', Params);
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Métodos de pago obtenidos por cliente' : 'Sin métodos de pago para este cliente',
+      data
+    });
   } catch (Error_) {
     console.error('metodos_pago_select_by_cliente error:', Error_);
     return res.status(500).json({ success: false, message: 'Error al obtener métodos de pago por cliente' });
@@ -163,8 +167,12 @@ MetodosPagoRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async (req
 ============================================================================ */
 MetodosPagoRouter.get('/select_all', requireAdmin, async (_req, res) => {
   try {
-    await db.executeProc('metodos_pago_select_all', {});
-    return res.status(200).json({ success: true, message: 'Métodos de pago listados' });
+    const data = await db.executeProc('metodos_pago_select_all', {});
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Métodos de pago listados' : 'Sin registros',
+      data
+    });
   } catch (Error_) {
     console.error('metodos_pago_select_all error:', Error_);
     return res.status(500).json({ success: false, message: 'Error al listar métodos de pago' });

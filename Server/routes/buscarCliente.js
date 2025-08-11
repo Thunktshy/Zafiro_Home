@@ -39,8 +39,12 @@ BuscarRouter.post('/cliente', requireAdmin, async (req, res) => {
       { name: 'solo_activos',     type: sql.Bit,          value: SoloActivos }
     ]);
 
-    await db.executeProc('buscar_cliente', Params);
-    return res.status(200).json({ success: true, message: 'Búsqueda ejecutada' });
+    const data = await db.executeProc('buscar_cliente', Params);
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Coincidencias encontradas' : 'Sin coincidencias',
+      data
+    });
   } catch (Error_) {
     console.error('buscar_cliente error:', Error_);
     return res.status(500).json({ success: false, message: 'Error al buscar cliente' });

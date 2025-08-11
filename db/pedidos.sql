@@ -652,3 +652,24 @@ BEGIN
 END;
 GO
 
+/* =========================
+   PEDIDOS POR CLIENTE (lista)
+   ========================= */
+CREATE OR ALTER PROCEDURE pedidos_por_cliente_id
+  @cliente_id NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  SELECT
+      p.pedido_id,
+      p.cliente_id,
+      p.fecha_pedido,
+      p.estado_pedido,
+      p.total_pedido,
+      p.metodo_pago
+  FROM pedidos AS p
+  WHERE p.cliente_id = @cliente_id
+  ORDER BY p.fecha_pedido DESC;
+END;
+GO

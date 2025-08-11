@@ -142,7 +142,13 @@ DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async 
     ]);
 
     await db.executeProc('datos_personales_select_by_cliente', Params);
-    return res.status(200).json({ success: true, message: 'Datos personales obtenidos por cliente' });
+    const data = await db.executeProc('datos_personales_select_by_cliente', Params);
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Datos personales obtenidos por cliente' : 'Sin datos personales para este cliente',
+      data
+    });
+
   } catch (Error_) {
     console.error('datos_personales_select_by_cliente error:', Error_);
     return res.status(500).json({ success: false, message: 'Error al obtener datos personales por cliente' });
@@ -154,8 +160,12 @@ DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireAdmin, async 
 ============================================================================ */
 DatosPersonalesRouter.get('/select_all', requireAdmin, async (_req, res) => {
   try {
-    await db.executeProc('datos_personales_select_all', {});
-    return res.status(200).json({ success: true, message: 'Datos personales listados' });
+    const data = await db.executeProc('datos_personales_select_all', {});
+    return res.status(200).json({
+      success: true,
+      message: data.length ? 'Datos personales listados' : 'Sin registros',
+      data
+    });
   } catch (Error_) {
     console.error('datos_personales_select_all error:', Error_);
     return res.status(500).json({ success: false, message: 'Error al listar datos personales' });
