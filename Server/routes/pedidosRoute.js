@@ -268,7 +268,7 @@ PedidosRouter.get('/por_cliente/:cliente_id', requireClient, async (req, res) =>
       cliente_id: { type: sql.NVarChar(20), value: Body.cliente_id }
     };
 
-    const data = await db.executeProc('pedidos_por_cliente_id', Params);
+    const data = await db.executeProc('pedidos_select_by_cliente', Params);
     return res.status(200).json({
       success: true,
       message: Array.isArray(data) && data.length
