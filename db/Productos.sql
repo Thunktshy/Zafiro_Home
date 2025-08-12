@@ -289,6 +289,7 @@ BEGIN
 END;
 GO
 
+concat prefix prd-  to producto_id
 /* =========================
    PRODUCTOS: productos_por_id
    ========================= */

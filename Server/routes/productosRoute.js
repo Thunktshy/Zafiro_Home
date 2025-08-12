@@ -146,7 +146,7 @@ ProductosRouter.post('/delete', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /productos/get_one  -> SP: productos_por_id
 ============================================================================ */
-ProductosRouter.get('/get_one', requireAdmin, async (req, res) => {
+ProductosRouter.get('/productos_por_id', requireAdmin, async (req, res) => {
   try {
     const producto_id = req.query.id;
     if (!producto_id) {
