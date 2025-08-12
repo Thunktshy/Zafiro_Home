@@ -3,7 +3,7 @@ const express = require('express');
 const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const { InsertRules, UpdateRules, DeleteRules } = require('../Validators/Rulesets/productos.js');
-const { requireAdmin } = require('./authRoute.js');
+const { requireAdmin, requireClient } = require('./authRoute.js');
 const ProductosRouter = express.Router();
 
 // Helper { type, value }
@@ -146,7 +146,7 @@ ProductosRouter.post('/delete', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /productos/get_one  -> SP: productos_por_id
 ============================================================================ */
-ProductosRouter.get('/productos_por_id', requireAdmin, async (req, res) => {
+ProductosRouter.get('/productos_por_id', requireClient, async (req, res) => {
   try {
     const producto_id = req.query.id;
     if (!producto_id) {
