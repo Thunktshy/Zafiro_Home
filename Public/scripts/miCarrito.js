@@ -1,25 +1,26 @@
 // /Public/scripts/miCarrito.js
+// Origen de datos:
+//   - pid:   ?pid=... (prioritario)
+//   - ids:   localStorage/sessionStorage ("tmpCartIds" o "cart:ids"); fallback ?ids=a,b,c
+//   - uid:   sessionStorage.uid; fallback ?uid=...
 
 /* =======================
-   Utilidades generales
+   Utilidades
 ======================= */
 function qs(name) {
   const url = new URL(location.href);
   const v = url.searchParams.get(name);
   return v && v.trim() !== '' ? v : null;
 }
-
 function money(n) {
   const x = Number(n) || 0;
   return x.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 }
-
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"'`=\/]/g, s =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s])
   );
 }
-
 function el(html) {
   const d = document.createElement('div');
   d.innerHTML = html.trim();
@@ -27,7 +28,47 @@ function el(html) {
 }
 
 /* =======================
-   API helpers (con logs)
+   Storage helpers
+======================= */
+function parseIdList(raw) {
+  if (!raw) return [];
+  try {
+    const j = JSON.parse(raw);
+    if (Array.isArray(j)) return j.map(String).map(s => s.trim()).filter(Boolean);
+  } catch {}
+  // fallback "a,b,c"
+  return String(raw).split(',').map(s => s.trim()).filter(Boolean);
+}
+function getStoredCartIds() {
+  // Preferir sessionStorage, luego localStorage
+  const s1 = sessionStorage.getItem('tmpCartIds') ?? sessionStorage.getItem('cart:ids');
+  const s2 = localStorage.getItem('tmpCartIds')  ?? localStorage.getItem('cart:ids');
+  const fromStorage = parseIdList(s1 || s2);
+  const fromUrl = parseIdList(qs('ids') || '');
+  const all = [...fromStorage, ...fromUrl];
+  // unique preservando orden
+  const seen = new Set();
+  const uniq = [];
+  for (const id of all) if (!seen.has(id)) { seen.add(id); uniq.push(id); }
+  console.log('[STORAGE] ids detectados:', uniq);
+  return uniq;
+}
+function clearStoredCartIds() {
+  // Limpia solo tmpCartIds/cart:ids para evitar re-agregar al recargar
+  sessionStorage.removeItem('tmpCartIds');
+  sessionStorage.removeItem('cart:ids');
+  localStorage.removeItem('tmpCartIds');
+  localStorage.removeItem('cart:ids');
+  console.log('[STORAGE] tmpCartIds/cart:ids limpiados');
+}
+function getStoredUid() {
+  const uid = sessionStorage.getItem('uid') || localStorage.getItem('uid') || qs('uid');
+  console.log('[STORAGE] uid detectado:', uid);
+  return uid || null;
+}
+
+/* =======================
+   API helpers
 ======================= */
 async function apiGet(url) {
   console.log('[API][GET] ->', url);
@@ -42,7 +83,6 @@ async function apiGet(url) {
   console.log('[API][GET][OK]', url, data);
   return data;
 }
-
 async function apiPost(url, body) {
   console.log('[API][POST] ->', url, body);
   const r = await fetch(url, {
@@ -63,16 +103,14 @@ async function apiPost(url, body) {
 }
 
 /* =======================
-   Productos (cache + enrich)
+   Productos (cache + enrich usando /productos_por_id)
 ======================= */
 const productCache = new Map();
-
 async function getProductoPorId(id) {
   if (productCache.has(id)) return productCache.get(id);
   try {
-    console.log('[Producto] consultando /productos_por_id?id=', id);
+    console.log('[Producto] /productos_por_id?id=', id);
     const r = await apiGet(`/productos_por_id?id=${encodeURIComponent(id)}`);
-    // Normaliza: puede venir como {data:[...]} o {data:{...}} o {...}
     const row = Array.isArray(r?.data) ? r.data[0] : (r?.data?.[0] ?? r?.data ?? r) || null;
     productCache.set(id, row);
     return row;
@@ -82,7 +120,6 @@ async function getProductoPorId(id) {
     return null;
   }
 }
-
 async function enrichDetalles(detalles) {
   const out = await Promise.all((detalles || []).map(async d => {
     const p = await getProductoPorId(d.producto_id);
@@ -91,7 +128,7 @@ async function enrichDetalles(detalles) {
       nombre_producto: d.nombre_producto ?? p?.nombre_producto ?? d.producto_id,
       precio_unitario: (Number(d.precio_unitario) || Number(p?.precio_unitario) || 0),
       image_url: d.image_url || p?.image_path || p?.image_url || null,
-      subtotal: Number(d.subtotal ?? ( (Number(d.precio_unitario) || Number(p?.precio_unitario) || 0) * Number(d.cantidad || 1) ))
+      subtotal: Number(d.subtotal ?? ((Number(d.precio_unitario) || Number(p?.precio_unitario) || 0) * Number(d.cantidad || 1)))
     };
   }));
   return out;
@@ -130,26 +167,9 @@ function renderLinea(det, handlers) {
   const btnDel = card.querySelector('.btn-del');
   const inpQty = card.querySelector('.inp-qty');
 
-  if (!btnInc)  console.log('[UI] no se encontró botón + para', producto_id);
-  if (!btnDec)  console.log('[UI] no se encontró botón - para', producto_id);
-  if (!btnDel)  console.log('[UI] no se encontró botón quitar para', producto_id);
-  if (!inpQty)  console.log('[UI] no se encontró input qty para', producto_id);
-
-  btnInc?.addEventListener('click', () => {
-    console.log('[CLICK] sumar cantidad para', producto_id);
-    handlers.add(producto_id, 1);
-  });
-
-  btnDec?.addEventListener('click', () => {
-    console.log('[CLICK] restar cantidad para', producto_id);
-    handlers.remove(producto_id, 1);
-  });
-
-  btnDel?.addEventListener('click', () => {
-    console.log('[CLICK] quitar producto', producto_id);
-    handlers.remove(producto_id, null); // null => quitar todo
-  });
-
+  btnInc?.addEventListener('click', () => { console.log('[CLICK] +', producto_id); handlers.add(producto_id, 1); });
+  btnDec?.addEventListener('click', () => { console.log('[CLICK] -', producto_id); handlers.remove(producto_id, 1); });
+  btnDel?.addEventListener('click', () => { console.log('[CLICK] quitar', producto_id); handlers.remove(producto_id, null); });
   inpQty?.addEventListener('change', () => {
     const targetQty = Math.max(1, Number(inpQty.value) || 1);
     const cur = Number(cantidad) || 1;
@@ -161,7 +181,16 @@ function renderLinea(det, handlers) {
 
   return card;
 }
-
+function actualizarTotalesYBadge(pedido, detalles) {
+  const total = (detalles || []).reduce((a, d) =>
+    a + Number(d.subtotal || (Number(d.precio_unitario) * Number(d.cantidad || 1)) || 0), 0);
+  const $total = document.getElementById('total-label');
+  const $badge = document.getElementById('pedido-badge');
+  if ($total) $total.textContent = `Total: ${money(total)}`;
+  if ($badge) $badge.textContent = pedido?.pedido_id
+    ? `Pedido ${pedido.pedido_id} — Estado: ${pedido.estado || pedido.estado_pedido || 'Abierto'}`
+    : 'Sin pedido';
+}
 function renderPedidoActual(root, pedido, detalles, handlers) {
   root.innerHTML = '';
   if (!pedido) {
@@ -170,24 +199,18 @@ function renderPedidoActual(root, pedido, detalles, handlers) {
     actualizarTotalesYBadge(null, []);
     return;
   }
-
-  console.log('[RENDER] pedido', pedido?.pedido_id, 'con', (detalles || []).length, 'líneas');
+  console.log('[RENDER] pedido', pedido?.pedido_id, 'líneas', (detalles || []).length);
   const frag = document.createDocumentFragment();
   (detalles || []).forEach(det => frag.appendChild(renderLinea(det, handlers)));
   root.appendChild(frag);
-
   actualizarTotalesYBadge(pedido, detalles || []);
 }
-
 function renderMisPedidos(root, pedidos) {
   root.innerHTML = '';
   if (!Array.isArray(pedidos) || pedidos.length === 0) {
-    console.log('[RENDER] sin pedidos del cliente');
     root.appendChild(el(`<div class="empty">Sin pedidos.</div>`));
     return;
   }
-
-  console.log('[RENDER] mis pedidos x', pedidos.length);
   const container = document.createDocumentFragment();
   pedidos.forEach(p => {
     const card = el(`
@@ -200,28 +223,13 @@ function renderMisPedidos(root, pedidos) {
       </div>
     `);
     card.querySelector('.btn-ver')?.addEventListener('click', () => {
+      const uid = getStoredUid();
       console.log('[CLICK] ver pedido', p.pedido_id);
-      const uid = qs('uid') || String(p.cliente_id || '');
-      location.assign(`miCarrito.html?pid=${encodeURIComponent(p.pedido_id)}&uid=${encodeURIComponent(uid)}`);
+      location.assign(`miCarrito.html?pid=${encodeURIComponent(p.pedido_id)}${uid ? `&uid=${encodeURIComponent(uid)}`:''}`);
     });
     container.appendChild(card);
   });
   root.appendChild(container);
-}
-
-function actualizarTotalesYBadge(pedido, detalles) {
-  const total = (detalles || []).reduce((a, d) =>
-    a + Number(d.subtotal || (Number(d.precio_unitario) * Number(d.cantidad || 1)) || 0), 0);
-  const $total = document.getElementById('total-label');
-  const $badge = document.getElementById('pedido-badge');
-
-  if (!$total) console.log('[UI] no se encontró #total-label');
-  if (!$badge) console.log('[UI] no se encontró #pedido-badge');
-
-  if ($total) $total.textContent = `Total: ${money(total)}`;
-  if ($badge)  $badge.textContent = pedido?.pedido_id
-    ? `Pedido ${pedido.pedido_id} — Estado: ${pedido.estado || pedido.estado_pedido || 'Abierto'}`
-    : 'Sin pedido';
 }
 
 /* =======================
@@ -236,7 +244,6 @@ async function cargarPedidoPorPid(pid) {
   detalles = await enrichDetalles(detalles);
   return { pedido, detalles };
 }
-
 async function crearPedidoConIds(uid, ids) {
   console.log('[FLOW] crearPedidoConIds', uid, ids);
   const creado = await apiPost('/pedidos/insert', { cliente_id: uid });
@@ -246,15 +253,16 @@ async function crearPedidoConIds(uid, ids) {
 
   for (const producto_id of ids) {
     try {
-      console.log('[FLOW] agregando producto', producto_id);
       await apiPost('/pedidos/add_item', { pedido_id: pid, producto_id, cantidad: 1 });
+      console.log('[FLOW] agregado', producto_id);
     } catch (e) {
       console.log('[FLOW][WARN] no se pudo agregar', producto_id, e?.message || e);
     }
   }
+  // Consumimos los IDs del storage para no duplicar en recargas
+  clearStoredCartIds();
   return cargarPedidoPorPid(pid);
 }
-
 async function cargarMisPedidos(uid) {
   console.log('[FLOW] cargarMisPedidos', uid);
   const r = await apiGet(`/pedidos/por_cliente/${encodeURIComponent(uid)}`);
@@ -267,14 +275,11 @@ async function cargarMisPedidos(uid) {
 async function run() {
   console.log('[INIT] miCarrito');
   const pid = qs('pid');
-  const uid = qs('uid');
-  const ids = (qs('ids') || '').split(',').map(s => s.trim()).filter(Boolean);
+  const uid = getStoredUid();
+  const ids = getStoredCartIds();
 
   const $actual = document.getElementById('pedido-actual');
   const $mis    = document.getElementById('mis-pedidos');
-
-  if (!$actual) console.log('[UI] no se encontró #pedido-actual');
-  if (!$mis)    console.log('[UI] no se encontró #mis-pedidos');
 
   let pedido = null, detalles = [];
 
@@ -283,13 +288,12 @@ async function run() {
       console.log('[MODE] cargar por pid', pid);
       ({ pedido, detalles } = await cargarPedidoPorPid(pid));
     } else if (ids.length && uid) {
-      console.log('[MODE] crear pedido con ids', ids, 'uid', uid);
+      console.log('[MODE] crear pedido con ids (storage)', ids, 'uid', uid);
       ({ pedido, detalles } = await crearPedidoConIds(uid, ids));
-
-      // limpiar ids de la URL para evitar duplicar si recarga
+      // limpiar ?ids de la URL si venían (no estrictamente necesario)
       const u = new URL(location.href);
       u.searchParams.delete('ids');
-      history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());
+      history.replaceState({}, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash);
     } else {
       console.log('[MODE] no hay pid ni (ids+uid) -> esperando acción del usuario');
     }
@@ -297,42 +301,33 @@ async function run() {
     console.log('[ERROR] cargando/creando pedido', e?.message || e);
   }
 
-  // Handlers de acciones sobre el pedido actual (+, -, quitar)
+  // Handlers
   const handlers = {
     add: async (producto_id, n) => {
       if (!pedido?.pedido_id) { console.log('[ADD] no hay pedido actual'); return; }
-      console.log('[ADD]', producto_id, 'n=', n);
       try {
         await apiPost('/pedidos/add_item', { pedido_id: pedido.pedido_id, producto_id, cantidad: Number(n) });
         ({ pedido, detalles } = await cargarPedidoPorPid(pedido.pedido_id));
         if ($actual) renderPedidoActual($actual, pedido, detalles, handlers);
-      } catch (e) {
-        console.log('[ADD][ERROR]', e?.message || e);
-      }
+      } catch (e) { console.log('[ADD][ERROR]', e?.message || e); }
     },
     remove: async (producto_id, nOrNull) => {
       if (!pedido?.pedido_id) { console.log('[REMOVE] no hay pedido actual'); return; }
-      console.log('[REMOVE]', producto_id, 'n=', nOrNull);
       try {
         const body = { pedido_id: pedido.pedido_id, producto_id };
         if (nOrNull != null) body.cantidad = Number(nOrNull); // null => quitar todo
         await apiPost('/pedidos/remove_item', body);
         ({ pedido, detalles } = await cargarPedidoPorPid(pedido.pedido_id));
         if ($actual) renderPedidoActual($actual, pedido, detalles, handlers);
-      } catch (e) {
-        console.log('[REMOVE][ERROR]', e?.message || e);
-      }
+      } catch (e) { console.log('[REMOVE][ERROR]', e?.message || e); }
     }
   };
 
   if ($actual) renderPedidoActual($actual, pedido, detalles, handlers);
 
   // Botón comprar
-  const $btnComprar = document.getElementById('btn-comprar');
-  if (!$btnComprar) console.log('[UI] no se encontró #btn-comprar');
-  $btnComprar?.addEventListener('click', async () => {
+  document.getElementById('btn-comprar')?.addEventListener('click', async () => {
     if (!pedido?.pedido_id) { console.log('[COMPRAR] no hay pedido'); return; }
-    console.log('[COMPRAR] se presionó comprar ahora');
     try {
       await apiPost('/pedidos/set_estado', { pedido_id: pedido.pedido_id, estado: 'Completado' });
       ({ pedido, detalles } = await cargarPedidoPorPid(pedido.pedido_id));
@@ -345,28 +340,23 @@ async function run() {
   });
 
   // Botón vaciar
-  const $btnVaciar = document.getElementById('btn-vaciar');
-  if (!$btnVaciar) console.log('[UI] no se encontró #btn-vaciar');
-  $btnVaciar?.addEventListener('click', async () => {
+  document.getElementById('btn-vaciar')?.addEventListener('click', async () => {
     if (!pedido?.pedido_id) { console.log('[VACIAR] no hay pedido'); return; }
-    console.log('[VACIAR] se presionó vaciar carrito');
     try {
       for (const d of (detalles || [])) {
         await apiPost('/pedidos/remove_item', { pedido_id: pedido.pedido_id, producto_id: d.producto_id });
       }
       ({ pedido, detalles } = await cargarPedidoPorPid(pedido.pedido_id));
       if ($actual) renderPedidoActual($actual, pedido, detalles, handlers);
-    } catch (e) {
-      console.log('[VACIAR][ERROR]', e?.message || e);
-    }
+    } catch (e) { console.log('[VACIAR][ERROR]', e?.message || e); }
   });
 
   // Mis pedidos
   try {
-    const mine = (qs('uid')) ? await cargarMisPedidos(qs('uid')) : [];
+    const mine = uid ? await cargarMisPedidos(uid) : [];
     if ($mis) renderMisPedidos($mis, mine);
   } catch (e) {
-    console.log('[ERROR] cargando mis pedidos', e?.message || e);
+    console.log('[ERROR] cargar mis pedidos', e?.message || e);
   }
 
   // Badge final

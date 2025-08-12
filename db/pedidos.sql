@@ -1,13 +1,12 @@
 /* ==============================================================
    PEDIDOS y DETALLE_PEDIDOS – esquema, triggers y procedimientos
-   Estilo alineado a categorias.sql
    ============================================================== */
 
 /* ========================
    SECUENCIA PARA PEDIDOS
    ======================== */
-IF OBJECT_ID('seq_pedidos', 'SO') IS NOT NULL
-    DROP SEQUENCE seq_pedidos;
+
+DROP SEQUENCE IF EXISTS seq_pedidos;
 GO
 CREATE SEQUENCE seq_pedidos
     AS INT
@@ -40,8 +39,7 @@ GO
 /* ========================
    TABLA: DETALLE_PEDIDOS
    ======================== */
-IF OBJECT_ID('detalle_pedidos', 'U') IS NOT NULL
-    DROP TABLE detalle_pedidos;
+DROP TABLE IF EXISTS detalle_pedidos;
 GO
 CREATE TABLE detalle_pedidos (
     detalle_id       INT IDENTITY(1,1) PRIMARY KEY,
