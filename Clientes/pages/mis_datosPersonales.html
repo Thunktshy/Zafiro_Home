@@ -1,0 +1,243 @@
+<!-- /client-resources/pages/mis_datosPersonales.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi cuenta — Mis datos personales</title>
+
+  <!-- Opcional: Bootstrap para estilos rápidos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { background:#f7f7fb; }
+    .page { max-width: 900px; margin: 24px auto; }
+    .card { border-radius: 14px; }
+    .form-text { font-size:.85rem; color:#6c757d; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="h3 mb-3">Mis datos personales</h1>
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="mb-3 small text-muted">
+          <span id="lblCliente">Cliente:</span>
+        </div>
+
+        <form id="form_datos_personales" novalidate>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="dp_nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+              <input id="dp_nombre" type="text" class="form-control" maxlength="50" required />
+              <div class="invalid-feedback" id="err_dp_nombre"></div>
+            </div>
+            <div class="col-md-6">
+              <label for="dp_apellidos" class="form-label">Apellidos <span class="text-danger">*</span></label>
+              <input id="dp_apellidos" type="text" class="form-control" maxlength="100" required />
+              <div class="invalid-feedback" id="err_dp_apellidos"></div>
+            </div>
+            <div class="col-md-6">
+              <label for="dp_telefono" class="form-label">Teléfono</label>
+              <input id="dp_telefono" type="text" class="form-control" maxlength="20" />
+              <div class="form-text">Opcional (máx. 20)</div>
+              <div class="invalid-feedback" id="err_dp_telefono"></div>
+            </div>
+            <div class="col-md-6">
+              <label for="dp_ciudad" class="form-label">Ciudad</label>
+              <input id="dp_ciudad" type="text" class="form-control" maxlength="50" />
+              <div class="invalid-feedback" id="err_dp_ciudad"></div>
+            </div>
+            <div class="col-md-8">
+              <label for="dp_direccion" class="form-label">Dirección</label>
+              <input id="dp_direccion" type="text" class="form-control" maxlength="200" />
+              <div class="invalid-feedback" id="err_dp_direccion"></div>
+            </div>
+            <div class="col-md-4">
+              <label for="dp_codigo_postal" class="form-label">Código postal</label>
+              <input id="dp_codigo_postal" type="text" class="form-control" maxlength="10" />
+              <div class="invalid-feedback" id="err_dp_codigo_postal"></div>
+            </div>
+            <div class="col-md-6">
+              <label for="dp_pais" class="form-label">País</label>
+              <input id="dp_pais" type="text" class="form-control" maxlength="50" />
+              <div class="invalid-feedback" id="err_dp_pais"></div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+          <div class="d-flex gap-2">
+            <button id="btn_guardar_datos_personales" type="submit" class="btn btn-primary">
+              Guardar datos personales
+            </button>
+            <button id="btn_eliminar_datos_personales" type="button" class="btn btn-outline-danger d-none">
+              Eliminar mis datos personales
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    // ===== Helpers (nomenclatura: objeto + operación) =====
+    const RUTA_DATOS_PERSONALES = '/datos_personales';
+
+    const $  = (s, c = document) => c.querySelector(s);
+    const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+
+    function qs(name) {
+      const url = new URL(location.href);
+      const v = url.searchParams.get(name);
+      return v && v.trim() !== '' ? v : null;
+    }
+    function showAlert(tipo, msg, autohideMs = 3800) {
+      const box = $('#alertBox');
+      box.className = `alert alert-${tipo}`;
+      box.textContent = msg;
+      box.classList.remove('d-none');
+      if (autohideMs) setTimeout(() => box.classList.add('d-none'), autohideMs);
+    }
+    function datos_personales_get_uid() {
+      // Prioriza ?uid=cl-#; de lo contrario intenta local/sessionStorage
+      const fromQs = qs('uid');
+      if (fromQs) return fromQs;
+      const ls = localStorage.getItem('uid') || sessionStorage.getItem('uid');
+      return ls || null;
+    }
+
+    async function api_llamar(path, { method='GET', body } = {}) {
+      const opts = { method, credentials:'include', headers:{ Accept:'application/json' } };
+      if (body != null) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const res = await fetch(`${RUTA_DATOS_PERSONALES}${path}`, opts);
+      const ct  = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const msg = (data && data.message) || `Error ${res.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    // ===== Estado de página =====
+    let cliente_id = null;
+    let datos_personales_existe = false; // si ya hay registro → update/delete; si no → insert
+
+    // ===== Validación (alineada a SQL) =====
+    function datos_personales_validar() {
+      let ok = true;
+      const nombre  = $('#dp_nombre').value.trim();
+      const apes    = $('#dp_apellidos').value.trim();
+      const tel     = $('#dp_telefono').value.trim();
+      const dir     = $('#dp_direccion').value.trim();
+      const ciudad  = $('#dp_ciudad').value.trim();
+      const cp      = $('#dp_codigo_postal').value.trim();
+      const pais    = $('#dp_pais').value.trim();
+
+      // limpia errores
+      $$('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      ['nombre','apellidos','telefono','direccion','ciudad','codigo_postal','pais'].forEach(f => {
+        const e = $('#err_dp_'+f); if (e) e.textContent = '';
+      });
+
+      const req = (cond, id, msg) => { if (!cond) { $('#'+id).textContent = msg; const ctl = $('#'+id.replace('err_','')); ctl?.classList.add('is-invalid'); ok = false; } };
+
+      req(nombre.length > 0 && nombre.length <= 50, 'err_dp_nombre', 'Requerido (máx. 50).');
+      req(apes.length   > 0 && apes.length   <= 100, 'err_dp_apellidos', 'Requerido (máx. 100).');
+      if (tel && tel.length > 20) req(false, 'err_dp_telefono', 'Máx. 20.');
+      if (dir && dir.length > 200) req(false, 'err_dp_direccion', 'Máx. 200.');
+      if (ciudad && ciudad.length > 50) req(false, 'err_dp_ciudad', 'Máx. 50.');
+      if (cp && cp.length > 10) req(false, 'err_dp_codigo_postal', 'Máx. 10.');
+      if (pais && pais.length > 50) req(false, 'err_dp_pais', 'Máx. 50.');
+
+      return ok;
+    }
+
+    function datos_personales_payload() {
+      return {
+        cliente_id,
+        nombre:        $('#dp_nombre').value.trim(),
+        apellidos:     $('#dp_apellidos').value.trim(),
+        telefono:      $('#dp_telefono').value.trim()      || null,
+        direccion:     $('#dp_direccion').value.trim()     || null,
+        ciudad:        $('#dp_ciudad').value.trim()        || null,
+        codigo_postal: $('#dp_codigo_postal').value.trim() || null,
+        pais:          $('#dp_pais').value.trim()          || null
+      };
+    }
+
+    async function datos_personales_cargar() {
+      if (!cliente_id) return;
+      $('#lblCliente').textContent = `Cliente: ${cliente_id}`;
+      try {
+        const r = await api_llamar(`/select_by_cliente/${encodeURIComponent(cliente_id)}`);
+        const rows = Array.isArray(r?.data) ? r.data : [];
+        const row = rows[0];
+        datos_personales_existe = !!row;
+        $('#btn_eliminar_datos_personales').classList.toggle('d-none', !datos_personales_existe);
+
+        if (row) {
+          $('#dp_nombre').value         = row.nombre        ?? '';
+          $('#dp_apellidos').value      = row.apellidos     ?? '';
+          $('#dp_telefono').value       = row.telefono      ?? '';
+          $('#dp_direccion').value      = row.direccion     ?? '';
+          $('#dp_ciudad').value         = row.ciudad        ?? '';
+          $('#dp_codigo_postal').value  = row.codigo_postal ?? '';
+          $('#dp_pais').value           = row.pais          ?? '';
+          showAlert('success', 'Datos personales cargados.');
+        } else {
+          showAlert('info', 'Aún no has registrado tus datos personales.');
+        }
+      } catch (err) {
+        showAlert('danger', err.message || 'Error al obtener tus datos personales');
+      }
+    }
+
+    async function datos_personales_guardar(ev) {
+      ev?.preventDefault();
+      if (!cliente_id) return showAlert('warning', 'No se detectó tu sesión (uid).');
+      if (!datos_personales_validar()) return;
+
+      const body = datos_personales_payload();
+      try {
+        const ruta = datos_personales_existe ? '/update' : '/insert';
+        const r = await api_llamar(ruta, { method:'POST', body });
+        showAlert('success', r?.message || 'Datos guardados correctamente.');
+        datos_personales_existe = true;
+        $('#btn_eliminar_datos_personales').classList.remove('d-none');
+      } catch (err) {
+        showAlert('danger', err.message || 'No fue posible guardar.');
+      }
+    }
+
+    async function datos_personales_eliminar() {
+      if (!cliente_id) return;
+      if (!confirm('¿Eliminar tus datos personales? Esta acción no se puede deshacer.')) return;
+      try {
+        const r = await api_llamar('/delete', { method:'POST', body:{ cliente_id } });
+        showAlert('success', r?.message || 'Datos eliminados.');
+        datos_personales_existe = false;
+        $('#form_datos_personales').reset();
+        $('#btn_eliminar_datos_personales').classList.add('d-none');
+      } catch (err) {
+        showAlert('danger', err.message || 'No fue posible eliminar.');
+      }
+    }
+
+    // ===== Arranque =====
+    cliente_id = datos_personales_get_uid();
+    if (!cliente_id) {
+      showAlert('warning', 'Falta tu identificador (?uid=cl-#). Inicia sesión nuevamente.');
+    }
+    await datos_personales_cargar();
+
+    // Bind eventos
+    $('#form_datos_personales').addEventListener('submit', datos_personales_guardar);
+    $('#btn_eliminar_datos_personales').addEventListener('click', datos_personales_eliminar);
+  </script>
+</body>
+</html>

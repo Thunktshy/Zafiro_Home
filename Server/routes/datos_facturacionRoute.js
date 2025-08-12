@@ -22,13 +22,13 @@ function BuildParams(entries) {
 }
 
 // Mapear números de error SQL → HTTP
-function MapSqlErrorToHttp(err) {
-  if (!err || typeof err.number !== 'number') return null;
-  switch (err.number) {
-    case 51000: return { code: 404, message: 'El cliente especificado no existe' };
-    case 51001: return { code: 409, message: 'Ya existen datos de facturación para este cliente' };
-    case 51002: return { code: 404, message: 'No existen datos de facturación para este cliente' };
-    case 51003: return { code: 404, message: 'No existen datos de facturación para este cliente' };
+function MapSqlErrorToHttp(err){
+  if(!err || typeof err.number !== 'number') return null;
+  switch(err.number){
+    case 58000: return { code: 404, message: 'El cliente especificado no existe' };
+    case 58001: return { code: 409, message: 'Ya existen datos de facturación para este cliente' };
+    case 58002: return { code: 404, message: 'No existen datos de facturación para este cliente' };
+    case 58003: return { code: 404, message: 'No existen datos de facturación para este cliente' };
     default: return null;
   }
 }
@@ -150,5 +150,18 @@ DatosFacturacionRouter.get('/select_all', requireAdmin, async (_req, res) => {
   }
 });
 
+DatosFacturacionRouter.get('/por_id/:id', requireAdmin, async (req,res)=>{
+  try{
+    const id = Number(req.params.id);
+    if(!Number.isInteger(id)) return res.status(400).json({success:false,message:'id inválido'});
+    const data = await db.executeProc('datos_facturacion_por_id', {
+      datos_facturacion_id: { type: sql.Int, value: id }
+    });
+    if(!data.length) return res.status(404).json({success:false,message:'No encontrado'});
+    return res.status(200).json({success:true, message:'OK', data: data[0]});
+  }catch(e){
+    return res.status(500).json({success:false,message:'Error al obtener el registro'});
+  }
+});
 
 module.exports = DatosFacturacionRouter;

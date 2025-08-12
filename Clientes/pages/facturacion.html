@@ -1,0 +1,218 @@
+<!-- /client-resources/pages/facturacion.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi cuenta — Facturación</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { background:#f7f7fb; }
+    .page { max-width: 900px; margin: 24px auto; }
+    .card { border-radius: 14px; }
+    .form-text { font-size:.85rem; color:#6c757d; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="h3 mb-3">Datos de facturación</h1>
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="mb-3 small text-muted">
+          <span id="lblCliente">Cliente:</span>
+        </div>
+
+        <form id="form_datos_facturacion" novalidate>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="df_rfc" class="form-label">RFC <span class="text-danger">*</span></label>
+              <input id="df_rfc" type="text" class="form-control" maxlength="13" required />
+              <div class="form-text">Personas: 13, Morales: 12–13. Se envía en MAYÚSCULAS.</div>
+              <div class="invalid-feedback" id="err_df_rfc"></div>
+            </div>
+            <div class="col-md-6">
+              <label for="df_razon_social" class="form-label">Razón social <span class="text-danger">*</span></label>
+              <input id="df_razon_social" type="text" class="form-control" maxlength="100" required />
+              <div class="invalid-feedback" id="err_df_razon_social"></div>
+            </div>
+            <div class="col-12">
+              <label for="df_direccion_fiscal" class="form-label">Dirección fiscal</label>
+              <input id="df_direccion_fiscal" type="text" class="form-control" maxlength="200" />
+              <div class="invalid-feedback" id="err_df_direccion_fiscal"></div>
+            </div>
+          </div>
+
+          <hr class="my-4" />
+          <div class="d-flex flex-wrap gap-2">
+            <button id="btn_guardar_datos_facturacion" type="submit" class="btn btn-primary">
+              Guardar datos de facturación
+            </button>
+            <button id="btn_eliminar_datos_facturacion" type="button" class="btn btn-outline-danger d-none">
+              Eliminar mis datos de facturación
+            </button>
+            <button id="btn_crear_factura" type="button" class="btn btn-outline-secondary">
+              Crear factura (TODO)
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    // ===== Config / nomenclatura =====
+    const RUTA_DATOS_FACTURACION = '/datos_facturacion';  // nombre-objeto-en-español
+    const $  = (s, c = document) => c.querySelector(s);
+    const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+
+    // ===== Helpers =====
+    function qs(name) {
+      const url = new URL(location.href);
+      const v = url.searchParams.get(name);
+      return v && v.trim() !== '' ? v : null;
+    }
+    function showAlert(tipo, msg, autohideMs = 3800) {
+      const box = $('#alertBox');
+      box.className = `alert alert-${tipo}`;
+      box.textContent = msg;
+      box.classList.remove('d-none');
+      if (autohideMs) setTimeout(() => box.classList.add('d-none'), autohideMs);
+    }
+    function datos_facturacion_get_uid() {
+      const fromQs = qs('uid');
+      if (fromQs) return fromQs;
+      return localStorage.getItem('uid') || sessionStorage.getItem('uid') || null;
+    }
+    async function api_llamar(path, { method='GET', body } = {}) {
+      const opts = { method, credentials:'include', headers:{ Accept:'application/json' } };
+      if (body != null) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const res = await fetch(`${RUTA_DATOS_FACTURACION}${path}`, opts);
+      const ct  = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const msg = (data && data.message) || `Error ${res.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    // ===== Estado =====
+    let cliente_id = null;
+    let datos_facturacion_existe = false;
+
+    // ===== Validaciones (alineadas a SQL) =====
+    function datos_facturacion_validar() {
+      let ok = true;
+      const rfc   = $('#df_rfc').value.trim().toUpperCase();
+      const razon = $('#df_razon_social').value.trim();
+      const dir   = $('#df_direccion_fiscal').value.trim();
+
+      // Limpia errores
+      $$('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      ['err_df_rfc','err_df_razon_social','err_df_direccion_fiscal'].forEach(id => $('#'+id).textContent='');
+
+      const setErr = (id, msg) => { $('#'+id).textContent = msg; const ctl = $('#'+id.replace('err_','')); ctl?.classList.add('is-invalid'); ok = false; };
+
+      // RFC: 12-13 chars; regex básico SAT (tolerante)
+      const reRFC = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{2,3}$/;
+      if (!(rfc.length >= 12 && rfc.length <= 13 && reRFC.test(rfc))) setErr('err_df_rfc', 'RFC inválido (12–13, ej. ABCD001122ABC).');
+
+      if (!razon || razon.length > 100) setErr('err_df_razon_social', 'Requerido (máx. 100).');
+      if (dir && dir.length > 200) setErr('err_df_direccion_fiscal', 'Máx. 200.');
+
+      // Normaliza campo si pasó
+      if (ok) $('#df_rfc').value = rfc;
+      return ok;
+    }
+
+    function datos_facturacion_payload() {
+      return {
+        cliente_id,
+        rfc:              $('#df_rfc').value.trim().toUpperCase(),
+        razon_social:     $('#df_razon_social').value.trim(),
+        direccion_fiscal: $('#df_direccion_fiscal').value.trim() || null
+      };
+    }
+
+    // ===== Carga inicial =====
+    async function datos_facturacion_cargar() {
+      if (!cliente_id) return;
+      $('#lblCliente').textContent = `Cliente: ${cliente_id}`;
+      try {
+        const r = await api_llamar(`/select_by_cliente/${encodeURIComponent(cliente_id)}`);
+        const rows = Array.isArray(r?.data) ? r.data : [];
+        const row = rows[0];
+        datos_facturacion_existe = !!row;
+        $('#btn_eliminar_datos_facturacion').classList.toggle('d-none', !datos_facturacion_existe);
+
+        if (row) {
+          $('#df_rfc').value              = row.rfc              ?? '';
+          $('#df_razon_social').value     = row.razon_social     ?? '';
+          $('#df_direccion_fiscal').value = row.direccion_fiscal ?? '';
+          showAlert('success', 'Datos de facturación cargados.');
+        } else {
+          showAlert('info', 'Aún no has registrado tus datos de facturación.');
+        }
+      } catch (err) {
+        showAlert('danger', err.message || 'Error al obtener datos de facturación');
+      }
+    }
+
+    // ===== Guardar (insert/update) =====
+    async function datos_facturacion_guardar(ev) {
+      ev?.preventDefault();
+      if (!cliente_id) return showAlert('warning', 'No se detectó tu sesión (uid).');
+      if (!datos_facturacion_validar()) return;
+
+      const body = datos_facturacion_payload();
+      try {
+        const ruta = datos_facturacion_existe ? '/update' : '/insert';
+        const r = await api_llamar(ruta, { method:'POST', body });
+        showAlert('success', r?.message || 'Datos guardados correctamente.');
+        datos_facturacion_existe = true;
+        $('#btn_eliminar_datos_facturacion').classList.remove('d-none');
+      } catch (err) {
+        showAlert('danger', err.message || 'No fue posible guardar.');
+      }
+    }
+
+    // ===== Eliminar =====
+    async function datos_facturacion_eliminar() {
+      if (!cliente_id) return;
+      if (!confirm('¿Eliminar tus datos de facturación? Esta acción no se puede deshacer.')) return;
+      try {
+        const r = await api_llamar('/delete', { method:'POST', body:{ cliente_id } });
+        showAlert('success', r?.message || 'Datos eliminados.');
+        datos_facturacion_existe = false;
+        $('#form_datos_facturacion').reset();
+        $('#btn_eliminar_datos_facturacion').classList.add('d-none');
+      } catch (err) {
+        showAlert('danger', err.message || 'No fue posible eliminar.');
+      }
+    }
+
+    // ===== Dummy: Crear factura (// TODO) =====
+    function factura_crear_todo() {
+      console.log('// TODO: crear factura → seleccionar pedido, CFDI, uso CFDI, método/forma de pago, etc.');
+      showAlert('secondary', 'TODO: Crear factura — pendiente de implementación.');
+      // Aquí irá: datos_facturacion_select_by_cliente → validar → abrir modal para timbrado
+    }
+
+    // ===== Bind / Arranque =====
+    cliente_id = datos_facturacion_get_uid();
+    if (!cliente_id) showAlert('warning', 'Falta tu identificador (?uid=cl-#). Inicia sesión nuevamente.');
+
+    await datos_facturacion_cargar();
+
+    $('#form_datos_facturacion').addEventListener('submit', datos_facturacion_guardar);
+    $('#btn_eliminar_datos_facturacion').addEventListener('click', datos_facturacion_eliminar);
+    $('#btn_crear_factura').addEventListener('click', factura_crear_todo);
+  </script>
+</body>
+</html>

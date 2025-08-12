@@ -1,8 +1,7 @@
 // Server/Validators/Rulesets/categorias.js
 
+// Letras, números, espacios y puntuación básica ES; hasta 50 chars
 const NombreCategoriaRegex = /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñÜü\s\.\,\-_]{1,50}$/;
-// Permitimos rutas relativas tipo Protected/img/categorias/123-file.jpg (jpg/png/gif)
-const ImagePathRegex = /^[-A-Za-z0-9_\/\.]{1,255}\.(jpe?g|png|gif)$/i;
 
 const Common = {
   categoria_id: {
@@ -33,33 +32,23 @@ const Common = {
       type: 'descripcion debe ser texto',
       maxLength: 'descripcion no puede exceder 255 caracteres'
     }
-  },
-  image_path: {
-    required: false,
-    type: 'string',
-    maxLength: 255,
-    pattern: ImagePathRegex,
-    messages: {
-      type: 'image_path debe ser texto',
-      maxLength: 'image_path no puede exceder 255 caracteres',
-      pattern: 'image_path tiene formato inválido'
-    }
   }
 };
 
 module.exports = {
   InsertRules: {
     nombre_categoria: Common.nombre_categoria,
-    descripcion: Common.descripcion,
-    image_path: Common.image_path
+    descripcion: Common.descripcion
   },
   UpdateRules: {
     categoria_id: Common.categoria_id,
     nombre_categoria: Common.nombre_categoria,
-    descripcion: Common.descripcion,
-    image_path: Common.image_path
+    descripcion: Common.descripcion
   },
   DeleteRules: {
+    categoria_id: Common.categoria_id
+  },
+  GetByIdRules: {
     categoria_id: Common.categoria_id
   }
 };

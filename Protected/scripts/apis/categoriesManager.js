@@ -27,7 +27,7 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
 
 export const categoriasAPI = {
   getAll: () => apiFetch('/get_all'),
-  getOne: (id) => apiFetch(`/get_one?id=${encodeURIComponent(id)}`),
+  getOne: (id) => apiFetch(`/by_id/${encodeURIComponent(id)}`),
   insert: ({ nombre_categoria, descripcion }) =>
     apiFetch('/insert', { method: 'POST', body: { nombre_categoria, descripcion: descripcion || null } }),
   update: ({ categoria_id, nombre_categoria, descripcion }) =>

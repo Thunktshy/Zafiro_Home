@@ -1,110 +1,100 @@
--- ==============================================
--- Tabla de logs generales
--- ==============================================
-DROP TABLE IF EXISTS logs;
-GO
-CREATE TABLE logs (
-    log_id    INT IDENTITY(1,1) PRIMARY KEY,
-    fecha     DATETIME     NOT NULL DEFAULT GETDATE(),
-    mensaje   NVARCHAR(MAX) NOT NULL,
-    nivel     VARCHAR(10)  NOT NULL,
-    origen    NVARCHAR(100) NOT NULL
-);
-GO
+/* ==============================================
+   LOGS (global) — ejecutar SOLO una vez
+   ============================================== */
+-- DROP TABLE IF EXISTS logs;
+-- GO
+-- CREATE TABLE logs (
+--   log_id  INT IDENTITY(1,1) PRIMARY KEY,
+--   fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
+--   origen  NVARCHAR(100)  NOT NULL,
+--   mensaje NVARCHAR(MAX)  NOT NULL
+-- );
+-- GO
 
--- ==============================================
--- Tabla principal de datos personales
--- ==============================================
+/* ==============================================
+   Tabla principal
+   ============================================== */
 DROP TABLE IF EXISTS datos_personales;
 GO
 CREATE TABLE datos_personales (
-    datos_id       INT           IDENTITY(1,1) PRIMARY KEY,
-    cliente_id     NVARCHAR(20)  NOT NULL,
-    nombre         NVARCHAR(50)  NOT NULL,
-    apellidos      NVARCHAR(100) NOT NULL,
-    telefono       NVARCHAR(20)  NULL,
-    direccion      NVARCHAR(200) NULL,
-    ciudad         NVARCHAR(50)  NULL,
-    codigo_postal  NVARCHAR(10)  NULL,
-    pais           NVARCHAR(50)  NULL,
-    CONSTRAINT fk_datos_personales_cliente
-        FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
+  datos_id       INT           IDENTITY(1,1) PRIMARY KEY,
+  cliente_id     NVARCHAR(20)  NOT NULL,
+  nombre         NVARCHAR(50)  NOT NULL,
+  apellidos      NVARCHAR(100) NOT NULL,
+  telefono       NVARCHAR(20)  NULL,
+  direccion      NVARCHAR(200) NULL,
+  ciudad         NVARCHAR(50)  NULL,
+  codigo_postal  NVARCHAR(10)  NULL,
+  pais           NVARCHAR(50)  NULL,
+  CONSTRAINT fk_datos_personales_cliente
+    FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
 );
 GO
 
--- ==============================================
--- Tablas de log para INSERT, DELETE y UPDATE
--- ==============================================
+/* ==============================================
+   Tablas de log (sin 'usuario')
+   ============================================== */
 DROP TABLE IF EXISTS datos_personales_insert_log;
 GO
 CREATE TABLE datos_personales_insert_log (
-    log_id     INT           IDENTITY(1,1) PRIMARY KEY,
-    datos_id   INT           NOT NULL,
-    cliente_id NVARCHAR(20)  NOT NULL,
-    nombre     NVARCHAR(50)  NOT NULL,
-    apellidos  NVARCHAR(100) NOT NULL,
-    fecha_log  DATETIME      NOT NULL DEFAULT GETDATE(),
-    usuario    NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
+  log_id     INT IDENTITY(1,1) PRIMARY KEY,
+  datos_id   INT           NOT NULL,
+  cliente_id NVARCHAR(20)  NOT NULL,
+  nombre     NVARCHAR(50)  NOT NULL,
+  apellidos  NVARCHAR(100) NOT NULL,
+  fecha_log  DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
 DROP TABLE IF EXISTS datos_personales_delete_log;
 GO
 CREATE TABLE datos_personales_delete_log (
-    log_id     INT           IDENTITY(1,1) PRIMARY KEY,
-    datos_id   INT           NOT NULL,
-    cliente_id NVARCHAR(20)  NOT NULL,
-    nombre     NVARCHAR(50)  NOT NULL,
-    apellidos  NVARCHAR(100) NOT NULL,
-    telefono   NVARCHAR(20)  NULL,
-    fecha_log  DATETIME      NOT NULL DEFAULT GETDATE(),
-    usuario    NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
+  log_id     INT IDENTITY(1,1) PRIMARY KEY,
+  datos_id   INT           NOT NULL,
+  cliente_id NVARCHAR(20)  NOT NULL,
+  nombre     NVARCHAR(50)  NOT NULL,
+  apellidos  NVARCHAR(100) NOT NULL,
+  telefono   NVARCHAR(20)  NULL,
+  fecha_log  DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
 DROP TABLE IF EXISTS datos_personales_update_log;
 GO
 CREATE TABLE datos_personales_update_log (
-    log_id            INT           IDENTITY(1,1) PRIMARY KEY,
-    datos_id          INT           NOT NULL,
-    cliente_id        NVARCHAR(20)  NOT NULL,
-    nombre_old        NVARCHAR(50)  NULL,
-    apellidos_old     NVARCHAR(100) NULL,
-    telefono_old      NVARCHAR(20)  NULL,
-    direccion_old     NVARCHAR(200) NULL,
-    ciudad_old        NVARCHAR(50)  NULL,
-    codigo_postal_old NVARCHAR(10)  NULL,
-    pais_old          NVARCHAR(50)  NULL,
-    nombre_new        NVARCHAR(50)  NULL,
-    apellidos_new     NVARCHAR(100) NULL,
-    telefono_new      NVARCHAR(20)  NULL,
-    direccion_new     NVARCHAR(200) NULL,
-    ciudad_new        NVARCHAR(50)  NULL,
-    codigo_postal_new NVARCHAR(10)  NULL,
-    pais_new          NVARCHAR(50)  NULL,
-    fecha_log         DATETIME      NOT NULL DEFAULT GETDATE(),
-    usuario           NVARCHAR(50)  NOT NULL DEFAULT SYSTEM_USER
+  log_id            INT IDENTITY(1,1) PRIMARY KEY,
+  datos_id          INT           NOT NULL,
+  cliente_id        NVARCHAR(20)  NOT NULL,
+  nombre_old        NVARCHAR(50)  NULL,
+  apellidos_old     NVARCHAR(100) NULL,
+  telefono_old      NVARCHAR(20)  NULL,
+  direccion_old     NVARCHAR(200) NULL,
+  ciudad_old        NVARCHAR(50)  NULL,
+  codigo_postal_old NVARCHAR(10)  NULL,
+  pais_old          NVARCHAR(50)  NULL,
+  nombre_new        NVARCHAR(50)  NULL,
+  apellidos_new     NVARCHAR(100) NULL,
+  telefono_new      NVARCHAR(20)  NULL,
+  direccion_new     NVARCHAR(200) NULL,
+  ciudad_new        NVARCHAR(50)  NULL,
+  codigo_postal_new NVARCHAR(10)  NULL,
+  pais_new          NVARCHAR(50)  NULL,
+  fecha_log         DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
--- ==============================================
--- Triggers para poblar logs
--- ==============================================
+/* ==============================================
+   Triggers (registran cualquier cambio)
+   ============================================== */
 CREATE OR ALTER TRIGGER trg_insert_datos_personales
 ON datos_personales
 AFTER INSERT
 AS
 BEGIN
-    SET NOCOUNT ON;
-    INSERT INTO datos_personales_insert_log (
-        datos_id, cliente_id, nombre, apellidos
-    )
-    SELECT
-        i.datos_id,
-        i.cliente_id,
-        i.nombre,
-        i.apellidos
-    FROM inserted AS i;
+  SET NOCOUNT ON;
+  INSERT INTO datos_personales_insert_log (datos_id, cliente_id, nombre, apellidos)
+  SELECT i.datos_id, i.cliente_id, i.nombre, i.apellidos
+  FROM inserted i;
 END;
 GO
 
@@ -113,17 +103,10 @@ ON datos_personales
 AFTER DELETE
 AS
 BEGIN
-    SET NOCOUNT ON;
-    INSERT INTO datos_personales_delete_log (
-        datos_id, cliente_id, nombre, apellidos, telefono
-    )
-    SELECT
-        d.datos_id,
-        d.cliente_id,
-        d.nombre,
-        d.apellidos,
-        d.telefono
-    FROM deleted AS d;
+  SET NOCOUNT ON;
+  INSERT INTO datos_personales_delete_log (datos_id, cliente_id, nombre, apellidos, telefono)
+  SELECT d.datos_id, d.cliente_id, d.nombre, d.apellidos, d.telefono
+  FROM deleted d;
 END;
 GO
 
@@ -132,237 +115,170 @@ ON datos_personales
 AFTER UPDATE
 AS
 BEGIN
-    SET NOCOUNT ON;
-    INSERT INTO datos_personales_update_log (
-        datos_id,
-        cliente_id,
-        nombre_old, apellidos_old, telefono_old,
-        direccion_old, ciudad_old, codigo_postal_old, pais_old,
-        nombre_new, apellidos_new, telefono_new,
-        direccion_new, ciudad_new, codigo_postal_new, pais_new
-    )
-    SELECT
-        d.datos_id,
-        d.cliente_id,
-        d.nombre,        d.apellidos,        d.telefono,
-        d.direccion,     d.ciudad,           d.codigo_postal,      d.pais,
-        i.nombre,        i.apellidos,        i.telefono,
-        i.direccion,     i.ciudad,           i.codigo_postal,      i.pais
-    FROM deleted AS d
-    JOIN inserted AS i
-      ON d.datos_id = i.datos_id
-    WHERE
-        ISNULL(d.nombre,'')           <> ISNULL(i.nombre,'')
-     OR ISNULL(d.apellidos,'')       <> ISNULL(i.apellidos,'')
-     OR ISNULL(d.telefono,'')        <> ISNULL(i.telefono,'')
-     OR ISNULL(d.direccion,'')       <> ISNULL(i.direccion,'')
-     OR ISNULL(d.ciudad,'')          <> ISNULL(i.ciudad,'')
-     OR ISNULL(d.codigo_postal,'')   <> ISNULL(i.codigo_postal,'')
-     OR ISNULL(d.pais,'')            <> ISNULL(i.pais,'');
+  SET NOCOUNT ON;
+  INSERT INTO datos_personales_update_log (
+    datos_id, cliente_id,
+    nombre_old, apellidos_old, telefono_old, direccion_old, ciudad_old, codigo_postal_old, pais_old,
+    nombre_new, apellidos_new, telefono_new, direccion_new, ciudad_new, codigo_postal_new, pais_new
+  )
+  SELECT
+    d.datos_id, d.cliente_id,
+    d.nombre, d.apellidos, d.telefono, d.direccion, d.ciudad, d.codigo_postal, d.pais,
+    i.nombre, i.apellidos, i.telefono, i.direccion, i.ciudad, i.codigo_postal, i.pais
+  FROM deleted d
+  JOIN inserted i ON i.datos_id = d.datos_id;   -- sin WHERE (cualquier cambio)
 END;
 GO
 
--- ==============================================
--- Procedimientos almacenados (CRUD completo)
--- ==============================================
--- INSERT
+/* ==============================================
+   Procedimientos (normalizan 'cl-' y usan logs unificados)
+   ============================================== */
 CREATE OR ALTER PROCEDURE datos_personales_insert
-    @cliente_id     NVARCHAR(20),
-    @nombre         NVARCHAR(50),
-    @apellidos      NVARCHAR(100),
-    @telefono       NVARCHAR(20)  = NULL,
-    @direccion      NVARCHAR(200) = NULL,
-    @ciudad         NVARCHAR(50)  = NULL,
-    @codigo_postal  NVARCHAR(10)  = NULL,
-    @pais           NVARCHAR(50)  = NULL
+  @cliente_id    NVARCHAR(20),
+  @nombre        NVARCHAR(50),
+  @apellidos     NVARCHAR(100),
+  @telefono      NVARCHAR(20)  = NULL,
+  @direccion     NVARCHAR(200) = NULL,
+  @ciudad        NVARCHAR(50)  = NULL,
+  @codigo_postal NVARCHAR(10)  = NULL,
+  @pais          NVARCHAR(50)  = NULL
 AS
 BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRANSACTION;
+  SET NOCOUNT ON;
+  BEGIN TRY
+    BEGIN TRAN;
 
-        IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cliente_id)
-            THROW 51010, 'cliente_id no existe.', 1;
+    DECLARE @cid NVARCHAR(20) =
+      CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
 
-        IF EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cliente_id)
-            THROW 51011, 'Ya existe datos_personales para este cliente.', 1;
+    IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cid)
+      THROW 59000, 'cliente_id no existe.', 1;
 
-        INSERT INTO datos_personales (
-            cliente_id,
-            nombre,
-            apellidos,
-            telefono,
-            direccion,
-            ciudad,
-            codigo_postal,
-            pais
-        )
-        VALUES (
-            @cliente_id,
-            @nombre,
-            @apellidos,
-            @telefono,
-            @direccion,
-            @ciudad,
-            @codigo_postal,
-            @pais
-        );
+    IF EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cid)
+      THROW 59001, 'Ya existe datos_personales para este cliente.', 1;
 
-        COMMIT;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'datos_personales_insert');
-        THROW;
-    END CATCH
+    INSERT INTO datos_personales (
+      cliente_id, nombre, apellidos, telefono, direccion, ciudad, codigo_postal, pais
+    )
+    VALUES (@cid, @nombre, @apellidos, @telefono, @direccion, @ciudad, @codigo_postal, @pais);
+
+    COMMIT;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT INTO logs (origen, mensaje) VALUES (N'datos_personales_insert', ERROR_MESSAGE());
+    THROW;
+  END CATCH
 END;
 GO
 
--- UPDATE
 CREATE OR ALTER PROCEDURE datos_personales_update
-    @cliente_id     NVARCHAR(20),
-    @nombre         NVARCHAR(50),
-    @apellidos      NVARCHAR(100),
-    @telefono       NVARCHAR(20)  = NULL,
-    @direccion      NVARCHAR(200) = NULL,
-    @ciudad         NVARCHAR(50)  = NULL,
-    @codigo_postal  NVARCHAR(10)  = NULL,
-    @pais           NVARCHAR(50)  = NULL
+  @cliente_id    NVARCHAR(20),
+  @nombre        NVARCHAR(50),
+  @apellidos     NVARCHAR(100),
+  @telefono      NVARCHAR(20)  = NULL,
+  @direccion     NVARCHAR(200) = NULL,
+  @ciudad        NVARCHAR(50)  = NULL,
+  @codigo_postal NVARCHAR(10)  = NULL,
+  @pais          NVARCHAR(50)  = NULL
 AS
 BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRANSACTION;
+  SET NOCOUNT ON;
+  BEGIN TRY
+    BEGIN TRAN;
 
-        IF NOT EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cliente_id)
-            THROW 51012, 'No existe datos_personales para este cliente.', 1;
+    DECLARE @cid NVARCHAR(20) =
+      CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
 
-        UPDATE datos_personales
-        SET
-            nombre        = @nombre,
-            apellidos     = @apellidos,
-            telefono      = @telefono,
-            direccion     = @direccion,
-            ciudad        = @ciudad,
-            codigo_postal = @codigo_postal,
-            pais          = @pais
-        WHERE cliente_id = @cliente_id;
+    IF NOT EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cid)
+      THROW 59002, 'No existe datos_personales para este cliente.', 1;
 
-        COMMIT;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'datos_personales_update');
-        THROW;
-    END CATCH
+    UPDATE datos_personales
+    SET nombre = @nombre, apellidos = @apellidos, telefono = @telefono,
+        direccion = @direccion, ciudad = @ciudad, codigo_postal = @codigo_postal, pais = @pais
+    WHERE cliente_id = @cid;
+
+    COMMIT;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT INTO logs (origen, mensaje) VALUES (N'datos_personales_update', ERROR_MESSAGE());
+    THROW;
+  END CATCH
 END;
 GO
 
--- DELETE
 CREATE OR ALTER PROCEDURE datos_personales_delete
-    @cliente_id NVARCHAR(20)
+  @cliente_id NVARCHAR(20)
 AS
 BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRANSACTION;
+  SET NOCOUNT ON;
+  BEGIN TRY
+    BEGIN TRAN;
 
-        IF NOT EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cliente_id)
-            THROW 51013, 'No existe datos_personales para este cliente.', 1;
+    DECLARE @cid NVARCHAR(20) =
+      CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
 
-        DELETE FROM datos_personales
-        WHERE cliente_id = @cliente_id;
+    IF NOT EXISTS (SELECT 1 FROM datos_personales WHERE cliente_id = @cid)
+      THROW 59003, 'No existe datos_personales para este cliente.', 1;
 
-        COMMIT;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'datos_personales_delete');
-        THROW;
-    END CATCH
+    DELETE FROM datos_personales WHERE cliente_id = @cid;
+
+    COMMIT;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT INTO logs (origen, mensaje) VALUES (N'datos_personales_delete', ERROR_MESSAGE());
+    THROW;
+  END CATCH
 END;
 GO
 
--- SELECT por cliente
 CREATE OR ALTER PROCEDURE datos_personales_select_by_cliente
-    @cliente_id NVARCHAR(20)
+  @cliente_id NVARCHAR(20)
 AS
 BEGIN
-    SET NOCOUNT ON;
-    SELECT
-        datos_id,
-        cliente_id,
-        nombre,
-        apellidos,
-        telefono,
-        direccion,
-        ciudad,
-        codigo_postal,
-        pais
-    FROM datos_personales
-    WHERE cliente_id = @cliente_id;
+  SET NOCOUNT ON;
+  DECLARE @cid NVARCHAR(20) =
+    CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
+
+  SELECT datos_id, cliente_id, nombre, apellidos, telefono, direccion, ciudad, codigo_postal, pais
+  FROM datos_personales
+  WHERE cliente_id = @cid;
 END;
 GO
 
--- SELECT todos
 CREATE OR ALTER PROCEDURE datos_personales_select_all
 AS
 BEGIN
-    SET NOCOUNT ON;
-    SELECT
-        datos_id,
-        cliente_id,
-        nombre,
-        apellidos,
-        telefono,
-        direccion,
-        ciudad,
-        codigo_postal,
-        pais
-    FROM datos_personales;
+  SET NOCOUNT ON;
+  SELECT datos_id, cliente_id, nombre, apellidos, telefono, direccion, ciudad, codigo_postal, pais
+  FROM datos_personales;
 END;
 GO
 
--- ==============================================
--- Sugerencias de índices
--- ==============================================
--- Índice UNIQUE para búsquedas y JOINs por cliente_id
-CREATE UNIQUE INDEX idx_datos_personales_cliente_id
-    ON datos_personales (cliente_id);
-GO
-
--- Índices en tablas de log sobre fecha_log para consultas por rango de fechas
-CREATE INDEX idx_datos_personales_insert_log_fecha
-    ON datos_personales_insert_log (fecha_log);
-CREATE INDEX idx_datos_personales_delete_log_fecha
-    ON datos_personales_delete_log (fecha_log);
-CREATE INDEX idx_datos_personales_update_log_fecha
-    ON datos_personales_update_log (fecha_log);
-GO
-
--- Índices en logs generales para búsquedas por nivel y origen
-CREATE INDEX idx_logs_fecha
-    ON logs (fecha);
-CREATE INDEX idx_logs_nivel_origen
-    ON logs (nivel, origen);
-GO
-
-/* =========================
-   DATOS PERSONALES: datos_personales_por_id
-   ========================= */
 CREATE OR ALTER PROCEDURE datos_personales_por_id
   @datos_id INT
 AS
 BEGIN
   SET NOCOUNT ON;
-  SELECT
-    datos_id, cliente_id, nombre, apellidos, telefono,
-    direccion, ciudad, codigo_postal, pais
+  SELECT datos_id, cliente_id, nombre, apellidos, telefono, direccion, ciudad, codigo_postal, pais
   FROM datos_personales
   WHERE datos_id = @datos_id;
 END;
 GO
 
+/* ==============================================
+   Índices
+   ============================================== */
+CREATE UNIQUE INDEX idx_datos_personales_cliente_id
+  ON datos_personales (cliente_id);
+GO
+
+CREATE NONCLUSTERED INDEX IX_dp_ins_cliente_fecha
+  ON datos_personales_insert_log (cliente_id, fecha_log);
+CREATE NONCLUSTERED INDEX IX_dp_del_cliente_fecha
+  ON datos_personales_delete_log (cliente_id, fecha_log);
+CREATE NONCLUSTERED INDEX IX_dp_upd_cliente_fecha
+  ON datos_personales_update_log (cliente_id, fecha_log);
+GO

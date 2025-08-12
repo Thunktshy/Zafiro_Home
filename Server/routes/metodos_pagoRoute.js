@@ -180,4 +180,55 @@ MetodosPagoRouter.get('/select_all', requireAdmin, async (_req, res) => {
   }
 });
 
+// GET /metodos_pago/por_id/:metodo_id -> metodos_pago_por_id (Admin)
+MetodosPagoRouter.get('/por_id/:metodo_id', requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.metodo_id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ success:false, message:'metodo_id inválido' });
+    }
+    const data = await db.executeProc('metodos_pago_por_id', {
+      metodo_id: { type: sql.Int, value: id }
+    });
+    if (!data.length) return res.status(404).json({ success:false, message:'No encontrado' });
+    return res.status(200).json({ success:true, message:'OK', data: data[0] });
+  } catch (err) {
+    console.error('metodos_pago_por_id error:', err);
+    return res.status(500).json({ success:false, message:'Error al obtener el método de pago' });
+  }
+});
+
+// POST /metodos_pago/from_personales -> metodos_pago_insert_from_personales (Client)
+MetodosPagoRouter.post('/from_personales', requireClient, async (req, res) => {
+  try {
+    const Body = {
+      cliente_id: String(req.body?.cliente_id || ''),
+      tipo: String(req.body?.tipo || '').trim(),
+      es_principal: req.body?.es_principal
+    };
+
+    // Reusa reglas existentes (cliente_id/tipo + bit opcional)
+    const { isValid } = await ValidationService.validateData(Body, {
+      cliente_id:  SelectByClienteRules.cliente_id,
+      tipo:        InsertRules.tipo,
+      es_principal: InsertRules.es_principal
+    });
+    if (!isValid) return res.status(400).json({ success:false, message:'Datos inválidos (from_personales)' });
+
+    const esPrincipalNum = Number(Body.es_principal);
+    const Params = {
+      cliente_id:   { type: sql.NVarChar(20), value: Body.cliente_id },
+      tipo:         { type: sql.NVarChar(20), value: Body.tipo },
+      es_principal: { type: sql.Bit,          value: Number.isNaN(esPrincipalNum) ? 0 : esPrincipalNum }
+    };
+
+    await db.executeProc('metodos_pago_insert_from_personales', Params);
+    return res.status(201).json({ success:true, message:'Método de pago creado desde datos personales' });
+  } catch (err) {
+    console.error('metodos_pago_from_personales error:', err);
+    return res.status(500).json({ success:false, message:'Error al crear método desde datos personales' });
+  }
+});
+
+
 module.exports = MetodosPagoRouter;

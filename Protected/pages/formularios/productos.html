@@ -5,17 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zafiro Home — Administrar Productos</title>
 
-  <!-- Bootstrap 5 (CSS) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <!-- DataTables 2.x (CSS) -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.css" />
-  <!-- Font Awesome (sin SRI para evitar bloqueo por hash) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
-
-  <link rel="stylesheet" href="/admin-resources/css/forms/forms.css" />
+  <link rel="stylesheet" href="/admin-resources/css/forms/productos.css" />
 </head>
 <body>
-  <!-- NAV / ENCABEZADO SIMPLE -->
   <header class="header-bar py-3 shadow-sm">
     <div class="container d-flex align-items-center justify-content-between">
       <h1 class="h3 m-0">Zafiro Home — Panel Admin</h1>
@@ -36,10 +31,8 @@
       </div>
     </div>
 
-    <!-- Mensajes -->
     <div id="alertBox" class="alert d-none" role="alert"></div>
 
-    <!-- TABLA -->
     <div class="card shadow-sm">
       <div class="card-body">
         <div class="table-responsive">
@@ -51,8 +44,8 @@
                 <th>descripcion</th>
                 <th>precio_unitario</th>
                 <th>stock</th>
-                <th>categoria_id</th>
-                <th>estado_producto</th>
+                <th>categoria</th>
+                <th>estado</th>
                 <th style="width:160px">Administrar</th>
               </tr>
             </thead>
@@ -73,52 +66,54 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
+
             <input type="hidden" id="producto_id" name="producto_id" />
 
             <div class="mb-3">
-              <label for="nombre_producto" class="form-label">Nombre del producto <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="nombre_producto" name="nombre_producto" maxlength="50" required />
-              <div class="form-text">Máximo 50 caracteres. Letras, números, espacios y símbolos comunes.</div>
+              <label for="nombre_producto" class="form-label">Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nombre_producto" maxlength="50" required />
               <div class="invalid-feedback" id="errNombre"></div>
             </div>
 
             <div class="mb-3">
-              <label for="descripcion" class="form-label">Descripción</label>
-              <textarea class="form-control" id="descripcion" name="descripcion" rows="3" maxlength="150"></textarea>
-              <div class="form-text">Máximo 150 caracteres.</div>
+              <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="descripcion" rows="3" maxlength="150" required></textarea>
               <div class="invalid-feedback" id="errDesc"></div>
             </div>
 
             <div class="row g-3">
-              <div class="col-12 col-md-6">
-                <label for="precio_unitario" class="form-label">Precio unitario <span class="text-danger">*</span></label>
-                <input type="number" class="form-control" id="precio_unitario" name="precio_unitario" step="0.01" min="0" required />
+              <div class="col-sm-6">
+                <label for="precio_unitario" class="form-label">Precio unitario (MXN) <span class="text-danger">*</span></label>
+                <input type="number" step="0.01" min="0" class="form-control" id="precio_unitario" required />
                 <div class="invalid-feedback" id="errPrecio"></div>
               </div>
-              <div class="col-12 col-md-6">
+              <div class="col-sm-6">
                 <label for="stock" class="form-label">Stock <span class="text-danger">*</span></label>
-                <input type="number" class="form-control" id="stock" name="stock" step="1" min="0" required />
+                <input type="number" step="1" min="0" class="form-control" id="stock" required />
                 <div class="invalid-feedback" id="errStock"></div>
               </div>
             </div>
 
             <div class="row g-3 mt-1">
-              <div class="col-12 col-md-8">
+              <div class="col-sm-6">
                 <label for="categoria_id" class="form-label">Categoría <span class="text-danger">*</span></label>
-                <select id="categoria_id" name="categoria_id" class="form-select" required>
-                  <option value="">Selecciona una categoría…</option>
+                <select id="categoria_id" class="form-select" required>
+                  <option value="" selected disabled>Seleccione...</option>
                 </select>
                 <div class="invalid-feedback" id="errCategoria"></div>
+                <div class="form-text">Se llena desde /categories/get_list.</div>
               </div>
-              <div class="col-12 col-md-4">
+              <div class="col-sm-6">
                 <label for="estado_producto" class="form-label">Estado <span class="text-danger">*</span></label>
-                <select id="estado_producto" name="estado_producto" class="form-select" required>
+                <select id="estado_producto" class="form-select" required>
+                  <option value="" selected disabled>Seleccione...</option>
                   <option value="activo">activo</option>
                   <option value="inactivo">inactivo</option>
                 </select>
                 <div class="invalid-feedback" id="errEstado"></div>
               </div>
             </div>
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -153,12 +148,9 @@
     </div>
   </div>
 
-  <!-- Bootstrap 5 (JS) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- jQuery (si tu build de DataTables lo requiere) -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- DataTables 2.x (JS) -->
   <script src="https://cdn.datatables.net/2.3.2/js/dataTables.js"></script>
-  <script type="module" src="/admin-resources/scripts/forms/products.js"></script>
+  <script type="module" src="/admin-resources/scripts/forms/productos.js"></script>
 </body>
 </html>

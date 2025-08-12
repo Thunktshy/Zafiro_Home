@@ -1,11 +1,23 @@
 /* ==============================================================
-   PEDIDOS y DETALLE_PEDIDOS – esquema, triggers y procedimientos
+   PEDIDOS y DETALLE_PEDIDOS – triggers y procedimientos
    ============================================================== */
+
+-- ==============================================
+-- Tabla de logs generales 
+-- ==============================================
+DROP TABLE IF EXISTS logs;
+GO
+CREATE TABLE logs (
+    log_id  INT IDENTITY(1,1) PRIMARY KEY,
+    fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
+    origen  NVARCHAR(100)  NOT NULL, -- Nombre del procedimiento
+    mensaje NVARCHAR(MAX)  NOT NULL  -- Texto del error SQL
+);
+GO
 
 /* ========================
    SECUENCIA PARA PEDIDOS
    ======================== */
-
 DROP SEQUENCE IF EXISTS seq_pedidos;
 GO
 CREATE SEQUENCE seq_pedidos
@@ -22,19 +34,17 @@ GO
 DROP TABLE IF EXISTS pedidos;
 GO
 CREATE TABLE pedidos (
-    pedido_id      NVARCHAR(10)  PRIMARY KEY,                     -- ejemplo: ped-1
+    pedido_id      NVARCHAR(10)  PRIMARY KEY, --Prefijo ped-1
     cliente_id     NVARCHAR(20)  NOT NULL,
     fecha_pedido   DATETIME      NOT NULL DEFAULT GETDATE(),
     estado_pedido  NVARCHAR(20)  NOT NULL DEFAULT N'Por confirmar',
     total_pedido   DECIMAL(10,2) NOT NULL DEFAULT 0,
+
     metodo_pago    NVARCHAR(20)  NULL,
     CONSTRAINT fk_pedidos_cliente
-        FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id),
-    CONSTRAINT ck_pedidos_estado
-        CHECK (estado_pedido IN (N'Por confirmar', N'Pendiente', N'Completado', N'Cancelado'))
+        FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
 );
 GO
-
 
 /* ========================
    TABLA: DETALLE_PEDIDOS
@@ -59,7 +69,11 @@ CREATE TABLE detalle_pedidos (
 );
 GO
 
-
+/* ========================
+   Tablas de LOG (auditoría)
+   ======================== */
+DROP TABLE IF EXISTS pedidos_insert_log;
+GO
 CREATE TABLE pedidos_insert_log (
     log_id         INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id      NVARCHAR(10),
@@ -68,11 +82,12 @@ CREATE TABLE pedidos_insert_log (
     estado_pedido  NVARCHAR(20),
     total_pedido   DECIMAL(10,2),
     metodo_pago    NVARCHAR(20),
-    fecha_log      DATETIME      DEFAULT GETDATE(),
-    usuario        NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log      DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
+DROP TABLE IF EXISTS pedidos_delete_log;
+GO
 CREATE TABLE pedidos_delete_log (
     log_id         INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id      NVARCHAR(10),
@@ -81,11 +96,12 @@ CREATE TABLE pedidos_delete_log (
     estado_pedido  NVARCHAR(20),
     total_pedido   DECIMAL(10,2),
     metodo_pago    NVARCHAR(20),
-    fecha_log      DATETIME      DEFAULT GETDATE(),
-    usuario        NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log      DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
+DROP TABLE IF EXISTS pedidos_update_log;
+GO
 CREATE TABLE pedidos_update_log (
     log_id              INT IDENTITY(1,1) PRIMARY KEY,
     pedido_id           NVARCHAR(10),
@@ -101,11 +117,12 @@ CREATE TABLE pedidos_update_log (
     estado_pedido_nvo   NVARCHAR(20),
     total_pedido_nvo    DECIMAL(10,2),
     metodo_pago_nvo     NVARCHAR(20),
-    fecha_log           DATETIME      DEFAULT GETDATE(),
-    usuario             NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log           DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
+DROP TABLE IF EXISTS detalle_pedidos_insert_log;
+GO
 CREATE TABLE detalle_pedidos_insert_log (
     log_id          INT IDENTITY(1,1) PRIMARY KEY,
     detalle_id      INT,
@@ -113,11 +130,12 @@ CREATE TABLE detalle_pedidos_insert_log (
     producto_id     NVARCHAR(20),
     cantidad        INT,
     precio_unitario DECIMAL(10,2),
-    fecha_log       DATETIME      DEFAULT GETDATE(),
-    usuario         NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log       DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
+DROP TABLE IF EXISTS detalle_pedidos_delete_log;
+GO
 CREATE TABLE detalle_pedidos_delete_log (
     log_id          INT IDENTITY(1,1) PRIMARY KEY,
     detalle_id      INT,
@@ -125,11 +143,12 @@ CREATE TABLE detalle_pedidos_delete_log (
     producto_id     NVARCHAR(20),
     cantidad        INT,
     precio_unitario DECIMAL(10,2),
-    fecha_log       DATETIME      DEFAULT GETDATE(),
-    usuario         NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log       DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
+DROP TABLE IF EXISTS detalle_pedidos_update_log;
+GO
 CREATE TABLE detalle_pedidos_update_log (
     log_id              INT IDENTITY(1,1) PRIMARY KEY,
     detalle_id          INT,
@@ -139,13 +158,12 @@ CREATE TABLE detalle_pedidos_update_log (
     precio_unitario_ant DECIMAL(10,2),
     cantidad_nvo        INT,
     precio_unitario_nvo DECIMAL(10,2),
-    fecha_log           DATETIME      DEFAULT GETDATE(),
-    usuario             NVARCHAR(50)  DEFAULT SYSTEM_USER
+    fecha_log           DATETIME      NOT NULL DEFAULT GETDATE()
 );
 GO
 
 /* ========================
-   TRIGGERS PEDIDOS
+   TRIGGERS PEDIDOS (registran cualquier cambio)
    ======================== */
 CREATE OR ALTER TRIGGER trg_insert_pedidos
 ON pedidos
@@ -171,6 +189,7 @@ BEGIN
 END;
 GO
 
+-- UPDATE: registra cualquier columna cambiada
 CREATE OR ALTER TRIGGER trg_update_pedidos
 ON pedidos
 AFTER UPDATE
@@ -192,8 +211,7 @@ END;
 GO
 
 /* ========================
-   TRIGGERS DETALLE_PEDIDOS
-
+   TRIGGERS DETALLE_PEDIDOS (registran cualquier cambio)
    ======================== */
 CREATE OR ALTER TRIGGER trg_insert_detalle_pedidos
 ON detalle_pedidos
@@ -201,7 +219,6 @@ AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-
     INSERT INTO detalle_pedidos_insert_log (detalle_id, pedido_id, producto_id, cantidad, precio_unitario)
     SELECT i.detalle_id, i.pedido_id, i.producto_id, i.cantidad, i.precio_unitario
     FROM inserted AS i;
@@ -227,7 +244,6 @@ AFTER DELETE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     INSERT INTO detalle_pedidos_delete_log (detalle_id, pedido_id, producto_id, cantidad, precio_unitario)
     SELECT d.detalle_id, d.pedido_id, d.producto_id, d.cantidad, d.precio_unitario
     FROM deleted AS d;
@@ -254,7 +270,6 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     INSERT INTO detalle_pedidos_update_log (
         detalle_id, pedido_id, producto_id,
         cantidad_ant, precio_unitario_ant,
@@ -285,13 +300,13 @@ END;
 GO
 
 /* ========================
-   PROCEDIMIENTOS
+   PROCEDIMIENTOS – INSERT y cambios de estado
    ======================== */
 
--- Crear pedido
+-- Crear pedido (concatena 'ped-' + secuencia)
 CREATE OR ALTER PROCEDURE pedidos_insert
-    @cliente_id   NVARCHAR(20),
-    @metodo_pago  NVARCHAR(20) = NULL
+    @cliente_id  NVARCHAR(20),
+    @metodo_pago NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -311,363 +326,276 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs(mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'pedidos_insert');
+        INSERT INTO logs(origen, mensaje)
+        VALUES (N'pedidos_insert', ERROR_MESSAGE());
         THROW;
     END CATCH
 END;
 GO
 
-/* ========================
-   Añadir producto (controla stock)
-   ======================== */
-CREATE OR ALTER PROCEDURE pedido_add_item
-    @pedido_id        NVARCHAR(10),
-    @producto_id      NVARCHAR(20),
-    @cantidad         INT,
-    @precio_unitario  DECIMAL(10,2) = NULL   -- si NULL, toma precio de productos
+-- Confirmar pedido por id
+CREATE OR ALTER PROCEDURE pedidos_confirmar
+  @id NVARCHAR(20)  -- admite 'ped-123' o '123'
 AS
 BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRAN;
+  SET NOCOUNT ON;
+  BEGIN TRY
+    BEGIN TRAN;
 
-        IF @cantidad IS NULL OR @cantidad <= 0
-            THROW 54000, 'La cantidad debe ser > 0.', 1;
+    DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id,4)='ped-' THEN @id ELSE CONCAT('ped-',@id) END;
 
-        DECLARE @estado NVARCHAR(20);
-        SELECT @estado = estado_pedido FROM pedidos WHERE pedido_id = @pedido_id;
-        IF @estado IS NULL
-            THROW 54002, 'El pedido no existe.', 1;
-        IF @estado IN (N'Completado', N'Cancelado')
-            THROW 54003, 'El pedido no permite modificaciones.', 1;
+    IF NOT EXISTS (SELECT 1 FROM pedidos WHERE pedido_id = @pid)
+      THROW 53002, 'El pedido no existe.', 1;
 
-        DECLARE @stock_actual INT, @precio DECIMAL(10,2);
-        SELECT @stock_actual = p.stock,
-               @precio       = COALESCE(@precio_unitario, p.precio_unitario)
-        FROM productos AS p WITH (UPDLOCK, ROWLOCK)
-        WHERE p.producto_id = @producto_id;
+    -- Debe tener líneas y total > 0
+    IF NOT EXISTS (SELECT 1 FROM detalle_pedidos WHERE pedido_id = @pid)
+      THROW 53003, 'No se puede confirmar un pedido sin artículos.', 1;
 
-        IF @stock_actual IS NULL
-            THROW 54004, 'El producto no existe.', 1;
+    IF (SELECT total_pedido FROM pedidos WHERE pedido_id = @pid) <= 0
+      THROW 53004, 'El total debe ser > 0 para confirmar.', 1;
 
+    UPDATE pedidos
+    SET estado_pedido = N'Confirmado'
+    WHERE pedido_id = @pid;
 
-        DECLARE @cantidad_actual INT, @precio_linea DECIMAL(10,2);
-        SELECT @cantidad_actual = d.cantidad,
-               @precio_linea   = d.precio_unitario
-        FROM detalle_pedidos AS d WITH (UPDLOCK, ROWLOCK)
-        WHERE d.pedido_id = @pedido_id AND d.producto_id = @producto_id;
+    COMMIT;
 
-        DECLARE @a_descontar INT, @precio_final DECIMAL(10,2);
-        IF @cantidad_actual IS NULL
-        BEGIN
-            SET @a_descontar = @cantidad;
-            SET @precio_final = @precio;
-            IF @a_descontar > @stock_actual
-                THROW 54001, 'Stock insuficiente para añadir la línea.', 1;
+    SELECT pedido_id, estado_pedido FROM pedidos WHERE pedido_id = @pid;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT INTO logs(origen, mensaje)
+    VALUES (N'pedidos_confirmar', ERROR_MESSAGE());
+    THROW;
+  END CATCH
+END;
+GO
 
-            INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_unitario)
-            VALUES (@pedido_id, @producto_id, @cantidad, @precio_final);
-        END
-        ELSE
-        BEGIN
-            SET @a_descontar = @cantidad; 
-            SET @precio_final = @precio_linea;
-            IF @a_descontar > @stock_actual
-                THROW 54005, 'Stock insuficiente para incrementar la cantidad.', 1;
+-- Cancelar pedido por id (reintegra stock)
+CREATE OR ALTER PROCEDURE pedidos_cancelar
+  @id NVARCHAR(20)  -- admite 'ped-123' o '123'
+AS
+BEGIN
+  SET NOCOUNT ON;
+  BEGIN TRY
+    BEGIN TRAN;
 
-            UPDATE detalle_pedidos
-            SET cantidad = cantidad + @cantidad
-            WHERE pedido_id = @pedido_id AND producto_id = @producto_id;
-        END
+    DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id,4)='ped-' THEN @id ELSE CONCAT('ped-',@id) END;
 
-        UPDATE productos
-        SET stock = stock - @a_descontar
-        WHERE producto_id = @producto_id;
+    IF NOT EXISTS (SELECT 1 FROM pedidos WHERE pedido_id = @pid)
+      THROW 53005, 'El pedido no existe.', 1;
 
-        COMMIT;
+    -- Reintegrar stock de todas las líneas del pedido
+    ;WITH lineas AS (
+      SELECT producto_id, SUM(cantidad) AS cant
+      FROM detalle_pedidos WITH (HOLDLOCK)
+      WHERE pedido_id = @pid
+      GROUP BY producto_id
+    )
+    UPDATE p WITH (UPDLOCK, ROWLOCK)
+    SET p.stock = p.stock + l.cant
+    FROM productos p
+    JOIN lineas l ON l.producto_id = p.producto_id;
 
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'pedido_add_item');
-        THROW;
-    END CATCH
+    UPDATE pedidos
+    SET estado_pedido = N'Cancelado'
+    WHERE pedido_id = @pid;
+
+    COMMIT;
+
+    SELECT pedido_id, estado_pedido FROM pedidos WHERE pedido_id = @pid;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK;
+    INSERT INTO logs(origen, mensaje)
+    VALUES (N'pedidos_cancelar', ERROR_MESSAGE());
+    THROW;
+  END CATCH
 END;
 GO
 
 /* ========================
-   Quitar/restar producto 
-   ======================== */
-CREATE OR ALTER PROCEDURE pedido_remove_item
-    @pedido_id    NVARCHAR(10),
-    @producto_id  NVARCHAR(20),
-    @cantidad     INT = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRAN;
-
-        DECLARE @estado NVARCHAR(20);
-        SELECT @estado = estado_pedido FROM pedidos WHERE pedido_id = @pedido_id;
-        IF @estado IS NULL
-            THROW 54006, 'El pedido no existe.', 1;
-        IF @estado IN (N'Completado', N'Cancelado')
-            THROW 54007, 'El pedido no permite modificaciones.', 1;
-
-
-        DECLARE @actual INT;
-        SELECT @actual = d.cantidad
-        FROM detalle_pedidos AS d WITH (UPDLOCK, ROWLOCK)
-        WHERE d.pedido_id = @pedido_id AND d.producto_id = @producto_id;
-
-        IF @actual IS NULL
-            THROW 54008, 'El producto no está en el pedido.', 1;
-
-        IF @cantidad IS NULL OR @cantidad >= @actual
-        BEGIN
-
-            UPDATE p WITH (UPDLOCK, ROWLOCK)
-            SET p.stock = p.stock + @actual
-            FROM productos p
-            WHERE p.producto_id = @producto_id;
-
-            DELETE FROM detalle_pedidos
-            WHERE pedido_id = @pedido_id AND producto_id = @producto_id;
-        END
-        ELSE
-        BEGIN
-            IF @cantidad <= 0
-                THROW 54009, 'La cantidad a restar debe ser > 0.', 1;
-
-            UPDATE detalle_pedidos
-            SET cantidad = cantidad - @cantidad
-            WHERE pedido_id = @pedido_id AND producto_id = @producto_id;
-
-
-            UPDATE p WITH (UPDLOCK, ROWLOCK)
-            SET p.stock = p.stock + @cantidad
-            FROM productos p
-            WHERE p.producto_id = @producto_id;
-        END
-
-        COMMIT;
-
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'pedido_remove_item');
-        THROW;
-    END CATCH
-END;
-GO
-
-/* ========================
-   Cambiar estado del pedido
-   ======================== */
-CREATE OR ALTER PROCEDURE pedidos_set_estado
-    @pedido_id NVARCHAR(10),
-    @estado    NVARCHAR(20)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRAN;
-
-        IF @estado NOT IN (N'Por confirmar', N'Pendiente', N'Completado', N'Cancelado')
-            THROW 54010, 'Estado no válido.', 1;
-
-        DECLARE @estado_actual NVARCHAR(20);
-        SELECT @estado_actual = estado_pedido FROM pedidos WHERE pedido_id = @pedido_id;
-
-        IF @estado_actual IS NULL
-            THROW 54011, 'El pedido no existe.', 1;
-
-        IF @estado_actual IN (N'Completado', N'Cancelado')
-            THROW 54012, 'No se puede modificar un pedido Completado/Cancelado.', 1;
-
-        IF @estado = N'Completado'
-        BEGIN
-            -- Debe tener líneas y total > 0
-            IF NOT EXISTS (SELECT 1 FROM detalle_pedidos WHERE pedido_id = @pedido_id)
-                THROW 54013, 'No se puede completar un pedido sin artículos.', 1;
-
-            IF (SELECT total_pedido FROM pedidos WHERE pedido_id = @pedido_id) <= 0
-                THROW 54014, 'El total debe ser > 0 para completar.', 1;
-
-            -- Verificación adicional de integridad: ningún stock negativo
-            IF EXISTS (SELECT 1 FROM productos WHERE stock < 0)
-                THROW 54015, 'Stock inconsistente: existen productos con stock negativo.', 1;
-        END
-        ELSE IF @estado = N'Cancelado'
-        BEGIN
-            -- Reintegrar stock de todas las líneas del pedido
-            ;WITH lineas AS (
-                SELECT producto_id, SUM(cantidad) AS cant
-                FROM detalle_pedidos WITH (HOLDLOCK)
-                WHERE pedido_id = @pedido_id
-                GROUP BY producto_id
-            )
-            UPDATE p WITH (UPDLOCK, ROWLOCK)
-            SET p.stock = p.stock + l.cant
-            FROM productos p
-            JOIN lineas l ON l.producto_id = p.producto_id;
-        END
-
-        UPDATE pedidos
-        SET estado_pedido = @estado
-        WHERE pedido_id = @pedido_id;
-
-        COMMIT;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'pedidos_set_estado');
-        THROW;
-    END CATCH
-END;
-GO
-
-/* ========================
-   Verificación de configuración del pedido
-   ======================== */
-CREATE OR ALTER PROCEDURE pedidos_verificar_configuracion
-    @pedido_id NVARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 'PRODUCTO_INEXISTENTE' AS tipo,
-           d.detalle_id, d.producto_id, d.cantidad, d.precio_unitario
-    FROM detalle_pedidos d
-    LEFT JOIN productos p ON p.producto_id = d.producto_id
-    WHERE d.pedido_id = @pedido_id AND p.producto_id IS NULL
-
-    UNION ALL
-
-    SELECT 'LINEA_INVALIDA' AS tipo,
-           d.detalle_id, d.producto_id, d.cantidad, d.precio_unitario
-    FROM detalle_pedidos d
-    WHERE d.pedido_id = @pedido_id
-      AND (d.cantidad <= 0 OR d.precio_unitario < 0);
-END;
-GO
-
-/* ========================
-   Consultas de lectura
+   PROCEDIMIENTOS – GETs
    ======================== */
 
-CREATE OR ALTER PROCEDURE pedidos_get
-    @pedido_id NVARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT p.pedido_id, p.cliente_id, p.fecha_pedido, p.estado_pedido, p.total_pedido, p.metodo_pago
-    FROM pedidos p
-    WHERE p.pedido_id = @pedido_id;
-END;
-GO
-
-/* =========================
-   PEDIDOS
-   ========================= */
-CREATE OR ALTER PROCEDURE pedidos_por_id
-  @pedido_id NVARCHAR(10)
+-- 1) Obtener todos (ORDER BY cliente_id, fecha_pedido DESC)
+CREATE OR ALTER PROCEDURE pedidos_get_all
 AS
 BEGIN
   SET NOCOUNT ON;
   SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
   FROM pedidos
-  WHERE pedido_id = @pedido_id;
+  ORDER BY cliente_id, fecha_pedido DESC;
 END;
 GO
 
-/* =========================
-   DETALLE PEDIDOS
-   ========================= */
-CREATE OR ALTER PROCEDURE detalle_pedidos_por_id
-  @detalle_id INT
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT detalle_id, pedido_id, producto_id, cantidad, precio_unitario, subtotal
-  FROM detalle_pedidos
-  WHERE detalle_id = @detalle_id;
-END;
-GO
-
-
-CREATE OR ALTER PROCEDURE pedidos_get_detalles
-    @pedido_id NVARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT 
-        d.detalle_id,
-        d.pedido_id,
-        d.producto_id,
-        p.nombre_producto,
-        d.cantidad,
-        d.precio_unitario,
-        d.subtotal
-    FROM detalle_pedidos d
-    JOIN productos p ON p.producto_id = d.producto_id
-    WHERE d.pedido_id = @pedido_id
-    ORDER BY d.detalle_id;
-END;
-GO
-
-
-CREATE OR ALTER PROCEDURE pedidos_select_by_cliente
-    @cliente_id NVARCHAR(20),
-    @estado     NVARCHAR(20) = NULL,   -- opcional
-    @desde      DATETIME = NULL,       -- opcional 
-    @hasta      DATETIME = NULL        -- opcional 
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT
-        p.pedido_id,
-        p.cliente_id,
-        p.fecha_pedido,
-        p.estado_pedido,
-        p.total_pedido,
-        p.metodo_pago
-    FROM pedidos AS p
-    WHERE p.cliente_id = @cliente_id
-      AND (@estado IS NULL OR p.estado_pedido = @estado)
-      AND (@desde IS NULL OR p.fecha_pedido >= @desde)
-      AND (
-            @hasta IS NULL
-         OR p.fecha_pedido < DATEADD(DAY, 1, CONVERT(date, @hasta))
-      )
-    ORDER BY p.fecha_pedido DESC;
-END;
-GO
-
-/* =========================
-   PEDIDOS POR CLIENTE (lista)
-   ========================= */
-CREATE OR ALTER PROCEDURE pedidos_por_cliente_id
+-- 2) Get by client id (ORDER BY fecha DESC)
+CREATE OR ALTER PROCEDURE pedidos_get_by_cliente_id
   @cliente_id NVARCHAR(20)
 AS
 BEGIN
   SET NOCOUNT ON;
-
-  SELECT
-      p.pedido_id,
-      p.cliente_id,
-      p.fecha_pedido,
-      p.estado_pedido,
-      p.total_pedido,
-      p.metodo_pago
-  FROM pedidos AS p
-  WHERE p.cliente_id = @cliente_id
-  ORDER BY p.fecha_pedido DESC;
+  SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
+  FROM pedidos
+  WHERE cliente_id = @cliente_id
+  ORDER BY fecha_pedido DESC;
 END;
 GO
+
+-- 3) Get by pedido id (acepta 'ped-123' o '123')
+CREATE OR ALTER PROCEDURE pedidos_get_by_id
+  @id NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id,4)='ped-' THEN @id ELSE CONCAT('ped-',@id) END;
+
+  SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
+  FROM pedidos
+  WHERE pedido_id = @pid;
+END;
+GO
+
+-- 4) Get by estado (ej: 'Por confirmar','Cancelado','Confirmado', etc.)
+CREATE OR ALTER PROCEDURE pedidos_get_by_estado
+  @estado NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
+  FROM pedidos
+  WHERE estado_pedido = @estado
+  ORDER BY fecha_pedido DESC;
+END;
+GO
+
+-- 5) Get por confirmar
+CREATE OR ALTER PROCEDURE pedidos_get_por_confirmar
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT pedido_id, cliente_id, fecha_pedido, estado_pedido, total_pedido, metodo_pago
+  FROM pedidos
+  WHERE estado_pedido = N'Por confirmar'
+  ORDER BY fecha_pedido DESC;
+END;
+GO
+
+/* ========================
+   PROCEDIMIENTOS – Joins pedidos + detalle
+   ======================== */
+
+-- A) By pedido_id y cliente_id
+CREATE OR ALTER PROCEDURE pedidos_join_detalles_by_pedido_and_cliente
+  @id_pedido  NVARCHAR(20),
+  @cliente_id NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id_pedido,4)='ped-' THEN @id_pedido ELSE CONCAT('ped-',@id_pedido) END;
+
+  SELECT
+    p.pedido_id, p.cliente_id, p.fecha_pedido, p.estado_pedido, p.total_pedido, p.metodo_pago,
+    d.detalle_id, d.producto_id, pr.nombre_producto, d.cantidad, d.precio_unitario, d.subtotal
+  FROM pedidos p
+  JOIN detalle_pedidos d ON d.pedido_id = p.pedido_id
+  JOIN productos pr      ON pr.producto_id = d.producto_id
+  WHERE p.pedido_id = @pid AND p.cliente_id = @cliente_id
+  ORDER BY d.detalle_id;
+END;
+GO
+
+-- B) By pedido_id
+CREATE OR ALTER PROCEDURE pedidos_join_detalles_by_pedido
+  @id_pedido NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id_pedido,4)='ped-' THEN @id_pedido ELSE CONCAT('ped-',@id_pedido) END;
+
+  SELECT
+    p.pedido_id, p.cliente_id, p.fecha_pedido, p.estado_pedido, p.total_pedido, p.metodo_pago,
+    d.detalle_id, d.producto_id, pr.nombre_producto, d.cantidad, d.precio_unitario, d.subtotal
+  FROM pedidos p
+  JOIN detalle_pedidos d ON d.pedido_id = p.pedido_id
+  JOIN productos pr      ON pr.producto_id = d.producto_id
+  WHERE p.pedido_id = @pid
+  ORDER BY d.detalle_id;
+END;
+GO
+
+-- C) By cliente_id (todas las líneas de todos sus pedidos)
+CREATE OR ALTER PROCEDURE pedidos_join_detalles_by_cliente
+  @cliente_id NVARCHAR(20)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SELECT
+    p.pedido_id, p.cliente_id, p.fecha_pedido, p.estado_pedido, p.total_pedido, p.metodo_pago,
+    d.detalle_id, d.producto_id, pr.nombre_producto, d.cantidad, d.precio_unitario, d.subtotal
+  FROM pedidos p
+  JOIN detalle_pedidos d ON d.pedido_id = p.pedido_id
+  JOIN productos pr      ON pr.producto_id = d.producto_id
+  WHERE p.cliente_id = @cliente_id
+  ORDER BY p.fecha_pedido DESC, d.detalle_id;
+END;
+GO
+
+/* ========================
+   ÍNDICES
+   ======================== */
+
+-- 1) Pedidos: listas y ordenamientos por cliente y fecha
+CREATE NONCLUSTERED INDEX IX_pedidos_cliente_fecha
+ON pedidos (cliente_id, fecha_pedido)
+INCLUDE (estado_pedido, total_pedido, metodo_pago);
+GO
+
+-- 2) Pedidos por estado + fecha
+CREATE NONCLUSTERED INDEX IX_pedidos_estado_fecha
+ON pedidos (estado_pedido, fecha_pedido)
+INCLUDE (cliente_id, total_pedido, metodo_pago);
+GO
+
+
+-- 3) Detalle por pedido (join y recomputo de totales)
+CREATE NONCLUSTERED INDEX IX_detalle_pedido
+ON detalle_pedidos (pedido_id)
+INCLUDE (detalle_id, producto_id, cantidad, precio_unitario);
+GO
+
+-- 4) Logs de pedidos: buscar por pedido y traer lo más reciente
+CREATE NONCLUSTERED INDEX IX_ped_ins_pedido_fecha
+ON pedidos_insert_log (pedido_id, fecha_log)
+INCLUDE (cliente_id, estado_pedido, total_pedido, metodo_pago);
+GO
+
+CREATE NONCLUSTERED INDEX IX_ped_del_pedido_fecha
+ON pedidos_delete_log (pedido_id, fecha_log)
+INCLUDE (cliente_id, estado_pedido, total_pedido, metodo_pago);
+GO
+
+CREATE NONCLUSTERED INDEX IX_ped_upd_pedido_fecha
+ON pedidos_update_log (pedido_id, fecha_log)
+INCLUDE (
+  cliente_id_ant, fecha_pedido_ant, estado_pedido_ant, total_pedido_ant, metodo_pago_ant,
+  cliente_id_nvo, fecha_pedido_nvo, estado_pedido_nvo, total_pedido_nvo, metodo_pago_nvo
+);
+GO
+
+-- 5) Logs de detalle: consultar por pedido y fecha
+CREATE NONCLUSTERED INDEX IX_det_ins_pedido_fecha
+ON detalle_pedidos_insert_log (pedido_id, fecha_log)
+INCLUDE (detalle_id, producto_id, cantidad, precio_unitario);
+GO
+
+CREATE NONCLUSTERED INDEX IX_det_del_pedido_fecha
+ON detalle_pedidos_delete_log (pedido_id, fecha_log)
+INCLUDE (detalle_id, producto_id, cantidad, precio_unitario);
+GO
+
+CREATE NONCLUSTERED INDEX IX_det_upd_pedido_fecha
+ON detalle_pedidos_update_log (pedido_id, fecha_log)
+INCLUDE (detalle_id, producto_id, cantidad_ant, precio_unitario_ant, cantidad_nvo, precio_unitario_nvo);
+GO
+

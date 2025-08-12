@@ -1,25 +1,34 @@
 /* ==============================================================
-   Tablas, Constraints, Triggers y Procedimientos para Categorías
+   Tablas, Triggers e Índices para Categorías
    ============================================================== */
 
+-- ==============================================
+-- Tabla de logs (errores de procedimientos)
+-- ==============================================
+DROP TABLE IF EXISTS logs;
+GO
+CREATE TABLE logs (
+    log_id  INT IDENTITY(1,1) PRIMARY KEY,
+    fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
+    origen  NVARCHAR(100)  NOT NULL, -- Nombre del procedimiento
+    mensaje NVARCHAR(MAX)  NOT NULL  -- Texto del error SQL
+);
+GO
+
+-- ==============================================
 -- Tabla principal de categorías
+-- ==============================================
 DROP TABLE IF EXISTS categorias;
 GO
 CREATE TABLE categorias (
     categoria_id      INT IDENTITY(1,1) PRIMARY KEY,   -- PK
-    nombre_categoria  NVARCHAR(50) NOT NULL,           -- Nombre de la categoría
-    descripcion       NVARCHAR(255) NULL,              -- Descripción de la categoría
-    image_path        NVARCHAR(255) NULL               -- Ruta de la imagen
+    nombre_categoria  NVARCHAR(50) UNIQUE NOT NULL,    -- Único
+    descripcion       NVARCHAR(255) NULL
 );
 GO
 
--- Constraint UNIQUE en nombre_categoria
-ALTER TABLE categorias
-ADD CONSTRAINT UQ_categorias_nombre_categoria UNIQUE (nombre_categoria);
-GO
-
 /* ========================
-   Tablas de LOG 
+   Tablas de LOG (auditoría)
    ======================== */
 
 DROP TABLE IF EXISTS categorias_insert_log;
@@ -29,8 +38,7 @@ CREATE TABLE categorias_insert_log (
     categoria_id      INT,
     nombre_categoria  NVARCHAR(50),
     descripcion       NVARCHAR(255),
-    fecha_log         DATETIME    DEFAULT GETDATE(),
-    usuario           NVARCHAR(50) DEFAULT SYSTEM_USER
+    fecha_log         DATETIME    NOT NULL DEFAULT GETDATE()
 );
 GO
 
@@ -41,8 +49,7 @@ CREATE TABLE categorias_delete_log (
     categoria_id      INT,
     nombre_categoria  NVARCHAR(50),
     descripcion       NVARCHAR(255),
-    fecha_log         DATETIME    DEFAULT GETDATE(),
-    usuario           NVARCHAR(50) DEFAULT SYSTEM_USER
+    fecha_log         DATETIME    NOT NULL DEFAULT GETDATE()
 );
 GO
 
@@ -55,13 +62,12 @@ CREATE TABLE categorias_update_log (
     descripcion_anterior      NVARCHAR(255),
     nombre_categoria_nuevo    NVARCHAR(50),
     descripcion_nuevo         NVARCHAR(255),
-    fecha_log                 DATETIME    DEFAULT GETDATE(),
-    usuario                   NVARCHAR(50) DEFAULT SYSTEM_USER
+    fecha_log                 DATETIME    NOT NULL DEFAULT GETDATE()
 );
 GO
 
 /* ========================
-   TRIGGERS 
+   TRIGGERS
    ======================== */
 
 -- INSERT
@@ -71,11 +77,8 @@ AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO categorias_insert_log (
-        categoria_id, nombre_categoria, descripcion
-    )
-    SELECT
-        i.categoria_id, i.nombre_categoria, i.descripcion
+    INSERT INTO categorias_insert_log (categoria_id, nombre_categoria, descripcion)
+    SELECT i.categoria_id, i.nombre_categoria, i.descripcion
     FROM inserted AS i;
 END;
 GO
@@ -87,49 +90,46 @@ AFTER DELETE
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO categorias_delete_log (
-        categoria_id, nombre_categoria, descripcion
-    )
-    SELECT
-        d.categoria_id, d.nombre_categoria, d.descripcion
+    INSERT INTO categorias_delete_log (categoria_id, nombre_categoria, descripcion)
+    SELECT d.categoria_id, d.nombre_categoria, d.descripcion
     FROM deleted AS d;
 END;
 GO
 
--- UPDATE (solo loggea cambios en nombre/descripcion)
+-- UPDATE (solo log si hay cambios reales)
 CREATE OR ALTER TRIGGER trg_update_categorias
 ON categorias
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
+
     INSERT INTO categorias_update_log (
         categoria_id,
         nombre_categoria_anterior, descripcion_anterior,
-        nombre_categoria_nuevo,   descripcion_nuevo
+        nombre_categoria_nuevo,    descripcion_nuevo
     )
     SELECT
         d.categoria_id,
         d.nombre_categoria, d.descripcion,
         i.nombre_categoria, i.descripcion
-    FROM deleted AS d
+    FROM deleted  AS d
     JOIN inserted AS i
       ON d.categoria_id = i.categoria_id
     WHERE
         ISNULL(d.nombre_categoria,'') <> ISNULL(i.nombre_categoria,'')
-     OR ISNULL(d.descripcion,'')       <> ISNULL(i.descripcion,'');
+        OR ISNULL(d.descripcion,'')  <> ISNULL(i.descripcion,'');
 END;
 GO
 
-/* ==============================================================
-   Procedimientos
-   ============================================================== */
+/* ========================
+   PROCEDIMIENTOS
+   ======================== */
 
 -- INSERT categorías 
 CREATE OR ALTER PROCEDURE categorias_insert
     @nombre_categoria NVARCHAR(50),
-    @descripcion      NVARCHAR(255) = NULL,
-    @image_path       NVARCHAR(255) = NULL
+    @descripcion      NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -142,19 +142,15 @@ BEGIN
         IF EXISTS (SELECT 1 FROM categorias WHERE nombre_categoria = @nombre_categoria)
             THROW 51002, 'La categoría ya existe.', 1;
 
-        INSERT INTO categorias (
-            nombre_categoria, descripcion, image_path
-        )
-        VALUES (
-            @nombre_categoria, @descripcion, @image_path
-        );
+        INSERT INTO categorias (nombre_categoria, descripcion)
+        VALUES (@nombre_categoria, @descripcion);
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_insert');
+        INSERT INTO logs (origen, mensaje)
+        VALUES (N'categorias_insert', ERROR_MESSAGE());
         THROW;
     END CATCH
 END;
@@ -164,8 +160,7 @@ GO
 CREATE OR ALTER PROCEDURE categorias_update
     @categoria_id      INT,
     @nombre_categoria  NVARCHAR(50),
-    @descripcion       NVARCHAR(255) = NULL,
-    @image_path        NVARCHAR(255) = NULL
+    @descripcion       NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -186,18 +181,16 @@ BEGIN
             THROW 51005, 'Otra categoría ya usa ese nombre.', 1;
 
         UPDATE categorias
-        SET
-            nombre_categoria = @nombre_categoria,
-            descripcion      = @descripcion,
-            image_path       = @image_path
+        SET nombre_categoria = @nombre_categoria,
+            descripcion      = @descripcion
         WHERE categoria_id = @categoria_id;
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_update');
+        INSERT INTO logs (origen, mensaje)
+        VALUES (N'categorias_update', ERROR_MESSAGE());
         THROW;
     END CATCH
 END;
@@ -222,8 +215,8 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        INSERT INTO logs (mensaje, nivel, origen)
-        VALUES (ERROR_MESSAGE(), 'ERROR', 'categorias_delete');
+        INSERT INTO logs (origen, mensaje)
+        VALUES (N'categorias_delete', ERROR_MESSAGE());
         THROW;
     END CATCH
 END;
@@ -234,11 +227,7 @@ CREATE OR ALTER PROCEDURE categorias_get_all
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT
-        categoria_id,
-        nombre_categoria,
-        descripcion,
-        image_path
+    SELECT categoria_id, nombre_categoria, descripcion
     FROM categorias
     ORDER BY nombre_categoria;
 END;
@@ -249,53 +238,52 @@ CREATE OR ALTER PROCEDURE categorias_get_list
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT
-        categoria_id,
-        nombre_categoria
+    SELECT categoria_id, nombre_categoria
     FROM categorias
     ORDER BY nombre_categoria;
 END;
 GO
 
-/* =========================
-   CATEGORÍAS: categorias_por_id
-   ========================= */
+-- Obtener categoría por id
 CREATE OR ALTER PROCEDURE categorias_por_id
   @categoria_id INT
 AS
 BEGIN
   SET NOCOUNT ON;
-  SELECT categoria_id, nombre_categoria, descripcion, image_path
+  SELECT categoria_id, nombre_categoria, descripcion
   FROM categorias
   WHERE categoria_id = @categoria_id;
 END;
 GO
 
-/* Cobertura para categorias_get_all y get_list (ORDER BY nombre_categoria) */
-CREATE NONCLUSTERED INDEX categorias_nombre_cover_all
+/* ========================
+   ÍNDICES
+   ======================== */
+
+-- 1) Cubre consultas que ordenan por nombre y devuelven id/descripcion
+CREATE NONCLUSTERED INDEX IX_categorias_nombre_cover_all
 ON categorias(nombre_categoria)
-INCLUDE (categoria_id, descripcion, image_path);
+INCLUDE (categoria_id, descripcion);
 GO
 
-/* Índices para logs: buscar por categoria_id y lo más reciente */
-
-/* INSERT LOG */
-CREATE NONCLUSTERED INDEX categorias_insert_log_categoria_fecha
-ON categorias_insert_log (categoria_id, fecha_log DESC)
-INCLUDE (nombre_categoria, descripcion, usuario);
+-- 2) Logs de INSERT: buscar por categoria y traer lo más reciente
+CREATE NONCLUSTERED INDEX IX_cat_insert_categoria_fecha
+ON categorias_insert_log (categoria_id, fecha_log)
+INCLUDE (nombre_categoria, descripcion);
 GO
 
-/* DELETE LOG */
-
-CREATE NONCLUSTERED INDEX categorias_delete_log_categoria_fecha
-ON categorias_delete_log (categoria_id, fecha_log DESC)
-INCLUDE (nombre_categoria, descripcion, usuario);
+-- 3) Logs de DELETE: buscar por categoria y traer lo más reciente
+CREATE NONCLUSTERED INDEX IX_cat_delete_categoria_fecha
+ON categorias_delete_log (categoria_id, fecha_log)
+INCLUDE (nombre_categoria, descripcion);
 GO
 
-/* UPDATE LOG */
-CREATE NONCLUSTERED INDEX categorias_update_log_categoria_fecha
-ON categorias_update_log (categoria_id, fecha_log DESC)
-INCLUDE (nombre_categoria_anterior, descripcion_anterior, 
-         nombre_categoria_nuevo, descripcion_nuevo, usuario);
+-- 4) Logs de UPDATE: buscar por categoria y traer lo más reciente
+CREATE NONCLUSTERED INDEX IX_cat_update_categoria_fecha
+ON categorias_update_log (categoria_id, fecha_log)
+INCLUDE (
+    nombre_categoria_anterior, descripcion_anterior,
+    nombre_categoria_nuevo,    descripcion_nuevo
+);
 GO
 

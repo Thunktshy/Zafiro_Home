@@ -1,0 +1,6 @@
+/* /admin-resources/css/forms/productos.css */
+.header-bar { background: #0d6efd; color: #fff; }
+.header-bar a { border-color: #fff; }
+.page-title { font-weight: 600; }
+.card-actions .btn + .btn { margin-left: .5rem; }
+.modal .form-text { font-size: .8rem; color: #6c757d; }

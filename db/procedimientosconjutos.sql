@@ -1,8 +1,4 @@
 
-IF OBJECT_ID('buscar_id_para_login', 'P') IS NOT NULL
-    DROP PROCEDURE buscar_id_para_login;
-GO
-
 CREATE OR ALTER PROCEDURE buscar_id_para_login
   @termino_busqueda NVARCHAR(150)
 AS

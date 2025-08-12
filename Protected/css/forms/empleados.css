@@ -1,0 +1,6 @@
+.header-bar { background: #0d6efd; color: #fff; }
+.header-bar a { border-color: #fff; }
+.page-title { font-weight: 600; }
+.card .table td, .card .table th { vertical-align: middle; }
+.btn-group .btn + .btn { margin-left: .35rem; }
+.modal .form-text { font-size: .8rem; color: #6c757d; }
