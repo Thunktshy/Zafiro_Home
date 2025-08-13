@@ -18,7 +18,7 @@ const {
   PreciosDescuentoRules
 } = require('../Validators/Rulesets/gestion_stock_y_alertas.js');
 
-const Router = express.Router();
+const GestionRouter = express.Router();
 
 // Helper params { name, type, value }[] -> dict {name: {type, value}}
 function BuildParams(entries) {
@@ -51,7 +51,7 @@ function parseDateOrNull(s) {
    POST /gestion_stock_y_alertas/stock/agregar    -> SP: productos_stock_agregar
    POST /gestion_stock_y_alertas/stock/reducir    -> SP: productos_stock_reducir
 ============================================================================ */
-Router.post('/stock/agregar', requireAdmin, async (req, res) => {
+GestionRouter.post('/stock/agregar', requireAdmin, async (req, res) => {
   try {
     const Body = {
       producto_id: String(req.body?.producto_id || '').trim(),
@@ -74,7 +74,7 @@ Router.post('/stock/agregar', requireAdmin, async (req, res) => {
   }
 });
 
-Router.post('/stock/reducir', requireAdmin, async (req, res) => {
+GestionRouter.post('/stock/reducir', requireAdmin, async (req, res) => {
   try {
     const Body = {
       producto_id: String(req.body?.producto_id || '').trim(),
@@ -101,7 +101,7 @@ Router.post('/stock/reducir', requireAdmin, async (req, res) => {
    ALERTAS (opcional) — ejecuta SP de barrido si lo deseas
    POST /gestion_stock_y_alertas/alertas/generar  -> SP: alertas_inventario_generar
 ============================================================================ */
-Router.post('/alertas/generar', requireAdmin, async (req, res) => {
+GestionRouter.post('/alertas/generar', requireAdmin, async (req, res) => {
   try {
     const Body = {
       umbral_global: Number(req.body?.umbral_global ?? 5),
@@ -131,7 +131,7 @@ Router.post('/alertas/generar', requireAdmin, async (req, res) => {
    GET /gestion_stock_y_alertas/logs/by_producto_rango/:producto_id?desde=...&hasta=...
    GET /gestion_stock_y_alertas/logs/by_categoria_rango?categoria_id=...&desde=...&hasta=...
 ============================================================================ */
-Router.get('/logs/all', requireAdmin, async (_req, res) => {
+GestionRouter.get('/logs/all', requireAdmin, async (_req, res) => {
   try {
     const data = await db.executeProc('productos_sin_stock_log_get_all', {});
     return res.status(200).json({ success: true, message: 'Logs obtenidos', data });
@@ -141,7 +141,7 @@ Router.get('/logs/all', requireAdmin, async (_req, res) => {
   }
 });
 
-Router.get('/logs/by_producto/:producto_id', requireAdmin, async (req, res) => {
+GestionRouter.get('/logs/by_producto/:producto_id', requireAdmin, async (req, res) => {
   try {
     const Body = { producto_id: String(req.params?.producto_id || '').trim() };
     const { isValid, errors } = await ValidationService.validateData(Body, LogByProductoRules);
@@ -156,7 +156,7 @@ Router.get('/logs/by_producto/:producto_id', requireAdmin, async (req, res) => {
   }
 });
 
-Router.get('/logs/by_categoria/:categoria_id', requireAdmin, async (req, res) => {
+GestionRouter.get('/logs/by_categoria/:categoria_id', requireAdmin, async (req, res) => {
   try {
     const Body = { categoria_id: Number(req.params?.categoria_id) };
     const { isValid, errors } = await ValidationService.validateData(Body, LogByCategoriaRules);
@@ -171,7 +171,7 @@ Router.get('/logs/by_categoria/:categoria_id', requireAdmin, async (req, res) =>
   }
 });
 
-Router.get('/logs/by_rango', requireAdmin, async (req, res) => {
+GestionRouter.get('/logs/by_rango', requireAdmin, async (req, res) => {
   try {
     const Body = { desde: req.query.desde, hasta: req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, LogByRangoRules);
@@ -192,7 +192,7 @@ Router.get('/logs/by_rango', requireAdmin, async (req, res) => {
   }
 });
 
-Router.get('/logs/by_producto_rango/:producto_id', requireAdmin, async (req, res) => {
+GestionRouter.get('/logs/by_producto_rango/:producto_id', requireAdmin, async (req, res) => {
   try {
     const Body = {
       producto_id: String(req.params?.producto_id || '').trim(),
@@ -217,7 +217,7 @@ Router.get('/logs/by_producto_rango/:producto_id', requireAdmin, async (req, res
   }
 });
 
-Router.get('/logs/by_categoria_rango', requireAdmin, async (req, res) => {
+GestionRouter.get('/logs/by_categoria_rango', requireAdmin, async (req, res) => {
   try {
     const Body = { categoria_id: Number(req.query.categoria_id), desde: req.query.desde, hasta: req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, LogByCategoriaRangoRules);
@@ -245,7 +245,7 @@ Router.get('/logs/by_categoria_rango', requireAdmin, async (req, res) => {
    POST /gestion_stock_y_alertas/precios/reducir      -> productos_precio_reducir
    POST /gestion_stock_y_alertas/precios/descuento    -> productos_agregar_descuento
 ============================================================================ */
-Router.post('/precios/incrementar', requireAdmin, async (req, res) => {
+GestionRouter.post('/precios/incrementar', requireAdmin, async (req, res) => {
   try {
     const Body = {
       monto: Number(req.body?.monto),
@@ -270,7 +270,7 @@ Router.post('/precios/incrementar', requireAdmin, async (req, res) => {
   }
 });
 
-Router.post('/precios/reducir', requireAdmin, async (req, res) => {
+GestionRouter.post('/precios/reducir', requireAdmin, async (req, res) => {
   try {
     const Body = {
       monto: Number(req.body?.monto),
@@ -295,7 +295,7 @@ Router.post('/precios/reducir', requireAdmin, async (req, res) => {
   }
 });
 
-Router.post('/precios/descuento', requireAdmin, async (req, res) => {
+GestionRouter.post('/precios/descuento', requireAdmin, async (req, res) => {
   try {
     const Body = {
       porcentaje: Number(req.body?.porcentaje),
@@ -320,4 +320,4 @@ Router.post('/precios/descuento', requireAdmin, async (req, res) => {
   }
 });
 
-module.exports = Router;
+module.exports = GestionRouter;

@@ -11,7 +11,7 @@ const {
   HistorialClienteRules
 } = require('../Validators/Rulesets/reportes.js');
 
-const Router = express.Router();
+const ReportesRoutes = express.Router();
 const BuildParams = (arr) => arr.reduce((o, e) => (o[e.name] = { type: e.type, value: e.value }, o), {});
 const parseDate = (v) => { const d = new Date(String(v||'').trim()); return isNaN(d) ? null : d; };
 
@@ -19,7 +19,7 @@ const parseDate = (v) => { const d = new Date(String(v||'').trim()); return isNa
    PIVOT mensual
    GET /reportes/ventas_mensual_pivot?desde=...&hasta=...
    ======================= */
-Router.get('/ventas_mensual_pivot', requireAdmin, async (req, res) => {
+ReportesRoutes .get('/ventas_mensual_pivot', requireAdmin, async (req, res) => {
   try {
     const Body = { desde: req.query.desde, hasta: req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, PivotRules);
@@ -44,7 +44,7 @@ Router.get('/ventas_mensual_pivot', requireAdmin, async (req, res) => {
    Top ventas (ranking)
    GET /reportes/top_ventas?desde=...&hasta=...&limit=10
    ======================= */
-Router.get('/top_ventas', requireAdmin, async (req, res) => {
+ReportesRoutes.get('/top_ventas', requireAdmin, async (req, res) => {
   try {
     const Body = { desde:req.query.desde, hasta:req.query.hasta, limit:Number(req.query.limit ?? 10) };
     const { isValid, errors } = await ValidationService.validateData(Body, TopVentasRules);
@@ -70,7 +70,7 @@ Router.get('/top_ventas', requireAdmin, async (req, res) => {
    Frecuencia de compra (CASE)
    GET /reportes/clientes_frecuencia?desde=...&hasta=...
    ======================= */
-Router.get('/clientes_frecuencia', requireAdmin, async (req, res) => {
+ReportesRoutes.get('/clientes_frecuencia', requireAdmin, async (req, res) => {
   try {
     const Body = { desde:req.query.desde, hasta:req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, FrecuenciaRules);
@@ -95,7 +95,7 @@ Router.get('/clientes_frecuencia', requireAdmin, async (req, res) => {
    Historial por cliente (JOINs)
    GET /reportes/historial_cliente/:cliente_id?desde=...&hasta=...
    ======================= */
-Router.get('/historial_cliente/:cliente_id', requireAdmin, async (req, res) => {
+ReportesRoutes.get('/historial_cliente/:cliente_id', requireAdmin, async (req, res) => {
   try {
     const Body = { cliente_id: String(req.params.cliente_id||'').trim(), desde:req.query.desde, hasta:req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, HistorialClienteRules);
@@ -117,4 +117,4 @@ Router.get('/historial_cliente/:cliente_id', requireAdmin, async (req, res) => {
   }
 });
 
-module.exports = Router;
+module.exports = ReportesRoutes;

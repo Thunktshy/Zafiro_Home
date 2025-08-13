@@ -5,14 +5,14 @@ const ValidationService = require('../validatorService.js');
 const { requireAdmin } = require('./authRoute.js');
 const { PromosActivasRules } = require('../Validators/Rulesets/promociones.js');
 
-const Router = express.Router();
+const PromocionesRouter = express.Router();
 const BuildParams = (arr) => arr.reduce((o, e) => (o[e.name] = { type: e.type, value: e.value }, o), {});
 const parseDate = (v) => { const d = new Date(String(v||'').trim()); return isNaN(d) ? null : d; };
 
 /* =======================
    GET /promociones/activas_por_producto?fecha=YYYY-MM-DD
    ======================= */
-Router.get('/activas_por_producto', requireAdmin, async (req, res) => {
+PromocionesRouter.get('/activas_por_producto', requireAdmin, async (req, res) => {
   try {
     const Body = { fecha: req.query.fecha ?? null };
     const { isValid, errors } = await ValidationService.validateData(Body, PromosActivasRules);

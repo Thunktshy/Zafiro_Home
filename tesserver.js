@@ -132,8 +132,17 @@ app.use('/metodos_pago', MetodosPagoRoutes);
 const ProductosRoutes = require('./Server/routes/productosRoute.js');
 app.use('/productos', ProductosRoutes);
 
-app.use('/reportes', require('./Server/routes/reportesRoute.js'));
-app.use('/promociones', require('./Server/routes/promocionesRoute.js'));
+//Gestion stock y alertas
+const GestionRoutes = require('./Server/routes/gestion_stock_y_alertasRoute.js');
+app.use('/gestion_stock_y_alertas', GestionRoutes);
+
+//Rutas reportes
+const ReportesRoutes = require('./Server/routes/reportesRoute.js');
+app.use('/reportes', ReportesRoutes);
+
+//Rutas Promociones
+const PromocionesRouter = require('./Server/routes/promocionesRoute.js')
+app.use('/promociones', PromocionesRouter);
 
 
 // Iniciar el servidor
