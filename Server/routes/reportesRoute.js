@@ -19,7 +19,7 @@ const parseDate = (v) => { const d = new Date(String(v||'').trim()); return isNa
    PIVOT mensual
    GET /reportes/ventas_mensual_pivot?desde=...&hasta=...
    ======================= */
-ReportesRoutes .get('/ventas_mensual_pivot', requireAdmin, async (req, res) => {
+ReportesRoutes.get('/ventas_mensual_pivot', requireAdmin, async (req, res) => {
   try {
     const Body = { desde: req.query.desde, hasta: req.query.hasta };
     const { isValid, errors } = await ValidationService.validateData(Body, PivotRules);

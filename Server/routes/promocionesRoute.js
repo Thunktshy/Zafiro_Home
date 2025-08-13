@@ -31,4 +31,4 @@ PromocionesRouter.get('/activas_por_producto', requireAdmin, async (req, res) =>
   }
 });
 
-module.exports = Router;
+module.exports = PromocionesRouter;
