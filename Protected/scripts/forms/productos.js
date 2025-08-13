@@ -1,240 +1,328 @@
-// Controlador UI del panel de Productos (admin)
-import { productosAPI, categoriasAPI } from '/admin-resources/scripts/apis/productosManager.js';
+// scripts/forms/productos.js
+// UI de administración para Productos (DataTable + modales + CRUD)
+// Requiere: productosAPI (productosManager.js) y categoriesAPI (categoriesManager.js)
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
+import { categoriesAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
 
-const alertBox = $('#alertBox');
-function showAlert(type, msg, hideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.add('show');
-  if (hideMs) setTimeout(() => alertBox.classList.remove('show'), hideMs);
+// Utilidades UI
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+const money = (n) => (Number(n) || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+
+function showAlert(kind, msg) {
+  const box = $('#alertBox');
+  box.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-info', 'alert-warning');
+  box.classList.add(`alert-${kind}`);
+  box.textContent = msg;
+  // auto-hide
+  setTimeout(() => { box.classList.add('d-none'); }, 4000);
 }
 
-// ====== Catálogo de categorías en memoria (para mostrar nombre) ======
-let CATS = new Map(); // categoria_id -> nombre_categoria
-async function precargarCategorias() {
+function unpack(response) {
+  // Soporta { success, data } o respuesta directa (Array)
+  if (!response) return [];
+  if (Array.isArray(response)) return response;
+  if (typeof response === 'object' && Array.isArray(response.data)) return response.data;
+  return [];
+}
+
+function stateBadge(estado) {
+  const e = String(estado || '').toLowerCase();
+  const cls = e === 'activo' ? 'bg-success' : 'bg-secondary';
+  return `<span class="badge ${cls}">${e || 'N/D'}</span>`;
+}
+
+let tabla; // instancia DataTable
+let modalProducto, modalConfirm; // bootstrap modals
+let accionConfirm = null; // { type: 'soft'|'restore'|'hard', id }
+
+// Mapea campo → índice de columna en la tabla para ordenar
+const COL_INDEX = {
+  producto_id: 0,
+  nombre_producto: 1,
+  descripcion: 2,
+  precio_unitario: 3,
+  stock: 4,
+  categoria_id: 5,
+  estado_producto: 6,
+  fecha_creacion: 7
+};
+
+async function cargarCategorias() {
   try {
-    const r = await categoriasAPI.getList();
-    const list = Array.isArray(r?.data) ? r.data : [];
-    CATS = new Map(list.map(c => [Number(c.categoria_id), c.nombre_categoria]));
-  } catch { CATS = new Map(); }
-}
+    const res = await categoriesAPI.getList();
+    const items = unpack(res);
 
-// ====== Validaciones (todo obligatorio) ======
-const reNombre = /^[\p{L}\p{N}\s\-_.(),&/]{2,50}$/u;
-function validarFormulario() {
-  const nombre  = $('#nombre_producto').value.trim();
-  const desc    = $('#descripcion').value.trim();
-  const precio  = Number($('#precio_unitario').value);
-  const stock   = Number($('#stock').value);
-  const catId   = Number($('#categoria_id').value);
-  const estado  = String($('#estado_producto').value || '');
+    const selFiltro = $('#filtroCategoria');
+    const selModal = $('#categoria_id');
 
-  let ok = true;
-  const setErr = (id, msg) => { $('#'+id).textContent = msg; const ctl = $('#'+id.replace('err','') ); ctl?.classList.add('is-invalid'); ok = false; };
-  $$('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-  ['errNombre','errDesc','errPrecio','errStock','errCategoria','errEstado'].forEach(i => $('#'+i).textContent='');
+    // limpia
+    selFiltro.innerHTML = '<option value="">(Todas)</option>';
+    selModal.innerHTML = '<option value="">Selecciona…</option>';
 
-  if (!nombre || !reNombre.test(nombre)) setErr('errNombre', 'Nombre inválido (2-50).');
-  if (!desc) setErr('errDesc', 'Descripción requerida.');
-  if (!(precio >= 0)) setErr('errPrecio', 'Precio inválido.');
-  if (!(Number.isInteger(stock) && stock >= 0)) setErr('errStock', 'Stock inválido.');
-  if (!Number.isInteger(catId)) setErr('errCategoria', 'Seleccione categoría.');
-  if (!estado || (estado !== 'activo' && estado !== 'inactivo')) setErr('errEstado','Seleccione estado.');
-
-  return ok;
-}
-
-// ====== DataTable ======
-let dt;
-function money(n) { return (Number(n)||0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }); }
-function renderActions(row) {
-  const id = row.producto_id;
-  const name = row.nombre_producto ?? '';
-  return `
-    <div class="btn-group btn-group-sm" role="group">
-      <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Modificar">
-        <i class="fa-solid fa-pen"></i>
-      </button>
-      <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-name="${(name||'').replaceAll('"','&quot;')}" title="Eliminar">
-        <i class="fa-solid fa-trash"></i>
-      </button>
-    </div>`;
-}
-
-async function cargarProductos() {
-  try {
-    await precargarCategorias();
-    const res = await productosAPI.getAll();
-    const rows = Array.isArray(res?.data) ? res.data : [];
-    const withCatName = rows.map(r => ({
-      ...r,
-      _categoria_nombre: CATS.get(Number(r.categoria_id)) || r.categoria_id
-    }));
-
-    if (!dt) {
-      dt = new DataTable('#tabla-productos', {
-        data: withCatName,
-        columns: [
-          { data: 'producto_id' },
-          { data: 'nombre_producto' },
-          { data: 'descripcion' },
-          { data: 'precio_unitario', render: v => money(v) },
-          { data: 'stock' },
-          { data: '_categoria_nombre' },
-          { data: 'estado_producto' },
-          { data: null, orderable: false, searchable: false, render: renderActions }
-        ],
-        order: [[1, 'asc']],
-        language: { url: 'https://cdn.datatables.net/plug-ins/2.0.3/i18n/es-ES.json' }
-      });
-      $('#tabla-productos tbody').addEventListener('click', onTablaClick);
-    } else {
-      dt.clear(); dt.rows.add(withCatName).draw();
+    for (const it of items) {
+      // categories.get_list suele exponer { categoria_id, nombre_categoria }
+      const id = it.categoria_id ?? it.id ?? it.value;
+      const name = it.nombre_categoria ?? it.nombre ?? it.text;
+      selFiltro.insertAdjacentHTML('beforeend', `<option value="${id}">${name}</option>`);
+      selModal.insertAdjacentHTML('beforeend', `<option value="${id}">${name}</option>`);
     }
-
-    showAlert('success', `Se cargaron ${rows.length} producto(s).`);
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudieron obtener los productos');
+    console.error('cargarCategorias error:', err);
+    showAlert('danger', `No se pudieron cargar categorías: ${err.message}`);
   }
 }
 
-function onTablaClick(e) {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const id = btn.dataset.id;
+function configurarTabla() {
+  if (tabla) {
+    tabla.destroy();
+    $('#tablaProductos tbody').innerHTML = '';
+  }
+  tabla = new DataTable('#tablaProductos', {
+    paging: true,
+    pageLength: 10,
+    lengthChange: false,
+    ordering: true,
+    order: [[COL_INDEX.nombre_producto, 'asc']],
+    searching: true,
+    language: {
+      url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
+    },
+    columns: [
+      { data: 'producto_id' },
+      { data: 'nombre_producto' },
+      { data: 'descripcion', defaultContent: '' },
+      { data: 'precio_unitario', render: (v) => money(v) },
+      { data: 'stock' },
+      { data: 'categoria_id' },
+      { data: 'estado_producto', render: (v) => stateBadge(v) },
+      { data: 'fecha_creacion', render: (v) => v ? new Date(v).toLocaleString('es-MX') : '' },
+      {
+        data: null,
+        orderable: false,
+        searchable: false,
+        className: 'text-end',
+        render: (_v, _t, row) => {
+          const id = row.producto_id;
+          const isInactive = String(row.estado_producto).toLowerCase() === 'inactivo';
+          const softBtn = isInactive
+            ? `<button class="btn btn-sm btn-outline-success me-1" data-action="restore" data-id="${id}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`
+            : `<button class="btn btn-sm btn-outline-warning me-1" data-action="soft" data-id="${id}"><i class="bi bi-slash-circle"></i> Desactivar</button>`;
+          return `
+            <button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${id}"><i class="bi bi-pencil-square"></i> Editar</button>
+            ${softBtn}
+            <button class="btn btn-sm btn-outline-danger" data-action="hard" data-id="${id}"><i class="bi bi-trash"></i> Eliminar</button>
+          `;
+        }
+      }
+    ]
+  });
 
-  if (btn.classList.contains('btn-editar')) abrirModalEditar(id);
-  else if (btn.classList.contains('btn-eliminar')) abrirModalEliminar(id, btn.dataset.name || '');
+  // Delegación de eventos de acciones
+  $('#tablaProductos tbody').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+
+    if (action === 'edit') {
+      abrirModalEditar(id);
+    } else if (action === 'soft' || action === 'restore' || action === 'hard') {
+      prepararConfirm(action, id);
+    }
+  });
 }
 
-// ====== Modales ======
-const modalProd = new bootstrap.Modal('#modalProducto');
-const modalDel  = new bootstrap.Modal('#modalEliminar');
+async function cargarTodos() {
+  try {
+    const res = await productosAPI.getAll();
+    const rows = unpack(res);
+    tabla.clear();
+    tabla.rows.add(rows).draw();
+    showAlert('success', 'Productos cargados');
+  } catch (err) {
+    console.error('cargarTodos error:', err);
+    showAlert('danger', `Error al cargar productos: ${err.message}`);
+  }
+}
 
-function limpiarFormulario() {
+async function buscarPorNombre() {
+  const nombre = $('#filtroNombre').value.trim();
+  if (!nombre) return showAlert('warning', 'Escribe un nombre para buscar.');
+  try {
+    const res = await productosAPI.getByName(nombre);
+    const rows = unpack(res);
+    tabla.clear();
+    tabla.rows.add(rows).draw();
+    showAlert('info', `Resultados para nombre = "${nombre}"`);
+  } catch (err) {
+    console.error('buscarPorNombre error:', err);
+    showAlert('danger', `Error al buscar por nombre: ${err.message}`);
+  }
+}
+
+async function filtrarPorCategoria() {
+  const cid = $('#filtroCategoria').value;
+  if (!cid) return cargarTodos();
+  try {
+    const res = await productosAPI.getByCategoria(cid);
+    const rows = unpack(res);
+    tabla.clear();
+    tabla.rows.add(rows).draw();
+    showAlert('info', `Resultados para categoría #${cid}`);
+  } catch (err) {
+    console.error('filtrarPorCategoria error:', err);
+    showAlert('danger', `Error al filtrar por categoría: ${err.message}`);
+  }
+}
+
+function ordenarTabla() {
+  const value = $('#ordenarPor').value;
+  const idx = COL_INDEX[value] ?? COL_INDEX.nombre_producto;
+  tabla.order([idx, 'asc']).draw();
+}
+
+function limpiarFiltros() {
+  $('#filtroNombre').value = '';
+  $('#filtroCategoria').value = '';
+  $('#ordenarPor').value = 'nombre_producto';
+  cargarTodos();
+}
+
+function abrirModalNuevo() {
+  $('#modalProductoTitulo').textContent = 'Nuevo producto';
   $('#producto_id').value = '';
   $('#nombre_producto').value = '';
   $('#descripcion').value = '';
   $('#precio_unitario').value = '';
   $('#stock').value = '';
+  $('#estado_producto').value = 'activo';
   $('#categoria_id').value = '';
-  $('#estado_producto').value = '';
-  $$('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-  ['errNombre','errDesc','errPrecio','errStock','errCategoria','errEstado'].forEach(id => $('#'+id).textContent='');
-}
 
-async function llenarCategorias() {
-  try {
-    const r = await categoriasAPI.getList();
-    const list = Array.isArray(r?.data) ? r.data : [];
-    const sel = $('#categoria_id');
-    sel.innerHTML = '<option value="" selected disabled>Seleccione...</option>';
-    for (const c of list) {
-      const opt = document.createElement('option');
-      opt.value = c.categoria_id;
-      opt.textContent = c.nombre_categoria;
-      sel.appendChild(opt);
-    }
-  } catch { /* no bloquear UI */ }
-}
-
-function abrirModalNuevo() {
-  limpiarFormulario();
-  $('#modalProductoTitulo').textContent = 'Añadir producto';
-  $('#btnGuardar').textContent = 'Guardar';
-  llenarCategorias();
-  modalProd.show();
-  setTimeout(() => $('#nombre_producto')?.focus(), 250);
+  $('#formProducto').classList.remove('was-validated');
+  modalProducto.show();
 }
 
 async function abrirModalEditar(id) {
-  limpiarFormulario();
-  $('#modalProductoTitulo').textContent = 'Modificar producto';
-  $('#btnGuardar').textContent = 'Actualizar';
-  await llenarCategorias();
-
-  let fila;
   try {
-    const r = await productosAPI.getOne(id);
-    fila = Array.isArray(r?.data) ? r.data[0] : (r?.data || r);
-  } catch {}
-  if (!fila && dt) {
-    fila = dt.rows().data().toArray().find(x => String(x.producto_id) === String(id));
+    const res = await productosAPI.getOne(id);
+    const data = res?.data || res; // soporta { data: {...} }
+
+    $('#modalProductoTitulo').textContent = `Editar · ${data.producto_id}`;
+    $('#producto_id').value = data.producto_id;
+    $('#nombre_producto').value = data.nombre_producto || '';
+    $('#descripcion').value = data.descripcion || '';
+    $('#precio_unitario').value = data.precio_unitario ?? '';
+    $('#stock').value = data.stock ?? '';
+    $('#estado_producto').value = (data.estado_producto || 'activo');
+    $('#categoria_id').value = data.categoria_id ?? '';
+
+    $('#formProducto').classList.remove('was-validated');
+    modalProducto.show();
+  } catch (err) {
+    console.error('abrirModalEditar error:', err);
+    showAlert('danger', `No se pudo cargar el producto: ${err.message}`);
   }
-  if (!fila) { showAlert('danger', 'No se encontró el producto.'); return; }
-
-  $('#producto_id').value     = fila.producto_id ?? '';
-  $('#nombre_producto').value = (fila.nombre_producto ?? '').trim();
-  $('#descripcion').value     = (fila.descripcion ?? '').trim();
-  $('#precio_unitario').value = Number(fila.precio_unitario ?? 0);
-  $('#stock').value           = Number(fila.stock ?? 0);
-  $('#categoria_id').value    = Number(fila.categoria_id ?? '');
-  $('#estado_producto').value = (fila.estado_producto ?? '').trim();
-
-  modalProd.show();
-  setTimeout(() => $('#nombre_producto')?.focus(), 250);
 }
 
-function abrirModalEliminar(id, nombre) {
-  $('#delId').value = id;
-  $('#delNombre').textContent = nombre || `ID ${id}`;
-  modalDel.show();
+function prepararConfirm(type, id) {
+  accionConfirm = { type, id };
+  const msg = type === 'hard'
+    ? `¿Eliminar definitivamente el producto <strong>${id}</strong>?`
+    : type === 'soft'
+      ? `¿Desactivar el producto <strong>${id}</strong>? Podrás restaurarlo luego.`
+      : `¿Restaurar el producto <strong>${id}</strong>?`;
+  $('#confirmMsg').innerHTML = msg;
+  modalConfirm.show();
 }
 
-// ====== Guardar (insert/update) ======
-$('#formProducto').addEventListener('submit', async (ev) => {
+async function ejecutarConfirm() {
+  if (!accionConfirm) return;
+  const { type, id } = accionConfirm;
+  try {
+    if (type === 'hard') await productosAPI.remove(id);
+    else if (type === 'soft') await productosAPI.softDelete(id);
+    else if (type === 'restore') await productosAPI.restore(id);
+
+    modalConfirm.hide();
+    accionConfirm = null;
+    await cargarTodos();
+  } catch (err) {
+    console.error('ejecutarConfirm error:', err);
+    showAlert('danger', `Acción fallida: ${err.message}`);
+  }
+}
+
+function validarFormulario() {
+  const form = $('#formProducto');
+  form.classList.add('was-validated');
+
+  const nombre = $('#nombre_producto').value.trim();
+  const precio = Number($('#precio_unitario').value);
+  const stock = Number($('#stock').value);
+  const cat = $('#categoria_id').value;
+
+  if (!nombre || nombre.length > 50) return false;
+  if (!Number.isFinite(precio) || precio < 0) return false;
+  if (!Number.isInteger(stock) || stock < 0) return false;
+  if (!cat) return false;
+  return true;
+}
+
+async function guardarProducto(ev) {
   ev.preventDefault();
   if (!validarFormulario()) return;
 
   const payload = {
-    producto_id: $('#producto_id').value || undefined,      // no mandar en insert
+    producto_id: $('#producto_id').value.trim(),
     nombre_producto: $('#nombre_producto').value.trim(),
-    descripcion: $('#descripcion').value.trim(),
+    descripcion: $('#descripcion').value.trim() || null,
     precio_unitario: Number($('#precio_unitario').value),
     stock: Number($('#stock').value),
     categoria_id: Number($('#categoria_id').value),
-    estado_producto: String($('#estado_producto').value)
+    estado_producto: $('#estado_producto').value
   };
 
-  const esEdicion = !!payload.producto_id;
   try {
-    const res = esEdicion ? await productosAPI.update(payload) : await productosAPI.insert(payload);
-    if (res?.success) {
-      modalProd.hide();
-      showAlert('success', res.message || (esEdicion ? 'Producto actualizado' : 'Producto creado'));
-      await cargarProductos();
+    if (payload.producto_id) {
+      await productosAPI.update(payload);
+      showAlert('success', 'Producto actualizado correctamente');
     } else {
-      throw new Error(res?.message || 'Operación no completada');
+      // En insert, el backend genera producto_id con prefijo prd- y secuencia
+      const { producto_id, ...body } = payload; // no enviar id
+      await productosAPI.insert(body);
+      showAlert('success', 'Producto creado correctamente');
     }
+    modalProducto.hide();
+    await cargarTodos();
   } catch (err) {
-    showAlert('danger', err.message || 'Error al guardar');
+    console.error('guardarProducto error:', err);
+    showAlert('danger', `No se pudo guardar: ${err.message}`);
   }
-});
+}
 
-// ====== Confirmar eliminar ======
-$('#btnConfirmarEliminar').addEventListener('click', async () => {
-  const id = $('#delId').value;
-  if (!id) { modalDel.hide(); return; }
-  try {
-    const res = await productosAPI.remove(id);
-    if (res?.success) {
-      modalDel.hide();
-      showAlert('success', res.message || 'Producto eliminado');
-      await cargarProductos();
-    } else {
-      throw new Error(res?.message || 'No se pudo eliminar');
-    }
-  } catch (err) {
-    showAlert('danger', err.message || 'Error al eliminar');
-  }
-});
+async function init() {
+  // Instancia de modales
+  modalProducto = new bootstrap.Modal('#modalProducto');
+  modalConfirm  = new bootstrap.Modal('#modalConfirm');
 
-// ====== Botones ======
-$('#btnConsultar').addEventListener('click', cargarProductos);
-$('#btnAbrirModalNuevo').addEventListener('click', abrirModalNuevo);
+  // DataTable + datos base
+  configurarTabla();
+  await cargarCategorias();
+  await cargarTodos();
 
-// Primer load
-cargarProductos();
+  // Eventos de filtros/acciones
+  $('#btnBuscarNombre').addEventListener('click', buscarPorNombre);
+  $('#filtroCategoria').addEventListener('change', filtrarPorCategoria);
+  $('#ordenarPor').addEventListener('change', ordenarTabla);
+  $('#btnLimpiar').addEventListener('click', limpiarFiltros);
+  $('#btnNuevo').addEventListener('click', abrirModalNuevo);
+  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
+
+  // Guardado del formulario (create/update)
+  $('#formProducto').addEventListener('submit', guardarProducto);
+}
+
+// Espera a que carguen las dependencias (bootstrap/dataTables)
+window.addEventListener('DOMContentLoaded', init);

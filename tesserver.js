@@ -132,6 +132,10 @@ app.use('/metodos_pago', MetodosPagoRoutes);
 const ProductosRoutes = require('./Server/routes/productosRoute.js');
 app.use('/productos', ProductosRoutes);
 
+app.use('/reportes', require('./Server/routes/reportesRoute.js'));
+app.use('/promociones', require('./Server/routes/promocionesRoute.js'));
+
+
 // Iniciar el servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

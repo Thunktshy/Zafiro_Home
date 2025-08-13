@@ -333,39 +333,102 @@ BEGIN
 END;
 GO
 
--- Confirmar pedido por id
+-- Confirmar pedido por id (revalida stock y descuenta existencias)
 CREATE OR ALTER PROCEDURE pedidos_confirmar
   @id NVARCHAR(20)  -- admite 'ped-123' o '123'
 AS
 BEGIN
   SET NOCOUNT ON;
+  SET XACT_ABORT ON;
+
   BEGIN TRY
     BEGIN TRAN;
 
-    DECLARE @pid NVARCHAR(20) = CASE WHEN LEFT(@id,4)='ped-' THEN @id ELSE CONCAT('ped-',@id) END;
+    DECLARE @pid NVARCHAR(20) =
+      CASE WHEN LEFT(@id,4)='ped-' THEN @id ELSE CONCAT('ped-',@id) END;
 
+    -- 1) Validaciones básicas
     IF NOT EXISTS (SELECT 1 FROM pedidos WHERE pedido_id = @pid)
       THROW 53002, 'El pedido no existe.', 1;
 
-    -- Debe tener líneas y total > 0
+    DECLARE @estado NVARCHAR(20);
+    SELECT @estado = estado_pedido FROM pedidos WHERE pedido_id = @pid;
+
+    IF @estado <> N'Por confirmar'
+      THROW 53008, 'Solo se pueden confirmar pedidos en estado ''Por confirmar''.', 1;
+
     IF NOT EXISTS (SELECT 1 FROM detalle_pedidos WHERE pedido_id = @pid)
       THROW 53003, 'No se puede confirmar un pedido sin artículos.', 1;
 
     IF (SELECT total_pedido FROM pedidos WHERE pedido_id = @pid) <= 0
       THROW 53004, 'El total debe ser > 0 para confirmar.', 1;
 
+    -- 2) Recolecta cantidades requeridas por producto (bloqueo para consistencia)
+    ;WITH req AS (
+      SELECT dp.producto_id, SUM(dp.cantidad) AS requerido
+      FROM detalle_pedidos dp WITH (HOLDLOCK)
+      WHERE dp.pedido_id = @pid
+      GROUP BY dp.producto_id
+    )
+    -- 2a) Verifica productos inactivos entre agregado y confirmación
+    IF EXISTS (
+      SELECT 1
+      FROM req r
+      JOIN productos p WITH (UPDLOCK, HOLDLOCK)
+        ON p.producto_id = r.producto_id
+      WHERE p.estado_producto = N'inactivo'
+    )
+      THROW 53009, 'Hay productos inactivos en el pedido.', 1;
+
+    -- 2b) Verifica stock suficiente en todos los productos (con bloqueos de actualización)
+    IF EXISTS (
+      SELECT 1
+      FROM req r
+      JOIN productos p WITH (UPDLOCK, HOLDLOCK)
+        ON p.producto_id = r.producto_id
+      WHERE p.stock < r.requerido
+    )
+    BEGIN
+      ;WITH faltantes AS (
+        SELECT r.producto_id,
+               r.requerido,
+               p.stock AS stock_disponible,
+               (r.requerido - p.stock) AS deficit
+        FROM req r
+        JOIN productos p ON p.producto_id = r.producto_id
+        WHERE p.stock < r.requerido
+      )
+      SELECT * FROM faltantes;  -- diagnóstico para el cliente/API
+      THROW 53012, 'Stock insuficiente para confirmar el pedido.', 1;
+    END
+
+    -- 3) Descuenta stock (protegiendo filas con UPDLOCK/ROWLOCK)
+    ;WITH req AS (
+      SELECT dp.producto_id, SUM(dp.cantidad) AS requerido
+      FROM detalle_pedidos dp WITH (HOLDLOCK)
+      WHERE dp.pedido_id = @pid
+      GROUP BY dp.producto_id
+    )
+    UPDATE p WITH (UPDLOCK, ROWLOCK)
+      SET p.stock = p.stock - r.requerido
+    FROM productos p
+    JOIN req r ON r.producto_id = p.producto_id;
+
+    -- 4) Confirma el pedido
     UPDATE pedidos
-    SET estado_pedido = N'Confirmado'
+      SET estado_pedido = N'Confirmado'
     WHERE pedido_id = @pid;
 
     COMMIT;
 
-    SELECT pedido_id, estado_pedido FROM pedidos WHERE pedido_id = @pid;
+    SELECT pedido_id, estado_pedido
+    FROM pedidos
+    WHERE pedido_id = @pid;
   END TRY
   BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK;
     INSERT INTO logs(origen, mensaje)
-    VALUES (N'pedidos_confirmar', ERROR_MESSAGE());
+      VALUES (N'pedidos_confirmar', ERROR_MESSAGE());
     THROW;
   END CATCH
 END;

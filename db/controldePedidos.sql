@@ -45,7 +45,7 @@ GO
    Reglas:
      - Pedido debe existir y estar 'Por confirmar'
      - Producto debe existir y estar activo
-     - Stock disponible >= @cantidad (validación amable; stock real se descuenta al confirmar)
+     - Stock disponible (ya_pedido + @cantidad) <= stock
    Errores (THROW):
      53002: Pedido no existe
      53008: Pedido no editable (estado ≠ 'Por confirmar')
@@ -62,7 +62,7 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  DECLARE @pid NVARCHAR(20) = dbo.fn_norm_pedido_id(@pedido_id);
+  DECLARE @pid  NVARCHAR(20) = dbo.fn_norm_pedido_id(@pedido_id);
   DECLARE @prid NVARCHAR(20) = dbo.fn_norm_producto_id(@producto_id);
 
   IF @cantidad IS NULL OR @cantidad <= 0
@@ -77,36 +77,51 @@ BEGIN
   IF @estado <> N'Por confirmar'
     THROW 53008, 'El pedido no es editable en su estado actual', 1;
 
-  -- Producto vigente
-  IF NOT EXISTS (SELECT 1 FROM productos WHERE producto_id = @prid AND (estado_producto IS NULL OR estado_producto <> N'inactivo'))
+  -- Producto vigente (no inactivo)
+  IF NOT EXISTS (
+    SELECT 1
+    FROM productos
+    WHERE producto_id = @prid
+      AND (estado_producto IS NULL OR estado_producto <> N'inactivo')
+  )
     THROW 53009, 'El producto no existe o está inactivo', 1;
 
+  -- Precio por default tomado del producto si no viene especificado
   DECLARE @precio DECIMAL(10,2);
-  SELECT @precio = COALESCE(@precio_unitario, precio_unitario) FROM productos WHERE producto_id = @prid;
-
-  -- Validación amable de stock actual (no descuenta aquí)
-  DECLARE @stock INT; SELECT @stock = stock FROM productos WHERE producto_id = @prid;
-  IF @stock IS NULL OR @stock < @cantidad
-    THROW 53012, 'Stock insuficiente para agregar la cantidad solicitada', 1;
+  SELECT @precio = COALESCE(@precio_unitario, precio_unitario)
+  FROM productos WHERE producto_id = @prid;
 
   BEGIN TRAN;
 
-  IF EXISTS (SELECT 1 FROM detalle_pedidos WHERE pedido_id = @pid AND producto_id = @prid)
-  BEGIN
-    UPDATE detalle_pedidos
-       SET cantidad = cantidad + @cantidad,
-           precio_unitario = @precio
-     WHERE pedido_id = @pid AND producto_id = @prid;
-  END
-  ELSE
-  BEGIN
-    INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_unitario)
-    VALUES (@pid, @prid, @cantidad, @precio);
-  END
+    DECLARE @stock_actual INT;
+    SELECT @stock_actual = p.stock
+    FROM productos p WITH (UPDLOCK, HOLDLOCK)
+    WHERE p.producto_id = @prid;
 
+    DECLARE @ya_pedido INT = 0;
+    SELECT @ya_pedido = ISNULL(cantidad, 0)
+    FROM detalle_pedidos
+    WHERE pedido_id = @pid AND producto_id = @prid;
+
+    IF (@stock_actual IS NULL) OR (@stock_actual < (@ya_pedido + @cantidad))
+      THROW 53012, 'Stock insuficiente para agregar la cantidad solicitada', 1;
+
+    -- Inserta o incrementa la línea
+    IF @ya_pedido > 0
+    BEGIN
+      UPDATE detalle_pedidos
+         SET cantidad = cantidad + @cantidad,
+             precio_unitario = @precio
+       WHERE pedido_id = @pid AND producto_id = @prid;
+    END
+    ELSE
+    BEGIN
+      INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_unitario)
+      VALUES (@pid, @prid, @cantidad, @precio);
+    END
   COMMIT;
 
-  -- resultado: detalles actuales del pedido
+  -- Devuelve el estado del detalle
   SELECT dp.pedido_id, dp.producto_id, dp.cantidad, dp.precio_unitario
   FROM detalle_pedidos dp
   WHERE dp.pedido_id = @pid

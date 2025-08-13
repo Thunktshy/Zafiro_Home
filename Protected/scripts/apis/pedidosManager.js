@@ -42,6 +42,23 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
   return data;
 }
 
+// Confirmar con diagnóstico automático de stock
+export async function confirmarConVerificacion(pedido_id, api = pedidosAPI, ctl = controlPedidosAPI) {
+  try {
+    return await api.confirmar(pedido_id);
+  } catch (e) {
+    const msg = String(e?.message || '');
+    if (msg.toLowerCase().includes('stock insuficiente')) {
+      const faltantes = await ctl.verificarProductos(pedido_id).catch(() => ({ data: [] }));
+      const err = new Error('Stock insuficiente');
+      err.faltantes = Array.isArray(faltantes?.data) ? faltantes.data : [];
+      throw err;
+    }
+    throw e;
+  }
+}
+
+
 export const pedidosAPI = {
   // ---------------------------------------------------------
   // ALTA (ingresa) — CLIENTE

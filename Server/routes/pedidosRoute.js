@@ -31,7 +31,10 @@ function MapSqlError(err) {
     53002: { code: 404, message: 'El pedido no existe' },                          // confirmar
     53003: { code: 409, message: 'No se puede confirmar un pedido sin artículos' },
     53004: { code: 409, message: 'El total debe ser > 0 para confirmar' },
-    53005: { code: 404, message: 'El pedido no existe' }                           // cancelar
+    53005: { code: 404, message: 'El pedido no existe' },                          // cancelar
+    53008: { code: 409, message: 'El pedido no es editable en su estado actual' },// confirmar
+    53009: { code: 404, message: 'Producto no existe o inactivo' }, // confirmar (revalidación)
+    53012: { code: 409, message: 'Stock insuficiente' }  // confirmar (revalidación)
   };
   return map[err.number] || null;
 }

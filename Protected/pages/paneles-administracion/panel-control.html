@@ -4,8 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zafiro Home — Panel de Almacén</title>
+
+  <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Font Awesome (sin SRI) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" />
+
   <style>
     :root{ --primary:#2d4778; --accent:#f08a5d; --light:#fff; }
     body{ background:#f7f7fb; }
@@ -14,18 +18,20 @@
   </style>
 </head>
 <body>
+  <!-- Header -->
   <header class="header-bar py-3 mb-4 shadow-sm">
     <div class="container d-flex align-items-center justify-content-between">
-      <h1 class="h3 m-0">Zafiro Home — Panel Almacén</h1>
+      <h1 class="h3 m-0">Zafiro Home — Panel Admin</h1>
       <a href="/admin-resources/pages/admin.html" class="btn btn-light btn-sm">Volver al Panel</a>
     </div>
   </header>
 
   <main class="container">
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="h2 m-0">Almacén</h2>
+      <h2 class="h2 m-0">Panel de Almacén</h2>
     </div>
-    <p class="text-muted mb-4">Accesos rápidos a los módulos de catálogo e inventario.</p>
+
+    <p class="text-muted mb-4">Accesos rápidos a los módulos de Almacén.</p>
 
     <div class="row g-4">
       <!-- Categorías -->
@@ -39,7 +45,7 @@
                 <small class="text-muted">Crear, editar y eliminar categorías</small>
               </div>
             </div>
-            <p class="card-text flex-grow-1">Gestiona el catálogo base que usan los productos.</p>
+            <p class="card-text flex-grow-1">Gestiona el catálogo base de categorías que luego usan los productos.</p>
             <div>
               <a class="btn btn-primary" href="/admin-resources/pages/formularios/categorias.html">
                 <i class="fa-solid fa-arrow-right me-2"></i>Administrar Categorías
@@ -49,21 +55,21 @@
         </div>
       </div>
 
-      <!-- Productos -->
+      <!-- Stock -->
       <div class="col-12 col-md-6">
         <div class="card h-100 shadow-sm">
           <div class="card-body d-flex flex-column">
             <div class="d-flex align-items-center mb-3">
               <div class="me-3 text-success"><i class="fa-solid fa-boxes-stacked fa-2x"></i></div>
               <div>
-                <h5 class="card-title mb-0">Productos</h5>
-                <small class="text-muted">CRUD de productos y stock</small>
+                <h5 class="card-title mb-0">Stock</h5>
+                <small class="text-muted">Entradas, salidas y existencias</small>
               </div>
             </div>
-            <p class="card-text flex-grow-1">Da de alta productos y administra existencias.</p>
+            <p class="card-text flex-grow-1">Consulta existencias, registra movimientos y mantiene actualizado el inventario.</p>
             <div>
-              <a class="btn btn-outline-primary" href="/admin-resources/pages/formularios/productos.html">
-                <i class="fa-solid fa-arrow-right me-2"></i>Administrar Productos
+              <a class="btn btn-outline-primary" href="/admin-resources/paneles-administracion/panel-productos.html">
+                <i class="fa-solid fa-arrow-right me-2"></i>Ir a Stock
               </a>
             </div>
           </div>
@@ -72,10 +78,12 @@
     </div>
   </main>
 
+  <!-- Footer simple -->
   <footer class="container mt-5 py-4 border-top text-center text-muted">
     <small>© 2025 Zafiro Home</small>
   </footer>
 
+  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

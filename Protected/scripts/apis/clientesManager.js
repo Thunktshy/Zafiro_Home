@@ -1,4 +1,4 @@
-// scripts/apis/clientsManager.js
+// scripts/apis/clientesManager.js
 // Envíos a la API de clientes (usa cookies de sesión)
 // BASE coincide con server: app.use('/clientes', ClientesRoutes)
 const BASE = '/clientes';

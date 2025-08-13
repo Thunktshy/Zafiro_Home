@@ -33,6 +33,22 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
   return data;
 }
 
+export async function addItemConVerificacion(payload, api = controlPedidosAPI) {
+  try {
+    return await api.addItem(payload);
+  } catch (e) {
+    const msg = String(e?.message || '');
+    if (msg.toLowerCase().includes('stock insuficiente')) {
+      const faltantes = await api.verificarProductos(payload.pedido_id).catch(() => ({ data: [] }));
+      const err = new Error('Stock insuficiente');
+      err.faltantes = Array.isArray(faltantes?.data) ? faltantes.data : [];
+      throw err;
+    }
+    throw e;
+  }
+}
+
+
 export const controlPedidosAPI = {
   // ---------------------------------------------------------
   // AGREGA LÍNEA (ingresa)
