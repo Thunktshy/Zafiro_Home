@@ -1,19 +1,21 @@
-// /scripts/loginModal.js
+// /scripts/loginModal.js (RESCRITO)
 // Requiere: tryLogin (POST /login) y showError (UI)
 import { tryLogin } from "./database/login.js";
 import { showError } from "./showError.js";
 
-// Utilidad global para otras páginas (nav, formularios, etc.)
+// ==================================================
+//  Auth mini-SDK (persistencia en sessionStorage)
+// ==================================================
 const Auth = (() => {
   const state = {
     authenticated: false,
     isAdmin: false,
     isClient: false,
     username: null,
-    uid: null
+    uid: null,
   };
 
-  const keys = ["username", "isAdmin", "isClient", "uid"];
+  const KEYS = ["username", "isAdmin", "isClient", "uid"];
 
   function persist() {
     try {
@@ -27,15 +29,16 @@ const Auth = (() => {
   function readFromSession() {
     try {
       state.username = sessionStorage.getItem("username") || null;
-      state.isAdmin = (sessionStorage.getItem("isAdmin") === "true");
-      state.isClient = (sessionStorage.getItem("isClient") === "true");
+      state.isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      state.isClient = sessionStorage.getItem("isClient") === "true";
       const suid = sessionStorage.getItem("uid");
-      state.uid = suid != null && suid !== "" ? suid : null;
+      state.uid = suid && suid !== "" ? suid : null;
+      state.authenticated = !!(state.isAdmin || state.isClient || state.uid);
     } catch {}
   }
 
   function clear() {
-    try { keys.forEach(k => sessionStorage.removeItem(k)); } catch {}
+    try { KEYS.forEach(k => sessionStorage.removeItem(k)); } catch {}
     state.authenticated = false;
     state.isAdmin = false;
     state.isClient = false;
@@ -51,14 +54,11 @@ const Auth = (() => {
       state.authenticated = !!s.authenticated;
       state.username = s?.username || null;
       state.isAdmin = !!s?.isAdmin;
-      // Estos dos campos son opcionales si ya los expusiste en backend:
-      state.isClient = s?.isClient === true || state.isClient;
-      if (s?.userID != null) state.uid = String(s.userID);
-
+      state.isClient = !!s?.isClient;
+      state.uid = s?.userID != null ? String(s.userID) : state.uid;
       persist();
       return { ...state };
     } catch {
-      // si hay error, intenta con sessionStorage
       readFromSession();
       return { ...state };
     }
@@ -89,14 +89,11 @@ const Auth = (() => {
   }
 
   async function logout({ redirectTo = "/" } = {}) {
-    try {
-      await fetch("/logout", { method: "POST", credentials: "include" });
-    } catch {}
+    try { await fetch("/logout", { method: "POST", credentials: "include" }); } catch {}
     clear();
     window.dispatchEvent(new CustomEvent("auth:status-changed", {
       detail: { isLoggedIn: false, isAdmin: false, isClient: false, username: null, uid: null }
     }));
-    // vuelve a home pública
     location.assign(redirectTo);
   }
 
@@ -106,60 +103,135 @@ const Auth = (() => {
 // Expón para otros módulos/páginas
 window.Auth = Auth;
 
-document.addEventListener("DOMContentLoaded", async () => {
-  // ELEMENTOS (según tu index.html)
-  const cartLink  = document.querySelector(".nav-cart-icon");
-  const loginLink = document.querySelector(".nav-iniciar-sesion");
-  const modal     = document.getElementById("loginmodal");         // :contentReference[oaicite:6]{index=6}
-  const closeBtn  = modal?.querySelector(".btn-close");
-  const loginForm = document.getElementById("form-login");         // :contentReference[oaicite:7]{index=7}
-  const errorBox  = document.getElementById("error-message-box");
+// ==================================================
+//  UI helpers del modal
+// ==================================================
+function bindBackdropClose(modal, closeFn) {
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeFn();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeFn();
+  });
+}
 
+// ==================================================
+//  UI: Modal de Login + Bloqueos
+// ==================================================
+document.addEventListener("DOMContentLoaded", async () => {
+  const cartIcon   = document.querySelector(".nav-cart-icon");       // Icono carrito (navbar)
+  const loginItem  = document.querySelector(".nav-iniciar-sesion");  // Item "Iniciar Sesión" (li/a)
+  const modal      = document.getElementById("loginmodal");
+  const closeBtn   = modal?.querySelector(".btn-close") || document.getElementById("btn-close");
+  const loginForm  = document.getElementById("form-login");
+  const errorBox   = document.getElementById("error-message-box");
+
+  // --- Mostrar/ocultar modal ---
   function showLoginModal() {
     if (!modal) return;
     modal.classList.add("show");
+    modal.removeAttribute("aria-hidden");
     document.body.style.overflow = "hidden";
-    setTimeout(() => modal.querySelector('input[type="text"]')?.focus(), 150);
+    setTimeout(() => modal.querySelector('input[type="text"], input[type="email"], input[name="Usuario"]')?.focus(), 50);
   }
   function closeLoginModal() {
     if (!modal) return;
     modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
     if (errorBox) errorBox.style.display = "none";
+
+    // <- Si se cierra sin iniciar sesión, reestablece reglas/UI bloqueada
+    if (!Auth.state.authenticated) applyLoggedOutUI();
+    // Notifica cancelación (por si otros módulos quieren reaccionar)
+    window.dispatchEvent(new CustomEvent("auth:login-cancelled"));
   }
 
-  // Mejora navbar al tener sesión
-  function upgradeNavForLoggedIn(uid) {
-    const name = (sessionStorage.getItem("username") || "").trim();
-    if (loginLink) {
-      loginLink.textContent = name || "Mi cuenta";
-      loginLink.title = name ? `Sesión de ${name}` : "Mi cuenta";
-      // si existe una página de cuenta local, ajusta aquí:
-      loginLink.href = Auth.appendUid("miCuenta.html", uid);
-    }
-    if (cartLink) {
-      cartLink.href = Auth.appendUid("miCarrito.html", uid);
-    }
-  }
-
-  // Inicializa estado de auth
-  let { authenticated, uid } = await Auth.refresh();
-  if (authenticated) upgradeNavForLoggedIn(uid);
-
-  // Pide login si el usuario intenta entrar a áreas protegidas
-  cartLink?.addEventListener("click", e => {
-    if (!Auth.state.authenticated) { e.preventDefault(); showLoginModal(); }
-  });
-  loginLink?.addEventListener("click", e => {
-    // Si es link al perfil, exige login
-    if (!Auth.state.authenticated) { e.preventDefault(); showLoginModal(); }
-  });
-  window.addEventListener("auth:login-required", showLoginModal);
-  modal?.addEventListener("click", e => { if (e.target === modal) closeLoginModal(); });
+  bindBackdropClose(modal, closeLoginModal);
   closeBtn?.addEventListener("click", closeLoginModal);
 
-  // SUBMIT LOGIN
-  loginForm?.addEventListener("submit", async ev => {
+  // ==================================================
+  //  Aplicadores de UI según estado
+  // ==================================================
+  function applyLoggedOutUI() {
+    // Nav: Iniciar sesión como botón
+    if (loginItem) {
+      loginItem.textContent = "Iniciar sesión";
+      loginItem.title = "Iniciar sesión";
+      // Evita navegaciones residuales si fuera <a>
+      if ("href" in loginItem) loginItem.setAttribute("href", "#");
+      loginItem.onclick = (e) => { e.preventDefault(); showLoginModal(); };
+      loginItem.setAttribute("aria-label", "Abrir inicio de sesión");
+      loginItem.setAttribute("role", "button");
+    }
+
+    // Carrito: deshabilitado visualmente y sin navegación real
+    if (cartIcon) {
+      cartIcon.setAttribute("href", "#");
+      cartIcon.setAttribute("aria-disabled", "true");
+      cartIcon.setAttribute("title", "Inicia sesión para ver tu carrito");
+    }
+  }
+
+  function applyLoggedInUI(uid) {
+    const displayName = (sessionStorage.getItem("username") || "").trim() || "Mi cuenta";
+
+    // Nav: Mi cuenta
+    if (loginItem) {
+      loginItem.textContent = displayName;
+      loginItem.title = displayName;
+      // Navega a Mi Cuenta
+      const target = Auth.appendUid("/client-resources/pages/miCuenta.html", uid) || "/client-resources/pages/miCuenta.html";
+      if ("href" in loginItem) loginItem.setAttribute("href", target);
+      loginItem.onclick = (e) => {
+        e.preventDefault();
+        location.assign(target);
+      };
+    }
+
+    // Carrito: a micarrito con uid
+    if (cartIcon) {
+      const href = Auth.appendUid("/pages/micarrito.html", uid) || "/pages/micarrito.html";
+      cartIcon.setAttribute("href", href);
+      cartIcon.removeAttribute("aria-disabled");
+      cartIcon.removeAttribute("title");
+    }
+  }
+
+  // ==================================================
+  //  GATES (bloqueos por delegación) — SIEMPRE activos
+  // ==================================================
+  function gateClick(selector) {
+    document.addEventListener("click", (ev) => {
+      const el = ev.target.closest(selector);
+      if (!el) return;
+      if (!Auth.state.authenticated) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        showLoginModal();
+      }
+    }, { capture: false });
+  }
+  // Sidebar
+  gateClick("#hm-drawer .hm-toggle");
+  gateClick("#hm-drawer .hm-sub a");
+  // Botones “Comprar ahora”
+  gateClick(".btn-buy");
+  // Navbar: iniciar sesión y carrito
+  gateClick(".nav-iniciar-sesion");
+  gateClick(".nav-cart-icon");
+
+  // ==================================================
+  //  Estado inicial
+  // ==================================================
+  const { authenticated } = await Auth.refresh();
+  if (authenticated) applyLoggedInUI(Auth.state.uid);
+  else applyLoggedOutUI();
+
+  // ==================================================
+  //  SUBMIT LOGIN
+  // ==================================================
+  loginForm?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const username = loginForm.elements["Usuario"]?.value?.trim();
     const password = loginForm.elements["Contraseña"]?.value?.trim();
@@ -169,29 +241,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     try {
-      const result = await tryLogin(username, password); // devuelve { success, message, isAdmin, username, redirect, ... } :contentReference[oaicite:8]{index=8}
+      // /login -> { success, message, isAdmin, isClient, userID, username, redirect }
+      const result = await tryLogin(username, password);
+
       if (!result?.success) {
         showError(result?.message || "Inicio de sesión fallido.");
         return;
       }
 
-      // Actualiza estado local (el backend puede enviar isClient y userID si ya lo agregaste)
+      // Marca sesión y refresca estado (para uid/roles)
       Auth.state.authenticated = true;
       Auth.state.isAdmin = !!result.isAdmin;
+      Auth.state.isClient = !!result.isClient;
       Auth.state.username = result.username || "Bienvenido";
 
-      // Intenta obtener isClient/uid frescos
-      const fresh = await Auth.refresh();
-      // Si es CLIENTE, ir a index.html y listo (ignoramos redirect del backend)
-      if (result.isClient === true || fresh.isClient === true) {
-        const target = Auth.appendUid('/index.html', uid);
+      const fresh = await Auth.refresh(); // obtiene userID/roles actuales
 
-        // Si ya estamos en index con el mismo query, recarga dura; si no, navega.
+      // Persistimos para navbar/otras páginas
+      try {
+        sessionStorage.setItem("username", Auth.state.username);
+        sessionStorage.setItem("isAdmin", String(Auth.state.isAdmin));
+        sessionStorage.setItem("isClient", String(fresh.isClient));
+        if (Auth.state.uid != null) sessionStorage.setItem("uid", String(Auth.state.uid));
+      } catch {}
+
+      // Actualiza UI visible a modo logueado
+      applyLoggedInUI(Auth.state.uid);
+
+      // Redirección prioritaria que venga del backend
+      if (result.redirect) {
+        const target = Auth.appendUid(result.redirect, Auth.state.uid) || result.redirect;
+        location.assign(target);
+        return;
+      }
+
+      // Cliente -> Home con uid
+      if (fresh.isClient === true || result.isClient === true) {
+        const target = Auth.appendUid("/index.html", Auth.state.uid) || "/index.html";
         try {
           const t = new URL(target, location.origin);
           const c = new URL(location.href);
           if (c.pathname === t.pathname && c.search === t.search) {
-            location.reload();                  // recarga para refrescar navbar, etc.
+            location.reload();
           } else {
             location.assign(t.pathname + t.search + t.hash);
           }
@@ -201,33 +292,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // Persiste y actualiza UI
-      upgradeNavForLoggedIn(uid);
-      try {
-        sessionStorage.setItem("username", Auth.state.username);
-        sessionStorage.setItem("isAdmin", String(Auth.state.isAdmin));
-        if (typeof fresh.isClient === "boolean") sessionStorage.setItem("isClient", String(fresh.isClient));
-        if (uid != null) sessionStorage.setItem("uid", String(uid));
-      } catch {}
-
-      // Redirección prioritaria del backend, pero agregando ?uid=...
-      if (result.redirect) {
-        const target = Auth.appendUid(result.redirect, uid);
-        location.assign(target);
-        return;
-      }
-
-      // Fallback por tipo:
+      // Admin -> Panel
       if (Auth.state.isAdmin) {
         location.assign("/admin-resources/pages/admin.html");
         return;
       }
 
-      // Último recurso: cierra modal y emite evento
+      // Si no hay redirect, cierra el modal y notifica estado
       loginForm.reset();
       closeLoginModal();
       window.dispatchEvent(new CustomEvent("auth:status-changed", {
-        detail: { isLoggedIn: true, isAdmin: Auth.state.isAdmin, isClient: fresh.isClient, username: Auth.state.username, uid }
+        detail: {
+          isLoggedIn: true,
+          isAdmin: Auth.state.isAdmin,
+          isClient: fresh.isClient,
+          username: Auth.state.username,
+          uid: Auth.state.uid
+        }
       }));
 
     } catch (error) {
@@ -238,5 +319,3 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
-
-

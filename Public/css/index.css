@@ -1108,3 +1108,44 @@ body.hm-locked { overflow: hidden; }
 #menu { cursor: pointer; }
 #menu[role="button"] { outline: none; }
 #menu:focus-visible { outline: 2px solid #2a7bf6; outline-offset: 2px; }
+
+/* Overlay del modal (oculto por defecto) */
+#loginmodal {
+  position: fixed;
+  inset: 0;                 /* top:0; right:0; bottom:0; left:0 */
+  display: none;            /* reemplaza el inline "display:block" */
+  align-items: center;      /* centra vertical */
+  justify-content: center;  /* centra horizontal */
+  padding: clamp(12px, 3vw, 24px);
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+}
+
+#loginmodal { display: none; /* overlay oculto */ }
+#loginmodal.show { display: flex; } /* centrado/visible */
+
+/* Contenedor interno del modal (ajusta el selector a tu HTML: .modal-card/.modal-content/etc.) */
+#loginmodal .modal-panel {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.2);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+/* Animación al abrir */
+#loginmodal.show .modal-panel {
+  opacity: 1;
+  transform: none;
+}
+
+/* (Opcional) accesibilidad sin animaciones */
+@media (prefers-reduced-motion: reduce) {
+  #loginmodal .modal-panel {
+    transition: none;
+  }
+}
