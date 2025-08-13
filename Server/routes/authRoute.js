@@ -1,9 +1,9 @@
 // routes/auth.routes.js
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const bcrypt     = require('bcrypt');
+const bcrypt = require('bcrypt');
 
-// adjust the path to where your db.js lives
+// ajusta la ruta a tu conector
 const { db, sql } = require('../../db/dbconnector.js');
 
 const router = express.Router();
@@ -12,15 +12,20 @@ const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'connect.sid';
 const ADMIN_HOME  = '/admin-resources/pages/admin.html';
 const CLIENT_HOME = '/client-resources/pages/miCuenta.html';
 
-// Helper: ensure session is saved before responding
+// Helper: asegurar que la sesión se guarde antes de responder
 function saveSession(req) {
   return new Promise((resolve, reject) =>
     req.session.save(err => (err ? reject(err) : resolve()))
   );
 }
 
-// Login
+function isHtmlRequest(req) {
+  return (req.headers.accept || '').includes('text/html');
+}
 
+// ---------------------------
+// POST /login
+// ---------------------------
 router.post('/login', [
   body('username').trim().notEmpty().isLength({ max: 150 }),
   body('password').notEmpty().isLength({ min: 6 })
@@ -51,12 +56,14 @@ router.post('/login', [
       return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
     }
 
-    // Normalize and decide by tipo only
+    // Normaliza tipo y marca flags
     const normTipo = String(tipo || '').trim().toLowerCase(); // 'cliente' | 'empleado'
     req.session.userID   = id;
     req.session.userType = normTipo;
     req.session.isClient = (normTipo === 'cliente');
     req.session.isAdmin  = (normTipo === 'empleado');
+    req.session.username = username || null; // opcional, útil para /auth/status
+    req.session.puesto   = puesto || null;
 
     await saveSession(req);
 
@@ -64,14 +71,13 @@ router.post('/login', [
 
     return res.json({
       success: true,
-      message: 'Inicio de sesión exitoso.', 
-      //Devolver tipo de sesion
-      isAdmin: req.session.isAdmin === true,
+      message: 'Inicio de sesión exitoso.',
+      isAdmin:  req.session.isAdmin === true,
       isClient: req.session.isClient === true,
-      userID:  req.session.userID || null,
+      userID:   req.session.userID || null,
       username: req.session.username || 'Bienvenido',
-      redirect,
-      userType: normTipo
+      userType: normTipo,
+      redirect
     });
 
   } catch (err) {
@@ -80,10 +86,9 @@ router.post('/login', [
   }
 });
 
-
-/* ---------------------------
-   POST /logout  &  GET /logout
----------------------------- */
+// ---------------------------
+// POST /logout  &  GET /logout
+// ---------------------------
 function logoutHandler(req, res) {
   if (!req.session) {
     res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
@@ -96,9 +101,8 @@ function logoutHandler(req, res) {
       return res.status(500).json({ success: false, message: 'Error al cerrar sesión.' });
     }
     res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
-    const accept = req.headers.accept || '';
-    if (accept.includes('text/html')) {
-      return res.redirect(303, '/'); // for direct link clicks
+    if (isHtmlRequest(req)) {
+      return res.redirect(303, '/'); // para clics directos
     }
     return res.json({ success: true, message: 'Sesión cerrada correctamente' });
   });
@@ -107,43 +111,54 @@ function logoutHandler(req, res) {
 router.post('/logout', logoutHandler);
 router.get('/logout', logoutHandler);
 
-/* ---------------------------
-   GET /auth/status  (for menu.js)
----------------------------- */
+// ---------------------------
+// GET /auth/status  (para menu.js)
+// ---------------------------
 router.get('/auth/status', (req, res) => {
   const authenticated = !!req.session?.userID;
   res.set('Cache-Control', 'no-store');
   return res.json({
     authenticated,
     userType: authenticated ? (req.session.userType || 'cliente') : 'guest',
-    isAdmin: !!req.session?.isAdmin,
+    isAdmin:  !!req.session?.isAdmin,
     isClient: !!req.session?.isClient,
-    userID:  authenticated ? (req.session.userID || null) : null,
+    userID:   authenticated ? (req.session.userID || null) : null,
     username: authenticated ? (req.session.username || null) : null
   });
 });
 
+// ---------------------------
+// Middlewares de autorización
+// ---------------------------
+function requireAuth(req, res, next) {
+  const hasSession = !!req.session?.userID;
+  const hasAllowedRole = !!(req.session?.isAdmin || req.session?.isClient);
+
+  if (hasSession && hasAllowedRole) return next();
+
+  // No autenticado
+  if (isHtmlRequest(req)) return res.redirect('/index.html');
+  return res.status(401).json({ success: false, message: 'No autenticado.' });
+}
+
 function requireAdmin(req, res, next) {
   if (!req.session?.isAdmin) {
-    if (req.headers.accept && req.headers.accept.includes('text/html')) {
-      return res.redirect('/index.html');
-    }
-    return res.status(403).json({ success: false, message: "Prohibido: se requieren privilegios de administrador" });
+    if (isHtmlRequest(req)) return res.redirect('/index.html');
+    return res.status(403).json({ success: false, message: 'Prohibido: se requieren privilegios de administrador' });
   }
   next();
 }
 
 function requireClient(req, res, next) {
   if (!req.session?.isClient) {
-    if (req.headers.accept && req.headers.accept.includes('text/html')) {
-      return res.redirect('/index.html');
-    }
-    return res.status(403).json({ success: false, message: "Prohibido: solo para clientes" });
+    if (isHtmlRequest(req)) return res.redirect('/index.html');
+    return res.status(403).json({ success: false, message: 'Prohibido: solo para clientes' });
   }
   next();
 }
 
+// Exportaciones
 module.exports = router;
+module.exports.requireAuth   = requireAuth;   // <- acepta cliente o admin
 module.exports.requireAdmin  = requireAdmin;
 module.exports.requireClient = requireClient;
-

@@ -10,7 +10,9 @@ const {
 } = require('../Validators/Rulesets/metodos_pago.js');
 
 const { requireAdmin } = require('../routes/authRoute.js');
-const { requireClient } = require('./authRoute.js'); 
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
+
 
 const MetodosPagoRouter = express.Router();
 
@@ -35,7 +37,7 @@ function MapSqlErrorToHttp(err) {
 /* ============================================================================
    POST /metodos_pago/insert  -> SP: metodos_pago_insert
 ============================================================================ */
-MetodosPagoRouter.post('/insert', requireClient, async (req, res) => {
+MetodosPagoRouter.post('/insert', requireAuth, async (req, res) => {
   try {
     const Body = { ...req.body };
 
@@ -73,7 +75,7 @@ MetodosPagoRouter.post('/insert', requireClient, async (req, res) => {
 /* ============================================================================
    POST /metodos_pago/update  -> SP: metodos_pago_update
 ============================================================================ */
-MetodosPagoRouter.post('/update', requireClient, async (req, res) => {
+MetodosPagoRouter.post('/update', requireAuth, async (req, res) => {
   try {
     const Body = {
       ...req.body,
@@ -114,7 +116,7 @@ MetodosPagoRouter.post('/update', requireClient, async (req, res) => {
 /* ============================================================================
    POST /metodos_pago/delete  -> SP: metodos_pago_delete
 ============================================================================ */
-MetodosPagoRouter.post('/delete', requireClient, async (req, res) => {
+MetodosPagoRouter.post('/delete', requireAuth, async (req, res) => {
   try {
     const Body = { metodo_id: Number(req.body.metodo_id) };
     const { isValid } = await ValidationService.validateData(Body, DeleteRules);
@@ -139,7 +141,7 @@ MetodosPagoRouter.post('/delete', requireClient, async (req, res) => {
 /* ============================================================================
    GET /metodos_pago/select_by_cliente/:cliente_id  -> SP: metodos_pago_select_by_cliente
 ============================================================================ */
-MetodosPagoRouter.get('/select_by_cliente/:cliente_id', requireClient, async (req, res) => {
+MetodosPagoRouter.get('/select_by_cliente/:cliente_id', requireAuth, async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, SelectByClienteRules);
@@ -181,7 +183,7 @@ MetodosPagoRouter.get('/select_all', requireAdmin, async (_req, res) => {
 });
 
 // GET /metodos_pago/por_id/:metodo_id -> metodos_pago_por_id (Admin)
-MetodosPagoRouter.get('/por_id/:metodo_id', requireAdmin, async (req, res) => {
+MetodosPagoRouter.get('/por_id/:metodo_id', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.metodo_id);
     if (!Number.isInteger(id)) {
@@ -199,7 +201,7 @@ MetodosPagoRouter.get('/por_id/:metodo_id', requireAdmin, async (req, res) => {
 });
 
 // POST /metodos_pago/from_personales -> metodos_pago_insert_from_personales (Client)
-MetodosPagoRouter.post('/from_personales', requireClient, async (req, res) => {
+MetodosPagoRouter.post('/from_personales', requireAuth, async (req, res) => {
   try {
     const Body = {
       cliente_id: String(req.body?.cliente_id || ''),

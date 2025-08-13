@@ -16,8 +16,10 @@ const {
   BuscarClienteRules
 } = require('../Validators/Rulesets/clientes.js');
 
-const { requireAdmin, requireClient } = require('../routes/authRoute.js');
 const ClientesRouter = express.Router();
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
 
 // helper
 function BuildParams(entries){ const p={}; for(const e of entries){ p[e.name]={type:e.type,value:e.value}; } return p; }
@@ -45,7 +47,7 @@ ClientesRouter.post('/insert', async (req, res) => {
 });
 
 /* UPDATE -> clientes_update(@id,@cuenta,@email)  (SP normaliza 'cl-') */
-ClientesRouter.post('/update', requireClient, async (req, res) => {
+ClientesRouter.post('/update', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid, errors } = await ValidationService.validateData(Body, UpdateRules);
@@ -147,7 +149,7 @@ ClientesRouter.get('/por_id/:id', async (req, res) => {
 });
 
 /* SEARCH -> buscar_cliente(@termino_busqueda,@solo_activos) */
-ClientesRouter.get('/search', requireAdmin, async (req, res) => {
+ClientesRouter.get('/search', requireAuth, async (req, res) => {
   try {
     const Body = { termino_busqueda: String(req.query.term || ''), solo_activos: req.query.solo_activos === '0' ? 0 : 1 };
     const { isValid, errors } = await ValidationService.validateData(Body, BuscarClienteRules);

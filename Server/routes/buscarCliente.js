@@ -6,8 +6,9 @@ const express = require('express');
 const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService');
 const { BuscarClienteRules } = require('../Validators/Rulesets/clientes');
-const { requireAdmin } = require('../routes/authRoute.js'); // para pruebas
-const { requireClient } = require('../routes/authRoute.js'); // para pruebas
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
 
 const BuscarRouter = express.Router();
 

@@ -6,7 +6,10 @@ const {
   InsertRules, UpdateRules, DeleteRules, SelectByClienteRules
 } = require('../Validators/Rulesets/datos_personales.js');
 
-const { requireAdmin, requireClient } = require('./authRoute.js');
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
+
 
 const DatosPersonalesRouter = express.Router();
 
@@ -30,7 +33,7 @@ function MapSqlErrorToHttp(err) {
 }
 
 /* INSERT -> datos_personales_insert */
-DatosPersonalesRouter.post('/insert', requireClient, async (req, res) => {
+DatosPersonalesRouter.post('/insert', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid, errors } = await ValidationService.validateData(Body, InsertRules);
@@ -58,7 +61,7 @@ DatosPersonalesRouter.post('/insert', requireClient, async (req, res) => {
 });
 
 /* UPDATE -> datos_personales_update */
-DatosPersonalesRouter.post('/update', requireClient, async (req, res) => {
+DatosPersonalesRouter.post('/update', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid, errors } = await ValidationService.validateData(Body, UpdateRules);
@@ -86,7 +89,7 @@ DatosPersonalesRouter.post('/update', requireClient, async (req, res) => {
 });
 
 /* DELETE -> datos_personales_delete */
-DatosPersonalesRouter.post('/delete', requireClient, async (req, res) => {
+DatosPersonalesRouter.post('/delete', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid, errors } = await ValidationService.validateData(Body, DeleteRules);
@@ -104,7 +107,7 @@ DatosPersonalesRouter.post('/delete', requireClient, async (req, res) => {
 });
 
 /* GET por cliente -> datos_personales_select_by_cliente */
-DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireClient, async (req, res) => {
+DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireAuth, async (req, res) => {
   try {
     const Body = { cliente_id: String(req.params.cliente_id) };
     const { isValid } = await ValidationService.validateData(Body, SelectByClienteRules);
@@ -125,7 +128,7 @@ DatosPersonalesRouter.get('/select_by_cliente/:cliente_id', requireClient, async
 });
 
 /* GET por PK -> datos_personales_por_id (backoffice) */
-DatosPersonalesRouter.get('/por_id/:datos_id', requireAdmin, async (req, res) => {
+DatosPersonalesRouter.get('/por_id/:datos_id', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.datos_id);
     if (!Number.isInteger(id)) return res.status(400).json({ success:false, message:'datos_id inválido' });

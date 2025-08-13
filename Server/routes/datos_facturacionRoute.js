@@ -10,7 +10,9 @@ const {
 } = require('../Validators/Rulesets/datos_facturacion.js');
 
 const { requireAdmin } = require('../routes/authRoute.js');
-const { requireClient } = require('../routes/authRoute.js'); 
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
+
 
 const DatosFacturacionRouter = express.Router();
 
@@ -36,7 +38,7 @@ function MapSqlErrorToHttp(err){
 /* ============================================================================
    POST /datos_facturacion/insert  -> SP: datos_facturacion_insert
 ============================================================================ */
-DatosFacturacionRouter.post('/insert', requireClient, async (req, res) => {
+DatosFacturacionRouter.post('/insert', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -64,7 +66,7 @@ DatosFacturacionRouter.post('/insert', requireClient, async (req, res) => {
 /* ============================================================================
    POST /datos_facturacion/update  -> SP: datos_facturacion_update
 ============================================================================ */
-DatosFacturacionRouter.post('/update', requireClient, async (req, res) => {
+DatosFacturacionRouter.post('/update', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, UpdateRules);
@@ -92,7 +94,7 @@ DatosFacturacionRouter.post('/update', requireClient, async (req, res) => {
 /* ============================================================================
    POST /datos_facturacion/delete  -> SP: datos_facturacion_delete
 ============================================================================ */
-DatosFacturacionRouter.post('/delete', requireClient, async (req, res) => {
+DatosFacturacionRouter.post('/delete', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, DeleteRules);
@@ -115,7 +117,7 @@ DatosFacturacionRouter.post('/delete', requireClient, async (req, res) => {
 });
 
 // GET /datos_facturacion/select_by_cliente/:cliente_id
-DatosFacturacionRouter.get('/select_by_cliente/:cliente_id', requireClient, async (req, res) => {
+DatosFacturacionRouter.get('/select_by_cliente/:cliente_id', requireAuth, async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, SelectByClienteRules);
@@ -150,7 +152,7 @@ DatosFacturacionRouter.get('/select_all', requireAdmin, async (_req, res) => {
   }
 });
 
-DatosFacturacionRouter.get('/por_id/:id', requireAdmin, async (req,res)=>{
+DatosFacturacionRouter.get('/por_id/:id', requireAuth, async (req,res)=>{
   try{
     const id = Number(req.params.id);
     if(!Number.isInteger(id)) return res.status(400).json({success:false,message:'id inválido'});

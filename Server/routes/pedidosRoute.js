@@ -13,7 +13,10 @@ const {
   CancelarRules
 } = require('./Validators/Rulesets/pedidos.js');
 
-const { requireAdmin, requireClient } = require('./authRoute.js');
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
+
 const PedidosRouter = express.Router();
 
 // Helper: { type, value }
@@ -53,7 +56,7 @@ async function GetPedidoYDetalles(pedido_id) {
 /* ============================================================================
    POST /pedidos/insert  -> SP: pedidos_insert (devuelve pedido_id)
    ============================================================================ */
-PedidosRouter.post('/insert', requireClient, async (req, res) => {
+PedidosRouter.post('/insert', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, InsertRules);
@@ -86,7 +89,7 @@ PedidosRouter.post('/insert', requireClient, async (req, res) => {
 /* ============================================================================
    POST /pedidos/confirmar  -> SP: pedidos_confirmar
    ============================================================================ */
-PedidosRouter.post('/confirmar', requireClient, async (req, res) => {
+PedidosRouter.post('/confirmar', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, ConfirmarRules);
@@ -108,7 +111,7 @@ PedidosRouter.post('/confirmar', requireClient, async (req, res) => {
 /* ============================================================================
    POST /pedidos/cancelar  -> SP: pedidos_cancelar
    ============================================================================ */
-PedidosRouter.post('/cancelar', requireClient, async (req, res) => {
+PedidosRouter.post('/cancelar', requireAuth, async (req, res) => {
   try {
     const Body = req.body;
     const { isValid } = await ValidationService.validateData(Body, CancelarRules);
@@ -130,7 +133,7 @@ PedidosRouter.post('/cancelar', requireClient, async (req, res) => {
 /* ============================================================================
    GET /pedidos/get/:pedido_id  -> SP: pedidos_get_by_id
    ============================================================================ */
-PedidosRouter.get('/get/:pedido_id', requireClient, async (req, res) => {
+PedidosRouter.get('/get/:pedido_id', requireAuth, async (req, res) => {
   try {
     const Body = { pedido_id: req.params.pedido_id };
     const { isValid } = await ValidationService.validateData(Body, GetByIdRules);
@@ -153,7 +156,7 @@ PedidosRouter.get('/get/:pedido_id', requireClient, async (req, res) => {
 /* ============================================================================
    GET /pedidos/get_detalles/:pedido_id  -> SP: pedidos_join_detalles_by_pedido
    ============================================================================ */
-PedidosRouter.get('/get_detalles/:pedido_id', requireClient, async (req, res) => {
+PedidosRouter.get('/get_detalles/:pedido_id', requireAuth, async (req, res) => {
   try {
     const Body = { pedido_id: req.params.pedido_id };
     const { isValid } = await ValidationService.validateData(Body, GetByIdRules);
@@ -176,7 +179,7 @@ PedidosRouter.get('/get_detalles/:pedido_id', requireClient, async (req, res) =>
 /* ============================================================================
    GET /pedidos/por_cliente/:cliente_id  -> SP: pedidos_get_by_cliente_id
    ============================================================================ */
-PedidosRouter.get('/por_cliente/:cliente_id', requireClient, async (req, res) => {
+PedidosRouter.get('/por_cliente/:cliente_id', requireAuth, async (req, res) => {
   try {
     const Body = { cliente_id: req.params.cliente_id };
     const { isValid } = await ValidationService.validateData(Body, GetByClienteRules);
@@ -199,7 +202,7 @@ PedidosRouter.get('/por_cliente/:cliente_id', requireClient, async (req, res) =>
 /* ============================================================================
    GET /pedidos/por_estado/:estado  -> SP: pedidos_get_by_estado
    ============================================================================ */
-PedidosRouter.get('/por_estado/:estado', requireAdmin, async (req, res) => {
+PedidosRouter.get('/por_estado/:estado', requireAuth, async (req, res) => {
   try {
     const Body = { estado: req.params.estado };
     const { isValid } = await ValidationService.validateData(Body, PorEstadoRules);
@@ -218,7 +221,7 @@ PedidosRouter.get('/por_estado/:estado', requireAdmin, async (req, res) => {
 /* ============================================================================
    GET /pedidos/por_confirmar  -> SP: pedidos_get_por_confirmar
    ============================================================================ */
-PedidosRouter.get('/por_confirmar', requireAdmin, async (_req, res) => {
+PedidosRouter.get('/por_confirmar', requireAuth, async (_req, res) => {
   try {
     const data = await db.executeProc('pedidos_get_por_confirmar', {});
     return res.status(200).json({ success: true, message: 'Pedidos por confirmar', data });

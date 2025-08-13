@@ -1,7 +1,10 @@
 
 const ValidationService = require('../validatorService.js');
 const { db, sql } = require('../../db/dbconnector.js');
-const { requireClient, requireAdmin } = require('./authRoute.js');
+const { requireAdmin } = require('../routes/authRoute.js');
+const { requireClient } = require('../routes/authRoute.js');
+const { requireAuth } = require('../routes/authRoute.js');
+
 
 const {
   AddItemRules, RemoveItemRules, SetEstadoRules, VerificarProductosRules
@@ -22,7 +25,7 @@ function mapErr(err) {
 }
 
 /* POST /pedidos/add_item  -> pedido_add_item */
-PedidosRouter.post('/add_item', requireClient, async (req, res) => {
+PedidosRouter.post('/add_item', requireAuth, async (req, res) => {
   try {
     const { isValid } = await ValidationService.validateData(req.body, AddItemRules);
     if (!isValid) return res.status(400).json({ success: false, message: 'Datos inválidos (add_item)' });
@@ -45,7 +48,7 @@ PedidosRouter.post('/add_item', requireClient, async (req, res) => {
 });
 
 /* POST /pedidos/remove_item  -> pedido_remove_item */
-PedidosRouter.post('/remove_item', requireClient, async (req, res) => {
+PedidosRouter.post('/remove_item', requireAuth, async (req, res) => {
   try {
     const { isValid } = await ValidationService.validateData(req.body, RemoveItemRules);
     if (!isValid) return res.status(400).json({ success: false, message: 'Datos inválidos (remove_item)' });
@@ -67,7 +70,7 @@ PedidosRouter.post('/remove_item', requireClient, async (req, res) => {
 });
 
 /* POST /pedidos/set_estado  -> pedidos_set_estado */
-PedidosRouter.post('/set_estado', requireClient, async (req, res) => {
+PedidosRouter.post('/set_estado', requireAuth, async (req, res) => {
   try {
     const { isValid } = await ValidationService.validateData(req.body, SetEstadoRules);
     if (!isValid) return res.status(400).json({ success: false, message: 'Datos inválidos (set_estado)' });
@@ -92,7 +95,7 @@ PedidosRouter.post('/set_estado', requireClient, async (req, res) => {
 });
 
 /* GET /pedidos/verificar_productos/:pedido_id  -> pedidos_verificar_productos */
-PedidosRouter.get('/verificar_productos/:pedido_id', requireClient, async (req, res) => {
+PedidosRouter.get('/verificar_productos/:pedido_id', requireAuth, async (req, res) => {
   try {
     const Body = { pedido_id: req.params.pedido_id };
     const { isValid } = await ValidationService.validateData(Body, VerificarProductosRules);
