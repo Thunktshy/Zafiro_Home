@@ -123,73 +123,27 @@ router.get('/auth/status', (req, res) => {
   });
 });
 
-// --- Helpers comunes para respuestas coherentes (HTML vs JSON) ---
-function wantsHtml(req) {
-  return (req.headers.accept || '').includes('text/html');
-}
-
-function deny(res, status, message) {
-  // Usa 401 para no autenticado, 403 para autenticado sin permisos
-  return res.status(status).json({ success: false, message });
-}
-
-// --- Middleware: requiere estar autenticado (admin O cliente) ---
-function requireAuth(req, res, next) {
-  const s = req.session || {};
-  if (s.isAdmin || s.isClient) return next();
-
-  if (wantsHtml(req)) {
-    // Usuario no autenticado: redirige a inicio
-    return res.redirect('/index.html');
-  }
-  return deny(res, 401, 'No autenticado');
-}
-
-// --- Middleware de roles flexible: requireAnyRole('admin', 'cliente') ---
-function requireAnyRole(...roles) {
-  // Normaliza lista de roles a flags de sesión
-  const map = {
-    admin:   'isAdmin',
-    cliente: 'isClient',
-    empleado: 'isAdmin',
-    user:    null,
-  };
-
-  // Devuelve el middleware real
-  return function (req, res, next) {
-    const s = req.session || {};
-
-    // Primero: ¿está autenticado?
-    if (!(s.isAdmin || s.isClient)) {
-      if (wantsHtml(req)) return res.redirect('/index.html');
-      return deny(res, 401, 'No autenticado');
+function requireAdmin(req, res, next) {
+  if (!req.session?.isAdmin) {
+    if (req.headers.accept && req.headers.accept.includes('text/html')) {
+      return res.redirect('/index.html');
     }
-
-    // Si no se pasó ningún rol, basta con estar autenticado
-    if (!roles || roles.length === 0) return next();
-
-    // ¿Cumple alguno de los roles permitidos?
-    const ok = roles.some(r => {
-      const flag = map[r?.toString().toLowerCase()];
-      return flag ? !!s[flag] : false;
-    });
-
-    if (ok) return next();
-
-    // Autenticado pero sin permisos suficientes
-    if (wantsHtml(req)) return res.redirect('/index.html');
-    return deny(res, 403, 'Prohibido: permisos insuficientes');
-  };
+    return res.status(403).json({ success: false, message: "Prohibido: se requieren privilegios de administrador" });
+  }
+  next();
 }
 
-// --- Especializaciones prácticas ---
-const requireAdmin         = requireAnyRole('admin');
-const requireClient        = requireAnyRole('cliente');
-const requireAdminOrClient = requireAnyRole('admin', 'cliente');
+function requireClient(req, res, next) {
+  if (!req.session?.isClient) {
+    if (req.headers.accept && req.headers.accept.includes('text/html')) {
+      return res.redirect('/index.html');
+    }
+    return res.status(403).json({ success: false, message: "Prohibido: solo para clientes" });
+  }
+  next();
+}
 
-module.exports.requireAuth          = requireAuth;
-module.exports.requireAnyRole       = requireAnyRole;
-module.exports.requireAdmin         = requireAdmin;
-module.exports.requireClient        = requireClient;
-module.exports.requireAdminOrClient = requireAdminOrClient;
+module.exports = router;
+module.exports.requireAdmin  = requireAdmin;
+module.exports.requireClient = requireClient;
 
