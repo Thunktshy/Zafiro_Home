@@ -1,9 +1,9 @@
 // scripts/forms/productos.js
 // UI de administración para Productos (DataTable + modales + CRUD)
-// Requiere: productosAPI (productosManager.js) y categoriesAPI (categoriesManager.js)
+// Requiere: productosAPI (productosManager.js) y categoriasAPI (categoriesManager.js)
 
 import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
-import { categoriesAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
+import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
 
 // Utilidades UI
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
@@ -51,7 +51,7 @@ const COL_INDEX = {
 
 async function cargarCategorias() {
   try {
-    const res = await categoriesAPI.getList();
+    const res = await categoriasAPI.getList();
     const items = unpack(res);
 
     const selFiltro = $('#filtroCategoria');
