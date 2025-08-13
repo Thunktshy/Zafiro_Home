@@ -92,7 +92,6 @@
         </div>
         `).join('') || `...`;
 
-      // Si estamos usando el fallback admin, muestra una notita en consola (no visible al usuario)
       if (used === '/productos/get_all') {
       }
     }
