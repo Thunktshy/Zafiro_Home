@@ -1,18 +1,6 @@
-/* ==============================================
-   LOGS (global) — ejecutar SOLO una vez
-   ============================================== */
--- DROP TABLE IF EXISTS logs;
--- GO
--- CREATE TABLE logs (
---   log_id  INT IDENTITY(1,1) PRIMARY KEY,
---   fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
---   origen  NVARCHAR(100)  NOT NULL,
---   mensaje NVARCHAR(MAX)  NOT NULL
--- );
--- GO
 
 /* ==============================================
-   Tabla principal
+   Tabla principal datos_personales
    ============================================== */
 DROP TABLE IF EXISTS datos_personales;
 GO

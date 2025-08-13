@@ -1,9 +1,7 @@
 /* ==============================================================
-   IMÁGENES – productos, categorías y clientes (sin logs de auditoría)
+   IMÁGENES – productos, categorías (sin logs de auditoría)
    ============================================================== */
 
--- Drop tables (en este orden por dependencias posibles)
-DROP TABLE IF EXISTS imagenes_clientes;
 DROP TABLE IF EXISTS imagenes_categorias;
 DROP TABLE IF EXISTS imagenes_productos;
 GO
@@ -34,17 +32,6 @@ CREATE TABLE imagenes_categorias (
 );
 GO
 
--- Imágenes de clientes (FK a clientes.cliente_id NVARCHAR(20) con prefijo 'cl-')
-CREATE TABLE imagenes_clientes (
-  id           INT            IDENTITY(1,1) PRIMARY KEY,
-  cliente_id   NVARCHAR(20)   NOT NULL,
-  image_path   NVARCHAR(255)  NOT NULL,
-  fecha_alta   DATETIME       NOT NULL DEFAULT GETDATE(),
-  CONSTRAINT fk_img_cli_cliente
-    FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id)
-);
-GO
-
 /* ========================
    Índices recomendados
    ======================== */
@@ -53,9 +40,6 @@ CREATE NONCLUSTERED INDEX IX_imagenes_productos_producto
 GO
 CREATE NONCLUSTERED INDEX IX_imagenes_categorias_categoria
   ON imagenes_categorias (categoria_id);
-GO
-CREATE NONCLUSTERED INDEX IX_imagenes_clientes_cliente
-  ON imagenes_clientes (cliente_id);
 GO
 
 /* ========================
@@ -292,128 +276,6 @@ BEGIN
 END;
 GO
 
-/* ========================
-   PROCEDIMIENTOS – CLIENTES
-   ======================== */
-
--- INSERT (acepta 'cl-123' o '123')
-CREATE OR ALTER PROCEDURE imagenes_clientes_insert
-  @cliente_id NVARCHAR(20),
-  @image_path NVARCHAR(255)
-AS
-BEGIN
-  SET NOCOUNT ON;
-  BEGIN TRY
-    DECLARE @cid NVARCHAR(20) =
-      CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
-
-    IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cid)
-      THROW 60021, 'El cliente no existe.', 1;
-
-    INSERT INTO imagenes_clientes (cliente_id, image_path)
-    VALUES (@cid, @image_path);
-
-    SELECT SCOPE_IDENTITY() AS id, @cid AS cliente_id;
-  END TRY
-  BEGIN CATCH
-    INSERT INTO logs (origen, mensaje) VALUES (N'imagenes_clientes_insert', ERROR_MESSAGE());
-    THROW;
-  END CATCH
-END;
-GO
-
--- UPDATE
-CREATE OR ALTER PROCEDURE imagenes_clientes_update
-  @id          INT,
-  @cliente_id  NVARCHAR(20) = NULL,
-  @image_path  NVARCHAR(255) = NULL
-AS
-BEGIN
-  SET NOCOUNT ON;
-  BEGIN TRY
-    IF NOT EXISTS (SELECT 1 FROM imagenes_clientes WHERE id = @id)
-      THROW 60022, 'La imagen de cliente no existe.', 1;
-
-    DECLARE @cid NVARCHAR(20) = NULL;
-    IF @cliente_id IS NOT NULL
-    BEGIN
-      SET @cid =
-        CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
-      IF NOT EXISTS (SELECT 1 FROM clientes WHERE cliente_id = @cid)
-        THROW 60023, 'El cliente destino no existe.', 1;
-    END
-
-    UPDATE imagenes_clientes
-    SET cliente_id = COALESCE(@cid, cliente_id),
-        image_path = COALESCE(@image_path, image_path)
-    WHERE id = @id;
-
-    SELECT id, cliente_id, image_path FROM imagenes_clientes WHERE id = @id;
-  END TRY
-  BEGIN CATCH
-    INSERT INTO logs (origen, mensaje) VALUES (N'imagenes_clientes_update', ERROR_MESSAGE());
-    THROW;
-  END CATCH
-END;
-GO
-
--- DELETE
-CREATE OR ALTER PROCEDURE imagenes_clientes_delete
-  @id INT
-AS
-BEGIN
-  SET NOCOUNT ON;
-  BEGIN TRY
-    IF NOT EXISTS (SELECT 1 FROM imagenes_clientes WHERE id = @id)
-      THROW 60024, 'La imagen de cliente no existe.', 1;
-
-    DELETE FROM imagenes_clientes WHERE id = @id;
-  END TRY
-  BEGIN CATCH
-    INSERT INTO logs (origen, mensaje) VALUES (N'imagenes_clientes_delete', ERROR_MESSAGE());
-    THROW;
-  END CATCH
-END;
-GO
-
--- GET por id
-CREATE OR ALTER PROCEDURE imagenes_clientes_get_by_id
-  @id INT
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT id, cliente_id, image_path, fecha_alta
-  FROM imagenes_clientes
-  WHERE id = @id;
-END;
-GO
-
--- GET por cliente (acepta 'cl-123' o '123')
-CREATE OR ALTER PROCEDURE imagenes_clientes_get_by_cliente
-  @cliente_id NVARCHAR(20)
-AS
-BEGIN
-  SET NOCOUNT ON;
-  DECLARE @cid NVARCHAR(20) =
-    CASE WHEN LEFT(@cliente_id,3)='cl-' THEN @cliente_id ELSE CONCAT('cl-',@cliente_id) END;
-
-  SELECT id, cliente_id, image_path, fecha_alta
-  FROM imagenes_clientes
-  WHERE cliente_id = @cid
-  ORDER BY id;
-END;
-GO
-
--- GET all
-CREATE OR ALTER PROCEDURE imagenes_clientes_get_all
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT id, cliente_id, image_path, fecha_alta
-  FROM imagenes_clientes
-  ORDER BY id;
-END;
-GO
 
 /* ========================
    Sinónimos para compatibilidad con tus nombres previos

@@ -1,18 +1,5 @@
 /* ==============================================
-   LOGS (global) — ejecutar SOLO una vez en todo el proyecto
-   ============================================== */
--- DROP TABLE IF EXISTS logs;
--- GO
--- CREATE TABLE logs (
---   log_id  INT IDENTITY(1,1) PRIMARY KEY,
---   fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
---   origen  NVARCHAR(100)  NOT NULL,
---   mensaje NVARCHAR(MAX)  NOT NULL
--- );
--- GO
-
-/* ==============================================
-   Tabla principal
+   Tabla principal datos_facturacion
    ============================================== */
 DROP TABLE IF EXISTS datos_facturacion;
 GO

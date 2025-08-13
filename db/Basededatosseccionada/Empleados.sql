@@ -1,20 +1,6 @@
 /* ==============================================================
    EMPLEADOS – Tablas, Triggers, Procedimientos e Índices
-   (alineado a estructura unificada de logs)
    ============================================================== */
-
--- ==============================================
--- Tabla de logs (global)  [ejecutar una sola vez en todo el proyecto]
--- ==============================================
-DROP TABLE IF EXISTS logs;
-GO
-CREATE TABLE logs (
-  log_id  INT IDENTITY(1,1) PRIMARY KEY,
-  fecha   DATETIME       NOT NULL DEFAULT GETDATE(),
-  origen  NVARCHAR(100)  NOT NULL,   -- Nombre del procedimiento
-  mensaje NVARCHAR(MAX)  NOT NULL    -- Texto del error SQL
-);
-GO
 
 -- ==============================================
 -- Tabla principal de empleados
