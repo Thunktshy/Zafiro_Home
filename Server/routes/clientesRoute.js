@@ -12,8 +12,8 @@ const {
   SoftDeleteRules,
   RegistrarLoginRules,
   PorIdRules,
-  ReactivarRules,          // ya existe en tus rules
-  BuscarClienteRules       // exportado en clientes.js
+  ReactivarRules,
+  BuscarClienteRules
 } = require('../Validators/Rulesets/clientes.js');
 
 const { requireAdmin, requireClient } = require('../routes/authRoute.js');

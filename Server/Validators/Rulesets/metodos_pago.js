@@ -6,8 +6,10 @@ const TipoRegex        = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.\,\-_]{1,20
 const AddressRegex     = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.\,\#\-\(\)\/]{1,200}$/;
 const CityCountryRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s\.\'\-]{1,50}$/;
 const PostalRegex      = /^[A-Za-z0-9\-]{1,10}$/;
+const JsonAnyString = { required: true, type: 'string', messages:{ required:'datos es obligatorio', type:'datos debe ser texto (JSON)' } };
 
 const Common = {
+  datos: JsonAnyString,
   metodo_id: {
     required: true,
     type: 'number',
@@ -91,6 +93,7 @@ const Common = {
       type: 'es_principal debe ser numérico (0 o 1)'
     }
   }
+  
 };
 
 module.exports = {

@@ -102,8 +102,6 @@ const personalInfoRules = require('./Server/Validators/Rulesets/personalinfo.js'
 
 
 // Rutas
-const categoriesRoutes = require('./Server/routes/categoriesRoute.js');
-app.use('/categories', categoriesRoutes);
 
 const authRouter = require('./Server/routes/authRoute.js'); 
 app.use(authRouter);
@@ -138,106 +136,6 @@ app.use('/metodos_pago', MetodosPagoRoutes);
 //Rutas Productos
 const ProductosRoutes = require('./Server/routes/productosRoute.js');
 app.use('/productos', ProductosRoutes);
-
-
-
-app.post('/users/submitpersonalInformation',
-  requireClient,
-  async (req, res) => {
-    // Validar información recibida
-    const { isValid, errors } = await ValidationService.validateData(req.body, personalInfoRules);
-    if (!isValid) {
-      return res.status(422).json({ success: false, message: 'Errores de validación', errors });
-    }
-
-    const {
-      cliente_id,
-      nombre,
-      apellidos,
-      telefono,
-      direccion,
-      ciudad,
-      codigo_postal,
-      pais
-    } = req.body;
-
-    // Factorizar parámetros
-    const params = {
-      cliente_id: { type: sql.NVarChar(20), value: cliente_id },
-      nombre:       { type: sql.NVarChar(50), value: nombre },
-      apellidos:    { type: sql.NVarChar(100), value: apellidos },
-      telefono:     { type: sql.NVarChar(20), value: telefono || null },
-      direccion:    { type: sql.NVarChar(200), value: direccion || null },
-      ciudad:       { type: sql.NVarChar(50), value: ciudad || null },
-      codigo_postal:{ type: sql.NVarChar(10), value: codigo_postal || null },
-      pais:         { type: sql.NVarChar(50), value: pais || null }
-    };
-
-    // Función para intentar insertar
-    async function intentoInsertar() {
-      return dbInstance.queryWithParams(
-        'EXEC datos_personales_insert @cliente_id, @nombre, @apellidos, @telefono, @direccion, @ciudad, @codigo_postal, @pais',
-        params
-      );
-    }
-
-    // Función para intentar actualizar
-    async function intentoActualizar() {
-      return dbInstance.queryWithParams(
-        'EXEC datos_personales_update @cliente_id, @nombre, @apellidos, @telefono, @direccion, @ciudad, @codigo_postal, @pais',
-        params
-      );
-    }
-
-    try {
-      await intentoInsertar();
-      return res.status(201).json({ success: true, message: 'Información personal guardada correctamente' });
-    } catch (error) {
-      console.error('Error al guardar información personal:', error);
-
-      if (error.number === 51011) {
-        // Si ya existe, intentamos actualizar
-        try {
-          await intentoActualizar();
-          return res.json({ success: true, message: 'Información personal actualizada correctamente' });
-        } catch (updateError) {
-          console.error('Error al actualizar información personal:', updateError);
-          if (updateError.number === 51012) {
-            return res.status(404).json({
-              success: false,
-              message: 'No se encontró información personal para actualizar (inconsistencia en la base de datos)'
-            });
-          }
-          return res.status(500).json({ success: false, message: 'Error al actualizar la información personal' });
-        }
-      }
-
-      if (error.number === 51011) {
-        // Si ya existe, intentamos actualizar
-        try {
-          await intentoActualizar();
-          return res.json({ success: true, message: 'Información personal actualizada correctamente' });
-        } catch (updateError) {
-          console.error('Error al actualizar información personal:', updateError);
-          if (updateError.number === 51012) {
-            return res.status(404).json({
-              success: false,
-              message: 'No se encontró información personal para actualizar (inconsistencia en la base de datos)'
-            });
-          }
-          return res.status(500).json({ success: false, message: 'Error al actualizar la información personal' });
-        }
-      }
-
-      if (error.number === 51010) {
-        return res.status(404).json({ success: false, message: 'El cliente especificado no existe' });
-      }
-
-      return res.status(500).json({ success: false, message: 'Error al procesar la información personal' });
-    }
-  }
-);
-
 
 // Iniciar el servidor
 const port = process.env.PORT || 3000;

@@ -15,6 +15,7 @@ const Common = {
   nombre_categoria: {
     required: true,
     type: 'string',
+    trim: true,                // <— sugerido
     maxLength: 50,
     pattern: NombreCategoriaRegex,
     messages: {
