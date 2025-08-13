@@ -96,11 +96,6 @@ const clientStatic = express.static(CLIENT_DIR, {
 // Monta los recursos del portal de clientes, protegidos
 app.use('/client-resources', requireClient, clientStatic);
 
-const ValidationService = require('./Server/validatorService.js');
-//Reglas
-const personalInfoRules = require('./Server/Validators/Rulesets/personalinfo.js');
-
-
 // Rutas
 
 const authRouter = require('./Server/routes/authRoute.js'); 
