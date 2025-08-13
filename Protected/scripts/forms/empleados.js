@@ -223,4 +223,11 @@ function onTablaClick(e) {
     const activo = Number(row?.estado) === 1;
     confirmarAccion(id, activo ? 'soft' : 'react',
       activo ? `¿Desactivar al empleado ${row?.cuenta || id}?` :
-               `¿Reactivar al em
+               `¿Reactivar al empleado ${row?.cuenta || id}?`);
+  } else if (btn.classList.contains('btn-eliminar')) {
+    confirmarAccion(id, 'hard', `¿Eliminar definitivamente al empleado ${id}? Esta acción no se puede deshacer.`);
+  }
+}
+
+// Arranque
+buscarYRender();
