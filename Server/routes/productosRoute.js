@@ -35,7 +35,7 @@ function MapSqlError(err) {
 /* ============================================================================
    GET /productos/get_all  -> SP: productos_get_all
 ============================================================================ */
-ProductosRouter.get('/get_all', async (_req, res) => {
+ProductosRouter.get('/get_all', requireAdmin ,async (_req, res) => {
   try {
     const data = await db.executeProc('productos_get_all', {});
     return res.status(200).json({
