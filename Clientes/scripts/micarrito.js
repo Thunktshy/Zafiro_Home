@@ -1,6 +1,7 @@
 // /client-resources/scripts/micarrito.js
 // Lee tmpCartIds de localStorage, consulta productos y renderiza el carrito.
 // Mensajes por item: “producto no encontrado” y “producto sin stock”.
+import { openPedidoModal } from '../scripts/pedido.js';
 
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=60';
 
@@ -242,5 +243,5 @@ document.getElementById('btnCheckout').addEventListener('click', () => {
     alert('No hay artículos disponibles para comprar.');
     return;
   }
-  alert(`Gracias por tu compra. Total: ${total}`);
+  openPedidoModal();
 });

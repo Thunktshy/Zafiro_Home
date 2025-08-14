@@ -127,5 +127,80 @@
   </footer>
 
   <script type="module" src="../scripts/micarrito.js"></script>
+
+  <!-- =================== Modal: Finalizar pedido =================== -->
+    <div class="modal fade" id="modalPedido" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form id="formPedido" class="modal-content" novalidate>
+        <div class="modal-header">
+            <h5 class="modal-title">Finalizar compra</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+            <div id="pedidoAlert" class="alert d-none" role="alert"></div>
+
+            <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <label class="form-label">Nombre</label>
+                <input id="shipNombre" class="form-control" placeholder="Nombre(s)">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Apellidos</label>
+                <input id="shipApellidos" class="form-control" placeholder="Apellidos">
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label class="form-label">Teléfono</label>
+                <input id="shipTelefono" class="form-control" placeholder="Teléfono">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Código Postal</label>
+                <input id="shipCP" class="form-control" placeholder="C.P.">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Dirección de envío</label>
+                <input id="shipDireccion" class="form-control" placeholder="Calle, número, colonia">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Ciudad</label>
+                <input id="shipCiudad" class="form-control" placeholder="Ciudad">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">País</label>
+                <input id="shipPais" class="form-control" placeholder="País" value="México">
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label class="form-label">Método de pago</label>
+                <select id="selPago" class="form-select">
+                <option value="">Selecciona…</option>
+                </select>
+                <div class="form-text">Demo: no guarda tarjeta. Se envía la etiqueta al pedido.</div>
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Notas</label>
+                <input id="shipNotas" class="form-control" placeholder="Instrucciones de entrega">
+            </div>
+            </div>
+
+            <hr class="my-3">
+            <div id="pedidoResumen" class="small text-muted">
+            <!-- Se llena con cantidades/importe antes de enviar -->
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button id="btnCrearPedido" type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Realizar pedido
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+        </form>
+    </div>
+    </div>
+
+
 </body>
 </html>
