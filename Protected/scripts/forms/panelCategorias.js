@@ -2,33 +2,32 @@
 // Requiere: /admin-resources/scripts/apis/categoriasManager.js (categoriasAPI)
 import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 
-/* ------------------------- Helpers de datos / logs ------------------------- */
-const asArray = (resp) => {
-  // Acepta: { data: [...] }  o  [...] (tolerancia)
+/* =========================
+   Normalizadores de respuesta
+   Aceptan:
+   - { success, message, data: [...] }   -> array
+   - { success, message, data: {...} }   -> objeto
+   - [ ... ] / { ... }                   -> compatibilidad hacia atrás
+   ========================= */
+function toArrayData(resp) {
+  if (resp && typeof resp === "object" && "data" in resp) {
+    if (Array.isArray(resp.data)) return resp.data;
+    return resp.data ? [resp.data] : [];
+  }
   if (Array.isArray(resp)) return resp;
-  if (Array.isArray(resp?.data)) return resp.data;
-  if (resp?.data == null) return [];
-  return Array.isArray(resp.data) ? resp.data : [resp.data];
-};
-
-const firstOrNull = (resp) => {
-  const arr = asArray(resp);
-  return arr.length ? arr[0] : null;
-};
-
-// Consolas en el formato solicitado
-function logAccion(boton, api, respuesta) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
-  if (respuesta !== undefined) console.log("respuesta :", respuesta);
-}
-function logError(boton, api, error) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
-  console.error("respuesta :", error?.message || error);
+  return resp ? [resp] : [];
 }
 
-/* ------------------------------- DataTables ------------------------------- */
+function toOneData(resp) {
+  if (resp && typeof resp === "object" && "data" in resp) {
+    return Array.isArray(resp.data) ? resp.data[0] : resp.data ?? null;
+  }
+  return Array.isArray(resp) ? resp[0] : resp ?? null;
+}
+
+/* =========================
+   Utilidad: (re)inicializar DataTable
+   ========================= */
 function renderDataTable(selector, data, columns) {
   if ($.fn.DataTable.isDataTable(selector)) {
     $(selector).DataTable().clear().destroy();
@@ -38,45 +37,63 @@ function renderDataTable(selector, data, columns) {
     columns,
     pageLength: 10,
     responsive: true,
-    autoWidth: false
+    autoWidth: false,
   });
 }
 
-/* --------------------------------- DOM ----------------------------------- */
-const btnCargarTodas   = document.getElementById("btnCargarTodas");
-const btnProbarDropdown= document.getElementById("btnProbarDropdown");
-const btnRefrescarCrud = document.getElementById("btnRefrescarCrud");
-const btnBuscar        = document.getElementById("btnBuscar");
-const inputBuscarId    = document.getElementById("buscarId");
-const selectCategorias = document.getElementById("selectCategorias");
+/* =========================
+   Consola formateada
+   ========================= */
+function logAccion(boton, api, payloadOrResp) {
+  console.log(`se preciono el boton "${boton}"`);
+  if (api) console.log(`se llamo a la api "${api}"`);
+  if (payloadOrResp !== undefined) console.log("respuesta :", payloadOrResp);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}"`);
+  if (api) console.log(`se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
+}
+
+/* =========================
+   Referencias DOM
+   ========================= */
+const btnCargarTodas    = document.getElementById("btnCargarTodas");
+const btnProbarDropdown = document.getElementById("btnProbarDropdown");
+const btnRefrescarCrud  = document.getElementById("btnRefrescarCrud");
+const btnBuscar         = document.getElementById("btnBuscar");
+const inputBuscarId     = document.getElementById("buscarId");
+const selectCategorias  = document.getElementById("selectCategorias");
 
 // Modales y formularios
-const formAgregar      = document.getElementById("formAgregar");
-const formEditar       = document.getElementById("formEditar");
-const btnCargarEditar  = document.getElementById("btnCargarEditar");
-const modalEliminarEl  = document.getElementById("modalEliminar");
-const delIdSpan        = document.getElementById("delId");
-const delNombreStrong  = document.getElementById("delNombre");
-const btnConfirmarEliminar = document.getElementById("btnConfirmarEliminar");
+const formAgregar           = document.getElementById("formAgregar");
+const formEditar            = document.getElementById("formEditar");
+const btnCargarEditar       = document.getElementById("btnCargarEditar");
+const modalEliminarEl       = document.getElementById("modalEliminar");
+const delIdSpan             = document.getElementById("delId");
+const delNombreStrong       = document.getElementById("delNombre");
+const btnConfirmarEliminar  = document.getElementById("btnConfirmarEliminar");
 
 // Helpers Bootstrap Modals
-const bsModalAgregar = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalAgregar"));
-const bsModalEditar  = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalEditar"));
-const bsModalEliminar= () => bootstrap.Modal.getOrCreateInstance(modalEliminarEl);
+const bsModalAgregar  = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalAgregar"));
+const bsModalEditar   = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalEditar"));
+const bsModalEliminar = () => bootstrap.Modal.getOrCreateInstance(modalEliminarEl);
 
-/* ------------------------------ Columnas base ----------------------------- */
+// Columnas base DataTables
 const colsBase = [
   { data: "categoria_id", title: "ID" },
   { data: "nombre_categoria", title: "Nombre" },
-  { data: "descripcion", title: "Descripción" }
+  { data: "descripcion", title: "Descripción" },
 ];
 
-/* ------------------------ Botón: Cargar Todas (tabla) --------------------- */
+/* =========================
+   1) Cargar Todas -> #tablaCategorias
+   ========================= */
 btnCargarTodas?.addEventListener("click", async () => {
   try {
     logAccion("Cargar Todas", "/get_all");
     const resp = await categoriasAPI.getAll();
-    const data = asArray(resp);
+    const data = toArrayData(resp);
     renderDataTable("#tablaCategorias", data, colsBase);
     logAccion("Cargar Todas", "/get_all", resp);
   } catch (err) {
@@ -84,12 +101,14 @@ btnCargarTodas?.addEventListener("click", async () => {
   }
 });
 
-/* ------------------------- Botón: Probar Dropbox -------------------------- */
+/* =========================
+   2) Probar Dropbox -> selectCategorias (usa /get_list)
+   ========================= */
 btnProbarDropdown?.addEventListener("click", async () => {
   try {
     logAccion("Probar Dropbox", "/get_list");
     const resp = await categoriasAPI.getList();
-    const list = asArray(resp);
+    const list = toArrayData(resp);
     // llenar select
     selectCategorias.innerHTML = `<option value="">— seleccionar —</option>`;
     list.forEach(({ categoria_id, nombre_categoria }) => {
@@ -110,15 +129,18 @@ selectCategorias?.addEventListener("change", (e) => {
   if (id) console.log(`se selecciono la categoria con id ${id}`);
 });
 
-/* ----------------------- Búsqueda por ID -> #tablaBusqueda ---------------- */
+/* =========================
+   3) Buscar por ID -> #tablaBusqueda (usa /by_id/:id)
+   ========================= */
 async function buscarPorId() {
   const id = inputBuscarId.value.trim();
   if (!id) return;
   try {
     logAccion("Buscar", `/by_id/${id}`);
-    const resp = await categoriasAPI.getOne(id);
-    const rows = asArray(resp); // debe ser un arreglo (0 o 1 elemento)
-    renderDataTable("#tablaBusqueda", rows, colsBase);
+    const resp  = await categoriasAPI.getOne(id);
+    const item  = toOneData(resp);
+    const table = item ? [item] : [];
+    renderDataTable("#tablaBusqueda", table, colsBase);
     logAccion("Buscar", `/by_id/${id}`, resp);
   } catch (err) {
     renderDataTable("#tablaBusqueda", [], colsBase);
@@ -133,12 +155,14 @@ inputBuscarId?.addEventListener("keydown", (e) => {
   }
 });
 
-/* -------------------- Tabla CRUD (get_all + columna Eliminar) ------------- */
+/* =========================
+   4) CRUD -> #tablaCRUD (get_all + columna Eliminar)
+   ========================= */
 async function cargarTablaCRUD() {
   try {
     logAccion("Refrescar CRUD", "/get_all");
     const resp = await categoriasAPI.getAll();
-    const data = asArray(resp);
+    const data = toArrayData(resp);
     renderDataTable("#tablaCRUD", data, [
       ...colsBase,
       {
@@ -146,12 +170,12 @@ async function cargarTablaCRUD() {
         title: "Eliminar",
         orderable: false,
         render: (row) =>
-          `<button class="btn btn-sm btn-danger btn-eliminar" 
-                   data-id="${row.categoria_id}" 
+          `<button class="btn btn-sm btn-danger btn-eliminar"
+                   data-id="${row.categoria_id}"
                    data-nombre="${row.nombre_categoria}">
-              <i class="fa-solid fa-trash"></i>
-           </button>`
-      }
+             <i class="fa-solid fa-trash"></i>
+           </button>`,
+      },
     ]);
     logAccion("Refrescar CRUD", "/get_all", resp);
   } catch (err) {
@@ -184,13 +208,15 @@ btnConfirmarEliminar?.addEventListener("click", async () => {
   }
 });
 
-/* ------------------------- Formulario: Agregar ---------------------------- */
+/* =========================
+   5) Formularios Agregar / Editar (insert / update)
+   ========================= */
 formAgregar?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(formAgregar);
   const payload = {
     nombre_categoria: fd.get("nombre_categoria")?.toString().trim(),
-    descripcion: fd.get("descripcion")?.toString().trim() || null
+    descripcion: fd.get("descripcion")?.toString().trim() || null,
   };
   try {
     logAccion("Agregar categoría", "/insert", payload);
@@ -204,15 +230,15 @@ formAgregar?.addEventListener("submit", async (e) => {
   }
 });
 
-/* -------------------------- Modal Editar: Cargar -------------------------- */
-btnCargarEditar?.addEventListener("click", async () => {
+// Cargar datos en modal Editar
+document.getElementById("btnCargarEditar")?.addEventListener("click", async () => {
   const fd = new FormData(formEditar);
   const id = fd.get("categoria_id");
   if (!id) return;
   try {
     logAccion("Cargar datos (editar)", `/by_id/${id}`);
     const resp = await categoriasAPI.getOne(id);
-    const item = firstOrNull(resp);
+    const item = toOneData(resp);
     formEditar.elements["nombre_categoria"].value = item?.nombre_categoria || "";
     formEditar.elements["descripcion"].value = item?.descripcion || "";
     logAccion("Cargar datos (editar)", `/by_id/${id}`, resp);
@@ -221,14 +247,14 @@ btnCargarEditar?.addEventListener("click", async () => {
   }
 });
 
-/* ----------------------------- Form: Editar ------------------------------- */
+// Enviar actualización
 formEditar?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(formEditar);
   const payload = {
     categoria_id: Number(fd.get("categoria_id")),
     nombre_categoria: fd.get("nombre_categoria")?.toString().trim(),
-    descripcion: fd.get("descripcion")?.toString().trim() || null
+    descripcion: fd.get("descripcion")?.toString().trim() || null,
   };
   try {
     logAccion("Modificar categoría", "/update", payload);
