@@ -1,245 +1,319 @@
-// UI del Panel de Datos de facturación
-import { datosFacturacionAPI } from '/admin-resources/scripts/apis/datosFacturacionManager.js';
+// /admin-resources/scripts/forms/datos-facturacion.js
+// Panel: Datos de facturación (Bootstrap + DataTables + logs)
+// Estructura esperada: { success, message, data }
+// HTML base: panel-datos-facturacion.html (incluye jQuery, DataTables, Bootstrap)
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
-const alertBox = $('#alertBox');
+import { datosFacturacionAPI } from "/admin-resources/scripts/apis/datosFacturacionManager.js";
 
-function showAlert(type, msg, autoHideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove('d-none');
-  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
+/* =========================
+   Helpers (logs + normalización)
+========================= */
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
+}
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
+  }
+  return resp;
+}
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+const ensureCl = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return s;
+  return s.startsWith("cl-") ? s : `cl-${s}`;
+};
+const dtStr = (x) => {
+  if (!x) return "";
+  const d = typeof x === "string" || typeof x === "number" ? new Date(x) : x;
+  return isNaN(d?.getTime?.()) ? "" : d.toLocaleString("es-MX");
+};
+function normalizeRow(row) {
+  if (!row || typeof row !== "object") return null;
+  return {
+    id: row.id ?? row.registro_id ?? row.datos_id ?? null,
+    cliente_id: String(row.cliente_id ?? ""),
+    rfc: String(row.rfc ?? ""),
+    razon_social: String(row.razon_social ?? ""),
+    direccion_fiscal: String(row.direccion_fiscal ?? ""),
+    creado: dtStr(row.fecha_creacion ?? row.created_at ?? row.fecha ?? null)
+  };
+}
+function showAlert(kind, msg) {
+  const box = document.getElementById("alertBox");
+  if (!box) return;
+  box.className = `alert alert-${kind}`;
+  box.textContent = msg;
+  box.classList.remove("d-none");
+  setTimeout(() => box.classList.add("d-none"), 2600);
 }
 
-const ensurePrefix = (v, prefix) => {
-  const s = String(v ?? '').trim();
-  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
-};
-const cli = (id) => ensurePrefix(id, 'cl-');
+/* =========================
+   DOM refs
+========================= */
+const filtroCliente     = document.getElementById("filtroCliente");
+const btnBuscarCliente  = document.getElementById("btnBuscarCliente");
+const btnListarTodo     = document.getElementById("btnListarTodo");
+const btnLimpiar        = document.getElementById("btnLimpiar");
+const btnNuevo          = document.getElementById("btnNuevo");
 
-const fmtDate = (v) => {
-  const d = v ? new Date(v) : null;
-  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
-};
+const modalEl           = document.getElementById("modalDatos");
+const formDatos         = document.getElementById("formDatos");
+const modalTitulo       = document.getElementById("modalTitulo");
 
-// RFC MX básico (12 moral / 13 física)
-const RFC_RE = /^([A-ZÑ&]{3,4})(\d{6})([A-Z0-9]{2}[0-9A])$/i;
+const f_registro_id     = document.getElementById("registro_id");
+const f_cliente_id      = document.getElementById("cliente_id");
+const f_rfc             = document.getElementById("rfc");
+const f_razon_social    = document.getElementById("razon_social");
+const f_direccion       = document.getElementById("direccion_fiscal");
 
-// ===== DataTable =====
-let dt;
-function initTabla() {
-  dt = $('#tablaDatosFiscales').DataTable({
-    data: [],
+// Confirmación
+const modalConfirmEl    = document.getElementById("modalConfirm");
+const confirmTitulo     = document.getElementById("confirmTitulo");
+const confirmMsg        = document.getElementById("confirmMsg");
+const confirmAccion     = document.getElementById("confirmAccion");
+const confirmId         = document.getElementById("confirmId");
+const confirmClienteId  = document.getElementById("confirmClienteId");
+
+// Bootstrap helpers
+const bsModal       = () => bootstrap.Modal.getOrCreateInstance(modalEl);
+const bsModalConfirm= () => bootstrap.Modal.getOrCreateInstance(modalConfirmEl);
+
+/* =========================
+   DataTable
+========================= */
+let dt = null;
+function initOrUpdateTable(rows) {
+  const data = (rows || []).map(normalizeRow).filter(Boolean);
+  if (dt) {
+    dt.clear().rows.add(data).draw();
+    return dt;
+  }
+  dt = $("#tablaDatosFiscales").DataTable({
+    data,
     columns: [
-      { data: 'id', render: v => v ?? '—' },
-      { data: 'cliente_id', render: v => v ?? '—' },
-      { data: 'rfc', render: v => v ?? '—' },
-      { data: 'razon_social', render: v => v ?? '—' },
-      { data: 'direccion_fiscal', render: v => v ?? '' },
-      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      { data: "id", title: "ID" },
+      { data: "cliente_id", title: "Cliente" },
+      { data: "rfc", title: "RFC" },
+      { data: "razon_social", title: "Razón social" },
+      { data: "direccion_fiscal", title: "Dirección fiscal" },
+      { data: "creado", title: "Creado" },
       {
-        data: null, orderable: false, searchable: false, className: 'text-end',
-        render: (row) => {
-          const id = row.id ?? '';
-          const cliente_id = row.cliente_id ?? '';
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-outline-primary btn-editar" data-id="${id}" data-cliente="${cliente_id}" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-cliente="${cliente_id}" data-rfc="${row.rfc||''}" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>`;
-        }
+        data: null,
+        title: "Acciones",
+        className: "text-end",
+        orderable: false,
+        render: (row) => `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-primary btn-editar"
+                    data-id="${row.id ?? ""}"
+                    data-cliente="${row.cliente_id}">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-eliminar"
+                    data-cliente="${row.cliente_id}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>`
       }
     ],
-    order: [[5, 'desc']],
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+    pageLength: 10,
+    order: [[0, "desc"]],
+    responsive: true
   });
-
-  // Delegación
-  $('#tablaDatosFiscales tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button');
-    if (!btn) return;
-    const id = btn.dataset.id;
-    const cliente = btn.dataset.cliente;
-    if (btn.classList.contains('btn-editar')) abrirModalEditar(id, cliente);
-    else if (btn.classList.contains('btn-eliminar')) abrirConfirmEliminar(id, cliente, btn.dataset.rfc || '');
-  });
+  return dt;
 }
 
-// ===== Carga de datos =====
+/* =========================
+   Cargas / filtros
+========================= */
 async function listarTodos() {
-  const out = await datosFacturacionAPI.getAll();
-  return Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
-}
-
-async function listarPorCliente(cliente_id) {
-  const out = await datosFacturacionAPI.getByCliente(cli(cliente_id));
-  const data = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
-  // algunos backends devuelven [] o [{...}] por cliente; lo normal es 1
-  return data;
-}
-
-async function recargar(escenario = 'all') {
   try {
-    let rows = [];
-    if (escenario === 'cliente') {
-      const id = $('#filtroCliente').value.trim();
-      if (!id) return showAlert('warning', 'Indica un cliente.');
-      rows = await listarPorCliente(id);
-    } else {
-      rows = await listarTodos();
-    }
-    dt.clear().rows.add(rows).draw();
-    showAlert('success', `Se cargaron ${rows.length} registro(s).`);
+    const api  = "/select_all";
+    const resp = assertOk(await datosFacturacionAPI.getAll());
+    const arr  = toArrayData(resp);
+    initOrUpdateTable(arr);
+    logPaso("Listar todos", api, resp);
+    showAlert("info", `Se cargaron ${arr.length} registros`);
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudieron cargar los datos fiscales');
+    initOrUpdateTable([]);
+    logError("Listar todos", "/select_all", err);
+    showAlert("danger", err?.message || "No fue posible listar");
   }
 }
+async function buscarPorCliente() {
+  const id = ensureCl(filtroCliente.value);
+  if (!id) return;
+  try {
+    const api  = `/select_by_cliente/${id}`;
+    const resp = assertOk(await datosFacturacionAPI.getByCliente(id));
+    const arr  = toArrayData(resp);
+    initOrUpdateTable(arr);
+    logPaso("Buscar por cliente", api, resp);
+    showAlert("info", `Se cargaron ${arr.length} registro(s)`);
+  } catch (err) {
+    initOrUpdateTable([]);
+    logError("Buscar por cliente", `/select_by_cliente/${id}`, err);
+    showAlert("danger", err?.message || "Cliente sin datos de facturación");
+  }
+}
+function limpiar() {
+  filtroCliente.value = "";
+  initOrUpdateTable([]);
+  logPaso("Limpiar", "(UI)", { ok: true });
+}
 
-// ===== Filtros =====
-$('#btnBuscarCliente').addEventListener('click', () => recargar('cliente'));
-$('#btnListarTodo').addEventListener('click', () => recargar('all'));
-$('#btnLimpiar').addEventListener('click', () => {
-  $('#filtroCliente').value = '';
-  recargar('all');
+btnListarTodo?.addEventListener("click", listarTodos);
+btnBuscarCliente?.addEventListener("click", buscarPorCliente);
+btnLimpiar?.addEventListener("click", limpiar);
+filtroCliente?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorCliente();
+  }
 });
 
-// ===== Modal Crear/Editar =====
-const modalDatos = new bootstrap.Modal('#modalDatos');
-
-function limpiarForm() {
-  $('#registro_id').value = '';
-  $('#cliente_id').value = '';
-  $('#rfc').value = '';
-  $('#razon_social').value = '';
-  $('#direccion_fiscal').value = '';
-  $$('#formDatos .is-invalid').forEach(el => el.classList.remove('is-invalid'));
-}
-
-$('#btnNuevo').addEventListener('click', () => {
-  limpiarForm();
-  $('#modalTitulo').textContent = 'Nuevo registro';
-  $('#btnGuardar').textContent = 'Guardar';
-  modalDatos.show();
-  setTimeout(() => $('#cliente_id')?.focus(), 200);
+/* =========================
+   Nuevo / Editar
+========================= */
+btnNuevo?.addEventListener("click", () => {
+  formDatos.reset();
+  f_registro_id.value = "";
+  modalTitulo.textContent = "Nuevo registro";
+  bsModal().show();
+  logPaso("Nuevo registro", "(abrir modal)", { ok: true });
 });
 
-async function abrirModalEditar(id, cliente_id) {
-  try {
-    limpiarForm();
-    $('#modalTitulo').textContent = 'Editar datos';
-    $('#btnGuardar').textContent = 'Actualizar';
+// Cargar datos en modal desde la fila seleccionada
+$("#tablaDatosFiscales tbody").on("click", "button.btn-editar", function () {
+  const row = dt?.row($(this).closest("tr")).data();
+  if (!row) return;
 
-    // Cargar por ID si está disponible; fallback por cliente
-    let row = null;
-    if (id) row = (await datosFacturacionAPI.getById(id))?.data ?? null;
-    if (!row && cliente_id) {
-      const list = await listarPorCliente(cliente_id);
-      row = list?.[0];
-    }
-    if (!row) throw new Error('No se pudo cargar el registro');
+  f_registro_id.value = row.id ?? "";
+  f_cliente_id.value  = row.cliente_id ?? "";
+  f_rfc.value         = row.rfc ?? "";
+  f_razon_social.value= row.razon_social ?? "";
+  f_direccion.value   = row.direccion_fiscal ?? "";
 
-    $('#registro_id').value = row.id ?? '';
-    $('#cliente_id').value = row.cliente_id ?? '';
-    $('#rfc').value = row.rfc ?? '';
-    $('#razon_social').value = row.razon_social ?? '';
-    $('#direccion_fiscal').value = row.direccion_fiscal ?? '';
+  modalTitulo.textContent = "Editar registro";
+  bsModal().show();
+  logPaso("Editar (abrir modal)", "(UI)", row);
+});
 
-    modalDatos.show();
-    setTimeout(() => $('#rfc')?.focus(), 200);
-  } catch (err) {
-    showAlert('danger', err.message || 'No fue posible abrir el formulario');
-  }
+// Validación simple de RFC (12 o 13 chars)
+function rfcValido(v) {
+  const s = String(v ?? "").trim().toUpperCase();
+  return s.length === 12 || s.length === 13;
 }
 
-function validarForm() {
-  let ok = true;
-  const cliente = $('#cliente_id');
-  const rfc = $('#rfc');
-  const rz = $('#razon_social');
-
-  [cliente, rfc, rz].forEach(el => el.classList.remove('is-invalid'));
-
-  if (!cliente.value.trim()) { cliente.classList.add('is-invalid'); ok = false; }
-  const rfcVal = $('#rfc').value.trim().toUpperCase();
-  if (!RFC_RE.test(rfcVal) || !(rfcVal.length === 12 || rfcVal.length === 13)) {
-    rfc.classList.add('is-invalid'); ok = false;
-  }
-  if (!rz.value.trim() || rz.value.trim().length > 100) {
-    rz.classList.add('is-invalid'); ok = false;
-  }
-  return ok;
-}
-
-$('#formDatos').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  if (!validarForm()) return;
+// Guardar (insert/update)
+formDatos?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formDatos.classList.add("was-validated");
+  if (!formDatos.checkValidity()) return;
 
   const payload = {
-    cliente_id: cli($('#cliente_id').value.trim()),
-    rfc: $('#rfc').value.trim().toUpperCase(),
-    razon_social: $('#razon_social').value.trim(),
-    direccion_fiscal: $('#direccion_fiscal').value.trim() || null
+    cliente_id: ensureCl(f_cliente_id.value),
+    rfc: String(f_rfc.value || "").toUpperCase().trim(),
+    razon_social: f_razon_social.value.trim(),
+    direccion_fiscal: f_direccion.value.trim() || null
   };
+  if (!rfcValido(payload.rfc)) {
+    f_rfc.focus();
+    showAlert("warning", "RFC debe tener 12 o 13 caracteres.");
+    return;
+  }
 
   try {
-    // si existe registro_id asumimos UPDATE (aunque el endpoint usa cliente_id)
-    if ($('#registro_id').value.trim()) {
-      await datosFacturacionAPI.update(payload);
-      showAlert('success', 'Datos fiscales actualizados.');
+    if (f_registro_id.value) {
+      const api  = "/update";
+      const resp = assertOk(await datosFacturacionAPI.update(payload));
+      logPaso("Guardar edición", api, resp);
+      bsModal().hide();
+      await recargarSegunFiltro();
+      showAlert("success", "Registro actualizado.");
     } else {
-      await datosFacturacionAPI.insert(payload);
-      showAlert('success', 'Datos fiscales guardados.');
+      const api  = "/insert";
+      const resp = assertOk(await datosFacturacionAPI.insert(payload));
+      logPaso("Guardar nuevo", api, resp);
+      bsModal().hide();
+      await recargarSegunFiltro();
+      showAlert("success", "Registro creado.");
     }
-    modalDatos.hide();
-    // recargar según contexto: si filtro por cliente está lleno, conserva ese filtro
-    const filtro = $('#filtroCliente').value.trim();
-    await recargar(filtro ? 'cliente' : 'all');
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible guardar');
+    logError(f_registro_id.value ? "Guardar edición" : "Guardar nuevo",
+             f_registro_id.value ? "/update" : "/insert", err);
+    showAlert("danger", err?.message || "No se pudo guardar");
   }
 });
 
-// ===== Confirmación (Eliminar por cliente) =====
-const modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-function abrirConfirmEliminar(id, cliente_id, rfc='') {
-  $('#confirmAccion').value = 'eliminar';
-  $('#confirmId').value = id || '';
-  $('#confirmClienteId').value = cliente_id || '';
-  $('#confirmTitulo').textContent = 'Eliminar datos de facturación';
-  const c = cliente_id ? ` del cliente ${cliente_id}` : '';
-  $('#confirmMsg').textContent = `¿Eliminar los datos fiscales${c}${rfc ? ` (RFC ${rfc})` : ''}? Esta acción no se puede deshacer.`;
-  modalConfirm.show();
+/* =========================
+   Eliminar (confirmación)
+========================= */
+function abrirConfirmDelete(cliente_id) {
+  confirmAccion.value = "delete";
+  confirmId.value = ""; // no se usa por API
+  confirmClienteId.value = cliente_id;
+  confirmTitulo.textContent = "Eliminar datos de facturación";
+  confirmMsg.textContent = `¿Eliminar datos de facturación del cliente ${cliente_id}?`;
+  bsModalConfirm().show();
 }
 
-$('#btnConfirmarAccion').addEventListener('click', async () => {
-  const accion = $('#confirmAccion').value;
-  const cliente_id = $('#confirmClienteId').value || $('#cliente_id').value;
+$("#tablaDatosFiscales tbody").on("click", "button.btn-eliminar", function () {
+  const row = dt?.row($(this).closest("tr")).data();
+  if (!row) return;
+  abrirConfirmDelete(row.cliente_id);
+  logPaso("Eliminar (abrir confirmación)", "(modal)", { cliente_id: row.cliente_id });
+});
+
+document.getElementById("btnConfirmarAccion")?.addEventListener("click", async () => {
+  if (confirmAccion.value !== "delete") return;
+  const idCliente = confirmClienteId.value;
   try {
-    if (accion === 'eliminar') {
-      await datosFacturacionAPI.remove(cli(cliente_id));
-    }
-    modalConfirm.hide();
-    showAlert('success', 'Registro eliminado.');
-    const filtro = $('#filtroCliente').value.trim();
-    await recargar(filtro ? 'cliente' : 'all');
+    const api  = "/delete";
+    const resp = assertOk(await datosFacturacionAPI.remove(idCliente));
+    logPaso("Eliminar", api, resp);
+    bsModalConfirm().hide();
+    await recargarSegunFiltro();
+    showAlert("success", "Registro eliminado.");
   } catch (err) {
-    modalConfirm.hide();
-    showAlert('danger', err.message || 'No fue posible eliminar');
+    logError("Eliminar", "/delete", err);
+    showAlert("danger", err?.message || "No se pudo eliminar");
   }
 });
 
-// ===== Boot =====
-(async function boot() {
+/* =========================
+   Recarga según filtro activo
+========================= */
+async function recargarSegunFiltro() {
+  const id = ensureCl(filtroCliente.value);
   try {
-    initTabla();
-    await recargar('all');
+    if (id) {
+      const resp = assertOk(await datosFacturacionAPI.getByCliente(id));
+      initOrUpdateTable(toArrayData(resp));
+      return;
+    }
+    const resp = assertOk(await datosFacturacionAPI.getAll());
+    initOrUpdateTable(toArrayData(resp));
   } catch (err) {
-    showAlert('danger', err.message || 'Error inicializando el panel');
+    initOrUpdateTable([]);
+    logError("recargarSegunFiltro", "(datos_facturacion)", err);
   }
-})();
+}
+
+/* =========================
+   Boot
+========================= */
+document.addEventListener("DOMContentLoaded", async () => {
+  await listarTodos();
+});
