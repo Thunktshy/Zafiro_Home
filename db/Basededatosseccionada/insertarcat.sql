@@ -4,7 +4,7 @@
 SET NOCOUNT ON;
 
 INSERT INTO categorias (nombre_categoria, descripcion)
-SELECT v.nombre, v.descripcion, v.image_path
+SELECT v.nombre, v.descripcion
 FROM (VALUES
     (N'Electrodomésticos',            N'Grandes y pequeños electrodomésticos para cocina, aspiradoras, aires acondicionados, etc.'),
     (N'Apps y Juegos',                N'Aplicaciones móviles y juegos para diversos dispositivos.'),
