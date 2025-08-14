@@ -45,8 +45,8 @@ PromocionesRouter.post('/insert', requireAdmin, async (req, res) => {
       solo_activos: req.body.solo_activos ?? 1
     };
 
-    const { isValid, errors } = await ValidationService.validateData(Body, PromosCreateRules);
-    if (!isValid) return res.status(400).json({ success:false, message:'Datos inválidos (crear promoción)', errors });
+    //const { isValid, errors } = await ValidationService.validateData(Body, PromosCreateRules);
+    //if (!isValid) return res.status(400).json({ success:false, message:'Datos inválidos (crear promoción)', errors });
 
     const fIni = parseDate(Body.fecha_inicio);
     let  fFin = parseDate(Body.fecha_fin);
