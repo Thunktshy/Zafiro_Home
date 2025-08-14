@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Mi carrito — Zafiro Home</title>
+
+  <!-- Fuente & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+
+  <!-- Reuso de estilos del sitio -->
+  <link rel="stylesheet" href="../css/index.css"/>
+
+  <style>
+    /* Toques mínimos para el carrito, reutilizando index.css */
+    .cart-wrap{max-width:1200px;margin:2rem auto;background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:1.25rem}
+    .cart-title{font-family:Poppins,system-ui,sans-serif;color:#2d4778;margin:0 0 1rem}
+    .cart-grid{display:grid;grid-template-columns:1fr;gap:1rem}
+    @media(min-width:900px){.cart-grid{grid-template-columns:2fr 1fr}}
+    .cart-item{display:grid;grid-template-columns:92px 1fr auto;gap:1rem;align-items:center;border:1px solid #eee;border-radius:12px;padding:.75rem}
+    .cart-thumb{width:92px;height:92px;object-fit:cover;border-radius:10px;background:#f6f6f6}
+    .cart-name{font-weight:700;color:#263a67;margin:0}
+    .cart-desc{color:#6b7280;font-size:.95rem;margin:.25rem 0}
+    .cart-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.25rem}
+    .cart-badge{font-size:.8rem;border-radius:999px;padding:.15rem .6rem}
+    .b-out{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+    .b-miss{background:#fff7ed;color:#9a3412;border:1px solid #ffedd5}
+    .qty{display:flex;align-items:center;gap:.5rem}
+    .qty input{width:70px;border:1px solid #ddd;border-radius:8px;padding:.35rem;text-align:center}
+    .price{font-weight:700;color:#1f6aa5}
+    .actions{display:flex;flex-direction:column;align-items:flex-end;gap:.4rem}
+    .btn-min{border:1px solid #d1d5db;background:#fff;border-radius:10px;padding:.35rem .6rem;cursor:pointer}
+    .btn-min:hover{background:#f5f5f5}
+    .empty{padding:3rem;text-align:center;color:#6b7280}
+    .summary{background:#f9fafb;border:1px solid #eee;border-radius:12px;padding:1rem}
+    .sum-row{display:flex;justify-content:space-between;margin:.35rem 0}
+    .sum-total{font-weight:800;font-size:1.2rem;color:#2d4778}
+    .btn-checkout{width:100%;background:#a5230c;color:#fff;border:none;border-radius:12px;padding:.9rem;font-weight:700;margin-top:.8rem;cursor:pointer}
+    .btn-checkout:hover{background:#e94e29}
+  </style>
+</head>
+<body class="page-body">
+
+  <!-- Navbar (misma de index) -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <a class="navbar-store-title" href="/index.html">
+        <img src="/Images/logo.png" alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <div class="collapse navbar-collapse" id="mainNavbar">
+        <form class="navbar-search" action="/search" method="get" role="search">
+          <input class="search-form" type="search" name="q" placeholder="Buscar productos…" aria-label="Buscar">
+          <button class="btn-seacrh" type="submit" aria-label="Buscar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </form>
+
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" href="/client-resources/pages/micarrito.html">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-iniciar-sesion" id="navUserLabel"><i>Mi cuenta</i></li>
+          <li class="nav-item" id="menu"><i class="fa-solid fa-bars"></i></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Subnavbar (misma de index) -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu" id="subnavCategorias"><li><a href="#">(cargando…)</a></li></ul>
+      </li>
+      <li class="subnav-item"><a href="/index.html#ofertas">Ofertas</a></li>
+      <li class="subnav-item"><a href="/client-resources/pages/facturacion.html">Facturación</a></li>
+      <li class="subnav-item"><a href="/index.html#newsletter">Ayuda</a></li>
+    </ul>
+  </nav>
+
+  <!-- Contenido -->
+  <main class="cart-wrap">
+    <h1 class="cart-title">Mi carrito</h1>
+
+    <div class="cart-grid">
+      <!-- Lista -->
+      <section id="cartList"></section>
+
+      <!-- Resumen -->
+      <aside class="summary">
+        <div class="sum-row"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
+        <div class="sum-row"><span>Envío</span><span id="sumEnvio">$0.00</span></div>
+        <div class="sum-row sum-total"><span>Total</span><span id="sumTotal">$0.00</span></div>
+        <button id="btnCheckout" class="btn-checkout">Finalizar compra</button>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Newsletter -->
+  <section id="newsletter" class="newsletter-section">
+    <h2 class="newsletter-section-title">Suscríbete a nuestras ofertas</h2>
+    <form id="newsletter-form" class="newsletter-form">
+      <input type="email" name="email" placeholder="Tu correo electrónico" required>
+      <button type="submit">Suscribirme</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="/pages/ayuda.html">Ayuda</a>
+      <a href="/pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="/pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="Facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="Instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="Twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <script type="module" src="../scripts/micarrito.js"></script>
+</body>
+</html>
