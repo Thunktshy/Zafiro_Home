@@ -24,7 +24,10 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
 }
 
 export const promocionesAPI = {
-  // GET /promociones/activas_por_producto?fecha=YYYY-MM-DD
-  activasPorProducto: (fecha /* opcional */) =>
-    apiFetch(`/activas_por_producto${fecha ? `?fecha=${encodeURIComponent(String(fecha))}` : ''}`)
+  // GET existentes:
+  activasPorProducto: (fecha) =>
+    apiFetch(`/activas_por_producto${fecha ? `?fecha=${encodeURIComponent(String(fecha))}` : ''}`),
+
+  // POST /promociones/insert
+  insert: (payload) => apiFetch(`/insert`, { method: 'POST', body: payload })
 };

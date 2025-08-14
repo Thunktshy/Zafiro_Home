@@ -4,8 +4,16 @@
 const FechaStrRegex = /^[0-9T:\-\/\s\.]+$/;
 
 const PromosActivasRules = {
-  // fecha opcional; si viene, debe tener formato de fecha válido
   fecha: { required: false, type: 'string', maxLength: 30, pattern: FechaStrRegex }
 };
 
-module.exports = { PromosActivasRules };
+const PromosCreateRules = {
+  categoria_id:   { required: true, type: 'number', min: 1 },
+  tipo_descuento: { required: true, type: 'string', enum: ['porcentaje','monto'] },
+  valor_descuento:{ required: true, type: 'number', min: 0.01 },
+  fecha_inicio:   { required: true, type: 'string', maxLength: 30, pattern: FechaStrRegex },
+  fecha_fin:      { required: false, type: 'string', maxLength: 30, pattern: FechaStrRegex },
+  solo_activos:   { required: false, type: 'boolean' }
+};
+
+module.exports = { PromosActivasRules, PromosCreateRules };

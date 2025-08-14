@@ -1,11 +1,11 @@
 // /admin-resources/scripts/forms/crear-promociones.js
-// Crear promociones: por producto o por categoría.
-// Logs: "se preciono el boton ..." + api llamada + "respuesta :".
+// Crear promociones (solo creación por CATEGORÍA en backend actual)
+// Previsualización: por producto o por categoría
+// Logs: "se preciono el boton ..." + api llamada + "respuesta :"
 
 import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 import { productosAPI } from "/admin-resources/scripts/apis/productosManager.js";
-// promocionesManager.js hoy solo tiene consulta; para insertar usamos un fetch local.
-const PROMOS_BASE = "/promociones";
+import { promocionesAPI } from "/admin-resources/scripts/apis/promocionesManager.js";
 
 /* =============== Helpers =============== */
 function logPaso(boton, api, respuesta) {
@@ -15,22 +15,6 @@ function logPaso(boton, api, respuesta) {
 function logError(boton, api, error) {
   console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
   console.error("respuesta :", error?.message || error);
-}
-async function apiFetch(path, { method = "GET", body, bodyType } = {}) {
-  const opts = { method, credentials: "include", headers: { Accept: "application/json" } };
-  if (body != null) {
-    if (!bodyType || bodyType === "json") {
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = typeof body === "string" ? body : JSON.stringify(body);
-    } else {
-      opts.body = body;
-    }
-  }
-  const res = await fetch(`${PROMOS_BASE}${path}`, opts);
-  const ct = res.headers.get("content-type") || "";
-  const data = ct.includes("application/json") ? await res.json() : await res.text();
-  if (!res.ok) throw new Error((data && data.message) || (data && data.error) || `Error ${res.status}`);
-  return data;
 }
 const money = (n) => (Number(n) || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const dateISO = (d) => {
@@ -47,48 +31,47 @@ function precioPromo(precioOriginal, tipo, valor) {
   if (String(tipo).includes("porc")) return Math.max(0, p * (1 - v / 100));
   return Math.max(0, p - v);
 }
+function showAlert(kind, msg) {
+  const box = document.getElementById("alertBox");
+  if (!box) return;
+  box.className = `alert alert-${kind}`;
+  box.textContent = msg;
+  box.classList.remove("d-none");
+  setTimeout(() => box.classList.add("d-none"), 2500);
+}
 
 /* =============== DOM refs =============== */
-const alertBox       = document.getElementById("alertBox");
-const alcanceProducto= document.getElementById("alcanceProducto");
-const alcanceCategoria=document.getElementById("alcanceCategoria");
-const grupoProducto  = document.getElementById("grupoProducto");
-const grupoCategoria = document.getElementById("grupoCategoria");
+const alertBox         = document.getElementById("alertBox");
+const alcanceProducto  = document.getElementById("alcanceProducto");
+const alcanceCategoria = document.getElementById("alcanceCategoria");
+const grupoProducto    = document.getElementById("grupoProducto");
+const grupoCategoria   = document.getElementById("grupoCategoria");
 
-const selProducto    = document.getElementById("producto");
-const selCategoria   = document.getElementById("categoria");
+const selProducto      = document.getElementById("producto");
+const selCategoria     = document.getElementById("categoria");
 
-const promoNombre    = document.getElementById("promoNombre");
-const tipo           = document.getElementById("tipo");
-const valor          = document.getElementById("valor");
-const fechaInicio    = document.getElementById("fechaInicio");
-const fechaFin       = document.getElementById("fechaFin");
-const descripcion    = document.getElementById("descripcion");
+const promoNombre      = document.getElementById("promoNombre");
+const tipo             = document.getElementById("tipo");
+const valor            = document.getElementById("valor");
+const fechaInicio      = document.getElementById("fechaInicio");
+const fechaFin         = document.getElementById("fechaFin");
+const descripcion      = document.getElementById("descripcion");
 
-const btnPrevisualizar= document.getElementById("btnPrevisualizar");
-const btnCrear       = document.getElementById("btnCrear");
-const btnLimpiar     = document.getElementById("btnLimpiar");
+const btnPrevisualizar = document.getElementById("btnPrevisualizar");
+const btnLimpiar       = document.getElementById("btnLimpiar");
 
-let dtPreview = null;
-
-/* =============== UI helpers =============== */
-function showAlert(kind, msg) {
-  if (!alertBox) return;
-  alertBox.className = `alert alert-${kind}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove("d-none");
-  setTimeout(() => alertBox.classList.add("d-none"), 2500);
-}
+/* =============== Alcance UI =============== */
 function toggleAlcance() {
   const prod = alcanceProducto.checked;
   grupoProducto.classList.toggle("d-none", !prod);
   grupoCategoria.classList.toggle("d-none", prod);
   selProducto.required = prod;
-  // nota: categoría no es obligatoria si alcance = producto
+  // Nota: crear en backend solo con categoría; aquí solo controlamos visibilidad/validación del form.
 }
 [alcanceProducto, alcanceCategoria].forEach((el) => el?.addEventListener("change", toggleAlcance));
 
 /* =============== DataTable Preview =============== */
+let dtPreview = null;
 function initOrUpdatePreview(rows) {
   const data = Array.isArray(rows) ? rows : [];
   if (dtPreview) {
@@ -142,7 +125,6 @@ async function cargarCategorias() {
 
 /* =============== Previsualización =============== */
 async function previsualizar() {
-  // Validaciones mínimas
   const esProducto = alcanceProducto.checked;
   const vNombre = promoNombre.value.trim();
   const vTipo   = tipo.value;
@@ -150,8 +132,12 @@ async function previsualizar() {
   const vIni    = fechaInicio.value;
   const vFin    = fechaFin.value || "";
 
-  if (!vNombre || !vIni || !(vValor >= 0)) {
-    showAlert("warning", "Completa nombre, tipo/valor y fecha inicio.");
+  if (!vNombre || !vIni || !(vValor > 0)) {
+    showAlert("warning", "Completa nombre, tipo/valor (>0) y fecha inicio.");
+    return;
+  }
+  if (vTipo === "porcentaje" && !(vValor > 0 && vValor < 100)) {
+    showAlert("warning", "Porcentaje inválido (0 < % < 100).");
     return;
   }
 
@@ -200,33 +186,48 @@ async function previsualizar() {
   }
 }
 
-/* =============== Crear promoción =============== */
+/* =============== Crear promoción (solo categoría) =============== */
 async function crearPromocion(e) {
   e.preventDefault();
-  // Validación HTML5
   const form = document.getElementById("formPromo");
   form.classList.add("was-validated");
   if (!form.checkValidity()) return;
 
+  // El backend actual SOLO soporta crear/aplicar por CATEGORÍA
+  if (!alcanceCategoria.checked || !selCategoria.value) {
+    showAlert("warning", "Por ahora el backend solo aplica promociones por categoría. Selecciona una categoría.");
+    return;
+  }
+
+  const vTipo  = tipo.value;
+  const vValor = Number(valor.value);
+  if (!(vValor > 0)) {
+    showAlert("warning", "El valor del descuento debe ser mayor a 0.");
+    return;
+  }
+  if (vTipo === "porcentaje" && !(vValor > 0 && vValor < 100)) {
+    showAlert("warning", "Porcentaje inválido (0 < % < 100).");
+    return;
+  }
+
   const payload = {
-    promo_nombre: promoNombre.value.trim(),
+    promo_nombre: promoNombre.value.trim(), // se guarda en logs/tabla audit si el backend lo maneja
     descripcion: (descripcion.value || "").trim() || null,
-    tipo_descuento: tipo.value,                 // 'porcentaje' | 'monto'
-    valor_descuento: Number(valor.value),
+    tipo_descuento: vTipo, // 'porcentaje' | 'monto'
+    valor_descuento: vValor,
     fecha_inicio: fechaInicio.value,
     fecha_fin: fechaFin.value || null,
-    producto_id: alcanceProducto.checked ? selProducto.value : null,
-    categoria_id: alcanceCategoria.checked ? Number(selCategoria.value) : null
+    categoria_id: Number(selCategoria.value),
+    // Nota: producto_id no se envía porque el backend aplica por categoría
+    solo_activos: 1
   };
 
   try {
-    const api = "/insert";
-    const resp = await apiFetch(api, { method: "POST", body: payload });
-    logPaso("Crear promoción", `${PROMOS_BASE}${api}`, resp);
-    showAlert("success", resp?.message || "Promoción creada.");
-    // Limpiar y mantener preview como evidencia (opcional)
+    const resp = await promocionesAPI.insert(payload);
+    logPaso("Crear promoción", "/promociones/insert", resp);
+    showAlert("success", resp?.message || "Promoción aplicada.");
   } catch (err) {
-    logError("Crear promoción", `${PROMOS_BASE}/insert`, err);
+    logError("Crear promoción", "/promociones/insert", err);
     showAlert("danger", err?.message || "No se pudo crear la promoción");
   }
 }
