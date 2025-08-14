@@ -8,27 +8,27 @@ let clientsAPI, datosPersonalesAPI, datosFacturacionAPI, metodosPagoAPI;
 
 async function loadApis() {
   try {
-    ({ pedidosAPI, confirmarConVerificacion } = await import('/client-resources/apis/pedidosManager.js')); // :contentReference[oaicite:7]{index=7}
+    ({ pedidosAPI, confirmarConVerificacion } = await import('/client-resources/scripts/apis/pedidosManager.js')); // :contentReference[oaicite:7]{index=7}
   } catch { ({ pedidosAPI, confirmarConVerificacion } = await import('/scripts/apis/pedidosManager.js')); }
 
   try {
-    ({ controlPedidosAPI, addItemConVerificacion } = await import('/client-resources/apis/controlPedidosManager.js')); // :contentReference[oaicite:8]{index=8}
+    ({ controlPedidosAPI, addItemConVerificacion } = await import('/client-resources/scripts/apis/controlPedidosManager.js')); // :contentReference[oaicite:8]{index=8}
   } catch { ({ controlPedidosAPI, addItemConVerificacion } = await import('/scripts/apis/controlPedidosManager.js')); }
 
   try {
-    ({ clientsAPI } = await import('/client-resources/apis/clientesManager.js')); // :contentReference[oaicite:9]{index=9}
+    ({ clientsAPI } = await import('/client-resources/scripts/apis/clientesManager.js')); // :contentReference[oaicite:9]{index=9}
   } catch { ({ clientsAPI } = await import('/scripts/apis/clientesManager.js')); }
 
   try {
-    ({ datosPersonalesAPI } = await import('/client-resources/apis/datosPersonalesManager.js')); // :contentReference[oaicite:10]{index=10}
+    ({ datosPersonalesAPI } = await import('/client-resources/scripts/apis/datosPersonalesManager.js')); // :contentReference[oaicite:10]{index=10}
   } catch { ({ datosPersonalesAPI } = await import('/scripts/apis/datosPersonalesManager.js')); }
 
   try {
-    ({ datosFacturacionAPI } = await import('/client-resources/apis/datosFacturacionManager.js')); // :contentReference[oaicite:11]{index=11}
+    ({ datosFacturacionAPI } = await import('/client-resources/scripts/apis/datosFacturacionManager.js')); // :contentReference[oaicite:11]{index=11}
   } catch { ({ datosFacturacionAPI } = await import('/scripts/apis/datosFacturacionManager.js')); }
 
   try {
-    ({ metodosPagoAPI } = await import('/client-resources/apis/metodosPagoManager.js')); // :contentReference[oaicite:12]{index=12}
+    ({ metodosPagoAPI } = await import('/client-resources/scripts/apis/metodosPagoManager.js')); // :contentReference[oaicite:12]{index=12}
   } catch { ({ metodosPagoAPI } = await import('/scripts/apis/metodosPagoManager.js')); }
 }
 
