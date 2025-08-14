@@ -2,15 +2,15 @@
 'use strict';
 
 const express = require('express');
-const { db, sql } = require('././db/dbconnector.js');
-const ValidationService = require('./validatorService.js');
-const { requireAdmin } = require('./authRoute.js');
+const { db, sql } = require('../../db/dbconnector.js');
+const ValidationService = require('../validatorService.js');
+const { requireAdmin } = require('../routes/authRoute.js');
 
 const {
   VentasMensualRules,
   TopVentasRules,
   ClientesFrecuenciaRules
-} = require('./Validators/Rulesets/reportes.js');
+} = require('../Validators/Rulesets/reportes.js');
 
 const ReportesRouter = express.Router();
 

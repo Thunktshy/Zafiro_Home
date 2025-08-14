@@ -4,11 +4,11 @@
 const express = require('express');
 const pedidosRouter = express.Router();
 
-const { db, sql } = require('././db/dbconnector.js');
-const ValidationService = require('./validatorService.js');
+const { db, sql } = require('../../db/dbconnector.js');
+const ValidationService = require('../validatorService.js');
 const {
   InsertRules, GetByIdRules, GetByClienteRules, PorEstadoRules, ConfirmarRules, CancelarRules
-} = require('./Validators/Rulesets/pedidos.js');
+} = require('../Validators/Rulesets/pedidos.js');
 
 const { requireAuth } = require('./authRoute.js');
 

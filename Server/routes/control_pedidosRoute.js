@@ -4,13 +4,13 @@
 const express = require('express');
 const controlPedidosRouter = express.Router();
 
-const ValidationService = require('./validatorService.js');
-const { db, sql } = require('././db/dbconnector.js');
-const { requireAuth } = require('./authRoute.js');
+const ValidationService = require('../validatorService.js');
+const { db, sql } = require('../../db/dbconnector.js');
+const { requireAuth } = require('../routes/authRoute.js');
 
 const {
   AddItemRules, RemoveItemRules, SetEstadoRules, VerificarProductosRules
-} = require('./Validators/Rulesets/control_pedidos.js');
+} = require('../Validators/Rulesets/control_pedidos.js');
 
 // Mapea errores SQL → HTTP
 function mapErr(err) {
