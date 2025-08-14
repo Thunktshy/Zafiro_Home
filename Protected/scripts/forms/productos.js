@@ -2,7 +2,7 @@
 // Panel de administración de Productos
 // Usa: productosAPI y categoriasAPI
 import { productosAPI } from "/admin-resources/scripts/apis/productosManager.js";
-import { categoriasAPI } from "/admin-resources/scripts/apis/categoriesManager.js";
+import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 
 /* ------------------------------
    Normalización y utilidades
