@@ -1,153 +1,236 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Zafiro Home — Panel Admin · Categorías</title>
+  <title>Zafiro Home — Panel Categorías</title>
 
-  <!-- Estilos (opcionales) -->
-  <link rel="stylesheet" href="/admin-resources/css/styles/index.css" />
-  <link rel="stylesheet" href="/admin-resources/css/forms/forms.css" />
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-  <!-- Bootstrap + DataTables -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
+  <!-- DataTables 2.x (requiere jQuery) -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.css" />
+
+  <!-- Font Awesome (iconos) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" />
+
+  <!-- Estilos del panel de categorías (sin estilos en línea) -->
+  <link rel="stylesheet" href="/admin-resources/scripts/styles/categoriasPanel.css" />
 </head>
-<body class="admin-body">
-  <!-- Header con regreso al panel -->
-  <header class="py-3 mb-4 border-bottom bg-light">
-    <div class="container-xl d-flex align-items-center justify-content-between">
-      <h1 class="h3 m-0">Zafiro Home — Panel Admin</h1>
-      <nav>
-        <a class="btn btn-outline-secondary btn-sm" href="/admin-resources/pages/admin.html">
-          ← Regresar al panel principal
-        </a>
-      </nav>
+<body class="page-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbarcontainer container">
+      <a class="navbar-store-title d-flex align-items-center gap-2" href="/admin-resources/pages/admin.html">
+        <i class="fa-solid fa-gem"></i>
+        <span>Zafiro Home</span>
+      </a>
+      <a class="btn btn-primary" href="/admin-resources/pages/admin.html">Regresar al panel principal</a>
     </div>
+  </nav>
+
+  <!-- Encabezado -->
+  <header class="admin-header container">
+    <h2 class="admin-title">Panel: Categorías</h2>
+    <p class="admin-subtitle">Pruebas rápidas de la API de categorías con DataTables.</p>
   </header>
 
-  <main class="container-xl my-4">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="h4 m-0">Administración · Categorías</h2>
-      <div class="d-flex gap-2">
-        <button id="btnNuevo" class="btn btn-success">
-          <i class="fa-solid fa-list-ul me-2"></i>Nueva categoría
-        </button>
+  <main class="container my-4">
+
+    <!-- Barra de acciones -->
+    <section class="card p-3 mb-4 shadow-sm">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-8">
+          <div class="d-flex flex-wrap gap-2">
+            
+            <button id="btnProbarDropdown" class="btn btn-outline-secondary">
+              <i class="fa-solid fa-list me-1"></i> Probar Dropbox
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Alertas -->
-    <div id="alertBox" class="alert d-none" role="alert"></div>
-
-    <!-- Filtros -->
-    <section class="card mb-4 shadow-sm">
-      <div class="card-body">
-        <div class="row g-3 align-items-end">
-          <div class="col-12 col-md-6">
-            <label for="filtroNombre" class="form-label">Buscar por nombre</label>
-            <div class="input-group">
-              <input id="filtroNombre" type="text" class="form-control" placeholder="ej. Cocina" maxlength="50" />
-              <button id="btnBuscar" class="btn btn-primary">Buscar</button>
-            </div>
-            <div class="form-text">Filtro aplica sobre la tabla (coincidencia parcial).</div>
-          </div>
-          <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
-            <button id="btnListarTodo" class="btn btn-outline-primary">Refrescar</button>
-            <button id="btnLimpiar" class="btn btn-outline-secondary">Limpiar</button>
-          </div>
+      <!-- Dropdown de categorías -->
+      <div class="row g-2 mt-3">
+        <div class="col-12 col-md-6">
+          <label for="selectCategorias" class="form-label mb-1">Dropbox de Categorías</label>
+          <select id="selectCategorias" class="form-select">
+            <option value="" selected>— sin datos —</option>
+          </select>
         </div>
       </div>
     </section>
 
-    <!-- Tabla -->
-    <section class="card shadow-sm">
-      <div class="card-body">
-        <div class="table-responsive">
-          <table id="tablaCategorias" class="table table-striped table-hover align-middle" style="width:100%">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Creación</th>
-                <th class="text-end">Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+    <!-- Tabla 1: Cargar Todas -->
+    <section class="card p-3 mb-4 shadow-sm">
+      <h5 class="mb-3">Listado simple (get_all)</h5>
+      <button id="btnCargarTodas" class="btn btn-outline-primary">
+        <i class="fa-solid fa-table-list me-1"></i> Cargar Todas
+      </button>
+      <table id="tablaCategorias" class="display table table-striped w-100">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </section>
+
+    <!-- Tabla 2: Resultado de búsqueda por ID -->
+    <section class="card p-3 mb-4 shadow-sm">
+      <h5 class="mb-3">Resultado de búsqueda por ID (/by_id/:id)</h5>
+      <!-- Búsqueda por ID -->
+        <div class="col-8 col-md-3">
+          <label for="buscarId" class="form-label mb-1">Buscar por ID</label>
+          <input id="buscarId" type="number" class="form-control" placeholder="ID de categoría" />
+          <button id="btnBuscar" class="btn btn-primary" aria-label="Buscar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </div>
+      <table id="tablaBusqueda" class="display table table-bordered w-100">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Tabla 3: CRUD + columna Eliminar -->
+    <section class="card p-3 mb-5 shadow-sm">
+      <h5 class="mb-3">CRUD (get_all + columna “Eliminar”)</h5>
+      <button id="btnRefrescarCrud" class="btn btn-outline-info">
+        <i class="fa-solid fa-rotate me-1"></i> Refrescar CRUD
+      </button>
+      <button id="btnAbrirAgregar" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+        <i class="fa-solid fa-plus me-1"></i> Agregar categoría
+      </button>
+        <button id="btnAbrirEditar" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalEditar">
+        <i class="fa-solid fa-pen-to-square me-1"></i> Modificar categoría
+      </button>
+      <table id="tablaCRUD" class="display table table-hover w-100">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Eliminar</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
   </main>
 
-  <!-- Modal Crear/Editar -->
-  <div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <form id="formCategoria" novalidate>
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalTitulo">Nueva categoría</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-          </div>
-          <div class="modal-body">
-            <input type="hidden" id="categoria_id" />
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label for="nombre_categoria" class="form-label">Nombre</label>
-                <input id="nombre_categoria" class="form-control" type="text" maxlength="50" required />
-                <div class="invalid-feedback">Nombre requerido (máx. 50).</div>
-              </div>
-              <div class="col-md-6">
-                <label for="descripcion" class="form-label">Descripción</label>
-                <input id="descripcion" class="form-control" type="text" maxlength="255" />
-                <div class="form-text">Opcional (máx. 255).</div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button id="btnGuardar" type="submit" class="btn btn-primary">Guardar</button>
-          </div>
-        </form>
-      </div>
+  <!-- Footer -->
+  <footer class="app-footer py-3">
+    <div class="container text-center text-white">
+      © 2025 Zafiro Home. Todos los derechos reservados.
     </div>
-  </div>
+  </footer>
 
-  <!-- Modal Confirmación -->
-  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
+  <!-- Modal: Agregar -->
+  <div class="modal fade" id="modalAgregar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="formAgregar" class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="confirmTitulo">Confirmar</h5>
+          <h5 class="modal-title">Agregar categoría</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
-          <p id="confirmMsg" class="m-0">¿Seguro que deseas continuar?</p>
-          <input type="hidden" id="confirmAccion" />
-          <input type="hidden" id="confirmId" />
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input name="nombre_categoria" class="form-control" maxlength="50" required />
+          </div>
+          <div class="mb-0">
+            <label class="form-label">Descripción</label>
+            <textarea name="descripcion" class="form-control" maxlength="255" rows="3"></textarea>
+          </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button id="btnConfirmarAccion" type="button" class="btn btn-danger">Sí, eliminar</button>
+          <button id="btnAgregar" type="submit" class="btn btn-success">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar -->
+  <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="formEditar" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Modificar categoría (update por ID)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-8">
+              <label class="form-label">ID</label>
+              <input name="categoria_id" type="number" class="form-control" required />
+            </div>
+            <div class="col-4 d-grid">
+              <label class="form-label invisible">.</label>
+              <button id="btnCargarEditar" class="btn btn-outline-secondary" type="button">
+                <i class="fa-solid fa-download me-1"></i> Cargar
+              </button>
+            </div>
+          </div>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Nombre</label>
+            <input name="nombre_categoria" class="form-control" maxlength="50" required />
+          </div>
+          <div class="mb-0">
+            <label class="form-label">Descripción</label>
+            <textarea name="descripcion" class="form-control" maxlength="255" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnEditar" type="submit" class="btn btn-warning">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Actualizar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar eliminación -->
+  <div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Confirmar eliminación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0">¿Eliminar la categoría <strong id="delNombre"></strong> (ID <span id="delId"></span>)?</p>
+        </div>
+        <div class="modal-footer">
+          <button id="btnConfirmarEliminar" type="button" class="btn btn-danger">
+            <i class="fa-solid fa-trash me-1"></i> Eliminar
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Footer -->
-  <footer class="container-xl mt-5 py-4 border-top text-center text-muted">
-    <small>© 2025 Zafiro Home</small>
-  </footer>
-
-  <!-- Librerías -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- jQuery (requerido por DataTables) -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-  <script src="https://kit.fontawesome.com/a2e0e6ad5b.js" crossorigin="anonymous"></script>
+  <!-- DataTables -->
+  <script src="https://cdn.datatables.net/2.3.2/js/dataTables.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- API + UI -->
-  <script type="module" src="/admin-resources/scripts/apis/categoriasManager.js"></script>
-  <script type="module" src="/admin-resources/scripts/forms/categorias.js"></script>
+  <!-- Lógica del panel (módulo) -->
+  <script type="module" src="/admin-resources/scripts/forms/panelCategorias.js"></script>
 </body>
 </html>

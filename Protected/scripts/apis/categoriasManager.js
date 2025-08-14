@@ -1,4 +1,5 @@
-// scripts/apis/categoriesManager.js
+// '/admin-resources/scripts/apis/categoriasManager.js'
+
 // Envíos a la API de categorías (usa cookies de sesión)
 // BASE apunta al router montado en el server: app.use('/categorias', CategoriasRouter)
 const BASE = '/categorias';

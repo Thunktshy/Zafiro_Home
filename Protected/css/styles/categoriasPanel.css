@@ -1,0 +1,84 @@
+:root {
+  --color-text-light: #fff;
+  --color-primary: rgb(45, 71, 120);
+  --color-secondary: rgb(100, 140, 188);
+  --color-accent: #f08a5d;
+  --color-bg: #f9f9f9;
+  --color-text: #333;
+  --color-light-bg: #fff;
+  --border-radius: 12px;
+  --transition-fast: .3s ease;
+  --font-heading: 'Poppins', system-ui, -apple-system, Arial, sans-serif;
+  --font-body: 'Open Sans', system-ui, -apple-system, Arial, sans-serif;
+}
+
+/* Reset básico */
+* { box-sizing: border-box; }
+body.page-body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+/* Navbar */
+.navbar .navbarcontainer {
+  min-height: 80px;
+  background: var(--color-primary);
+  border-radius: 0;
+  color: var(--color-text-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.navbar-store-title {
+  color: var(--color-text-light);
+  font-weight: 700;
+  font-size: 1.4rem;
+  text-decoration: none;
+}
+.navbar-store-title:hover { color: #e8eefb; }
+
+/* Encabezado */
+.admin-header {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  border-bottom: 3px solid var(--color-accent);
+}
+.admin-title {
+  font-family: var(--font-heading);
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin-bottom: .25rem;
+}
+.admin-subtitle {
+  color: #575f7a;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+/* Footer */
+.app-footer {
+  background: var(--color-primary);
+  color: var(--color-text-light);
+}
+
+/* Tablas */
+table.dataTable thead th {
+  background: #eef2f9;
+  color: #2d4778;
+  border-bottom: 2px solid #dbe2f2;
+}
+table.dataTable tbody tr:hover {
+  background: #fbfcff;
+}
+
+/* Botones */
+.btn {
+  border-radius: var(--border-radius);
+  transition: transform var(--transition-fast);
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
