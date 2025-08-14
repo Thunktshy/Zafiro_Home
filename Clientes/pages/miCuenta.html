@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi Cuenta — Zafiro Home</title>
+
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+
+  <!-- Estilos del sitio (reuso de index) -->
+  <link rel="stylesheet" href="../css/index.css">
+</head>
+<body class="page-body">
+
+  <!-- =========================
+       Header / Navbar (reusado)
+       ============================== -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <!-- Logo -->
+      <a class="navbar-store-title" href="/index.html">
+        <img src="/Images/logo.png" alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+
+      <!-- Búsqueda -->
+      <div class="collapse navbar-collapse" id="mainNavbar">
+
+        <!-- Acciones -->
+        <ul class="navbarshopingicon">
+          <li class="nav-item">
+            <a class="nav-cart-icon" href="/client-resources/pages/micarrito.html">
+              <i class="fa-solid fa-basket-shopping fa-lg"></i>
+            </a>
+          </li>
+          <li class="nav-iniciar-sesion" id="navUserLabel">
+            <i>Mi cuenta</i>
+          </li>
+          <li class="nav-item" id="menu">
+            <i class="fa-solid fa-bars"></i>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       Sub-Navbar (reusada)
+       ============================== -->
+  <nav class="subnavbar">
+    <ul class="subnav-menu">
+      <li class="subnav-item">
+        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu" id="subnavCategorias">
+          <li><a href="#">(cargando…)</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="#">Más vendidos <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/index.html#ofertas">Ofertas del día</a></li>
+          <li><a href="/index.html#ofertas">Promociones</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="/client-resources/pages/facturacion.html">Facturación <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/client-resources/pages/facturacion.html">Consulta CFDI</a></li>
+          <li><a href="/client-resources/pages/facturacion.html">Preguntas frecuentes</a></li>
+        </ul>
+      </li>
+      <li class="subnav-item">
+        <a href="/index.html#newsletter">Ayuda <i class="fa fa-angle-down"></i></a>
+        <ul class="dropdown-menu">
+          <li><a href="/pages/ayuda.html">Preguntas Frecuentes</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- =========================
+       Contenido principal
+       ============================== -->
+  <main class="featured-categories" style="background:#fff;">
+    <h1 class="section-title" style="border-bottom:none;margin-bottom:1rem;">Mi Cuenta</h1>
+    <p id="welcomeLine" style="margin-bottom:1.5rem;"></p>
+
+    <!-- Panel General (cards reutilizando estilos de categorías) -->
+    <div class="categories-grid" id="accountGrid" style="margin-top:1rem;">
+      <!-- Cards se generan desde JS -->
+    </div>
+  </main>
+
+  <!-- =============== Newsletter (reusada) =============== -->
+  <section id="newsletter" class="newsletter-section">
+    <h2 class="newsletter-section-title">Suscríbete a nuestras ofertas</h2>
+    <form id="newsletter-form" class="newsletter-form">
+      <input type="email" name="email" placeholder="Tu correo electrónico" required>
+      <button type="submit">Suscribirme</button>
+    </form>
+  </section>
+
+  <!-- =============== Footer (reusado) =============== -->
+  <footer>
+    <div class="footer-links">
+      <a href="/pages/ayuda.html">Ayuda</a>
+      <a href="/pages/terminosycondiciones.html">Términos y Condiciones</a>
+      <a href="/pages/avisodeprivacidad.html">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Scripts del panel -->
+  <script type="module" src="../scripts/miCuenta.js"></script>
+</body>
+</html>
