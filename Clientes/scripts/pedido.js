@@ -4,6 +4,7 @@
 let pedidosAPI, confirmarConVerificacion;
 let controlPedidosAPI, addItemConVerificacion;
 let clientsAPI, datosPersonalesAPI, datosFacturacionAPI, metodosPagoAPI;
+let productosAPI;
 
 async function loadApis() {
   try {
