@@ -3,7 +3,7 @@ const express = require('express');
 const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const { InsertRules, UpdateRules, DeleteRules, GetByIdRules } = require('../Validators/Rulesets/categorias.js');
-const { requireAdmin } = require('../routes/authRoute.js');
+const { requireAdmin } = require('./authRoute.js');
 
 const CategoriasRouter = express.Router();
 

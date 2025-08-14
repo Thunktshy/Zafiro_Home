@@ -113,7 +113,7 @@ const EmpleadosRoutes = require('./Server/routes/empleadosRoute.js');
 app.use('/empleados', EmpleadosRoutes);
 
 //Rutas Categorias
-const CategoriasRoutes = require('./Server/routes/categoriesRoute.js');
+const CategoriasRoutes = require('./Server/routes/categoriasRoute.js');
 app.use('/categorias', CategoriasRoutes);
 
 //Rutas datos personales
