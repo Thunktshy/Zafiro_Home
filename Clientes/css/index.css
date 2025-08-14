@@ -1149,3 +1149,106 @@ body.hm-locked { overflow: hidden; }
     transition: none;
   }
 }
+
+/* ===========================
+   Modal "Pedido" — Interacción
+   =========================== */
+
+/* 1) Prioridad sobre headers/sidebars con z-index alto */
+#modalPedido.modal {
+  position: fixed !important;
+  inset: 0;
+  z-index: 20000; /* > header/sidebar */
+}
+
+/* Backdrop por debajo del modal pero por encima del resto */
+.modal-backdrop,
+.modal-backdrop.show {
+  z-index: 19999;
+}
+
+/* 2) Caja del modal y responsivo */
+#modalPedido .modal-dialog {
+  max-width: 760px;              /* ancho cómodo escritorio */
+  margin: 1.25rem auto;
+}
+
+@media (max-width: 576px) {
+  #modalPedido .modal-dialog {
+    margin: .5rem auto;
+    max-width: calc(100% - .5rem);
+  }
+}
+
+/* 3) Contenido scrollable + layout en columna */
+#modalPedido .modal-content {
+  display: flex;
+  flex-direction: column;
+  /* Altura máxima del contenido para que no se salga de la pantalla */
+  max-height: calc(100vh - 2rem);
+  border-radius: 14px;
+  overflow: hidden; /* corta bordes del body cuando hace scroll */
+  background: #fff;
+}
+
+/* 4) Header y footer “pegajosos” (si añades .modal-sticky a .modal-content) */
+#modalPedido .modal-sticky .modal-header,
+#modalPedido .modal-sticky .modal-footer {
+  position: sticky;
+  background: #fff;
+  z-index: 2;
+}
+#modalPedido .modal-sticky .modal-header { top: 0; }
+#modalPedido .modal-sticky .modal-footer { bottom: 0; }
+
+/* 5) Body con scroll vertical propio */
+#modalPedido .modal-body {
+  overflow: auto;
+  padding: 1rem 1rem;
+  /* espacio para que el contenido no quede oculto detrás del footer */
+  padding-bottom: 4.5rem;
+}
+
+/* 6) Footer visible siempre con botón de acción accesible */
+#modalPedido .modal-footer {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  justify-content: space-between; /* izq: info; der: botón acción */
+  border-top: 1px solid #e5e7eb;
+  padding: .75rem 1rem;
+}
+#modalPedido .modal-footer .btn-primary {
+  min-width: 10rem;
+}
+
+/* 7) Campos de formulario full width dentro del modal */
+#modalPedido .form-control,
+#modalPedido .form-select {
+  width: 100%;
+}
+
+/* 8) Asegurar clics dentro del modal (por si hay estilos globales agresivos) */
+#modalPedido,
+#modalPedido * {
+  pointer-events: auto;
+}
+
+/* 9) Evitar scroll de fondo cuando el modal está abierto */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* 10) Micro-estética opcional */
+#modalPedido .modal-title {
+  font-weight: 600;
+}
+#modalPedido .resumen-linea {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: .5rem;
+  align-items: center;
+}
+#modalPedido .resumen-linea .precio {
+  font-variant-numeric: tabular-nums;
+}
