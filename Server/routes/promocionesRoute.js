@@ -3,7 +3,6 @@ const express = require('express');
 const { db, sql } = require('../../db/dbconnector.js');
 const ValidationService = require('../validatorService.js');
 const { requireAdmin } = require('./authRoute.js');
-const { PromosActivasRules } = require('../Validators/Rulesets/promociones.js');
 
 const PromocionesRouter = express.Router();
 const BuildParams = (arr) => arr.reduce((o, e) => (o[e.name] = { type: e.type, value: e.value }, o), {});
