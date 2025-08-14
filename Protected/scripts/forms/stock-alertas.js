@@ -1,4 +1,4 @@
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
+import { categoriasAPI } from '/admin-resources/scripts/apis/categoriasManager.js';
 import { gestionStockAlertasAPI } from '/admin-resources/scripts/apis/gestion_stock_y_alertasManager.js';
 
 // ===== Helpers DOM / feedback =====

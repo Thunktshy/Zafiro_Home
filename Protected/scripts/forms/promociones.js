@@ -1,5 +1,5 @@
 // UI del Panel de Promociones
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
+import { categoriasAPI } from '/admin-resources/scripts/apis/categoriasManager.js';
 import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
 import { promocionesAPI } from '/admin-resources/scripts/apis/promocionesManager.js';
 
