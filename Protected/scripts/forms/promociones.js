@@ -1,204 +1,302 @@
-// UI del Panel de Promociones
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriasManager.js';
-import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
-import { promocionesAPI } from '/admin-resources/scripts/apis/promocionesManager.js';
+// /admin-resources/scripts/forms/promociones.js
+// Panel: Promociones (Bootstrap + DataTables + logs estándar)
+// Respuestas esperadas: { success, message, data }
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
-const alertBox = $('#alertBox');
+import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
+import { productosAPI } from "/admin-resources/scripts/apis/productosManager.js";
+import { promocionesAPI } from "/admin-resources/scripts/apis/promocionesManager.js";
 
-function showAlert(type, msg, autoHideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove('d-none');
-  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
+/* =========================
+   Logs en el formato solicitado
+========================= */
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
 }
 
-const fmtMoney = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v || 0));
-const fmtDate = (v) => {
-  if (!v) return '—';
-  const d = new Date(v);
-  return isNaN(d) ? String(v) : d.toLocaleDateString('es-MX');
+/* =========================
+   Normalización y utilidades
+========================= */
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
+  }
+  return resp;
+}
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+const money = (n) =>
+  (Number(n) || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+
+const dateISO = (d) => {
+  const x = d instanceof Date ? d : new Date(d);
+  if (isNaN(x.getTime())) return "";
+  const mm = `${x.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${x.getDate()}`.padStart(2, "0");
+  return `${x.getFullYear()}-${mm}-${dd}`;
 };
 
-const ensurePrefix = (v, prefix) => {
-  const s = String(v ?? '').trim();
-  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
-};
-const prd = (id) => ensurePrefix(id, 'prd-');
+function normalizePromo(row) {
+  if (!row || typeof row !== "object") return null;
 
-// Mapa producto_id -> categoria_id y nombre de producto
-const productMeta = new Map(); // key: producto_id (string) -> { categoria_id:number, nombre:string }
-const categoryNameById = new Map(); // key: categoria_id (number) -> nombre
+  const producto_id = row.producto_id ?? row.producto ?? row.id_producto ?? row.ProductoID ?? "";
+  const nombre_producto = row.nombre_producto ?? row.nombre ?? "";
+  const categoria_id = row.categoria_id ?? row.categoria ?? null;
+  const nombre_categoria = row.nombre_categoria ?? row.categoria_nombre ?? "";
 
-// ===== DataTable =====
-let dt;
-function initTabla() {
-  dt = $('#tablaPromos').DataTable({
-    data: [],
-    columns: [
-      { data: 'producto_id', render: v => v ?? '—' },
-      { data: 'nombre_producto', render: v => v ?? '—' },
-      { data: 'categoria_nombre', render: v => v ?? '—' },
-      { data: 'promo_nombre', render: v => v ?? '—' },
-      { data: 'tipo', render: v => v ?? '—' },
-      { data: 'valor', render: v => v == null ? '—' : v },
-      { data: 'precio_original', render: v => v == null ? '—' : fmtMoney(v) },
-      { data: 'precio_promocional', render: v => v == null ? '—' : fmtMoney(v) },
-      { data: 'vigencia', render: v => v ?? '—' },
-      {
-        data: null, orderable: false, searchable: false, className: 'text-end',
-        render: (row) => {
-          const json = encodeURIComponent(JSON.stringify(row._raw || row, null, 2));
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-outline-primary btn-detalle" data-json="${json}">
-                <i class="fa-solid fa-circle-info"></i> Detalle
-              </button>
-            </div>`;
-        }
-      }
-    ],
-    order: [[1, 'asc']],
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
-  });
+  const promo_nombre = row.promo_nombre ?? row.promocion ?? row.nombre_promo ?? "";
+  const tipo = (row.tipo_descuento ?? row.tipo ?? "").toString().toLowerCase(); // 'porcentaje' | 'monto' | ...
+  const valor =
+    row.valor_descuento ?? row.valor ?? row.porcentaje ?? row.monto ?? row.descuento ?? 0;
 
-  $('#tablaPromos tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button.btn-detalle');
-    if (!btn) return;
-    try {
-      $('#detalleJSON').textContent = decodeURIComponent(btn.dataset.json);
-      new bootstrap.Modal('#modalDetalle').show();
-    } catch {
-      $('#detalleJSON').textContent = 'No fue posible mostrar el detalle.';
-      new bootstrap.Modal('#modalDetalle').show();
-    }
-  });
-}
+  const precio_original =
+    Number(row.precio_original ?? row.precio_unitario ?? row.precio ?? 0) || 0;
 
-// ===== Carga de catálogos =====
-async function cargarCategorias() {
-  const list = await categoriasAPI.getList(); // [{categoria_id, nombre_categoria}]
-  const sel = $('#filtroCategoria');
-  list.forEach(c => {
-    categoryNameById.set(Number(c.categoria_id), c.nombre_categoria);
-    const opt = document.createElement('option');
-    opt.value = String(c.categoria_id);
-    opt.textContent = c.nombre_categoria;
-    sel.appendChild(opt);
-  });
-}
-
-async function cargarProductosInicial() {
-  const all = await productosAPI.getAll(); // trae categoria_id
-  const sel = $('#filtroProducto');
-  all.forEach(p => {
-    const pid = String(p.producto_id ?? p.id ?? '').trim();
-    const nombre = p.nombre_producto ?? p.nombre ?? `Producto ${pid}`;
-    const catid = Number(p.categoria_id ?? 0);
-    productMeta.set(pid, { categoria_id: catid, nombre });
-    const opt = document.createElement('option');
-    opt.value = pid;
-    opt.textContent = `${nombre} (${pid})`;
-    sel.appendChild(opt);
-  });
-}
-
-// Si cambia la categoría, filtramos opciones de producto (client-side)
-$('#filtroCategoria').addEventListener('change', () => {
-  const catid = Number($('#filtroCategoria').value || 0);
-  const sel = $('#filtroProducto');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">(Todos)</option>';
-  for (const [pid, meta] of productMeta.entries()) {
-    if (!catid || meta.categoria_id === catid) {
-      const opt = document.createElement('option');
-      opt.value = pid;
-      opt.textContent = `${meta.nombre} (${pid})`;
-      sel.appendChild(opt);
+  let precio_promo = Number(row.precio_promo ?? row.precio_promocion ?? 0);
+  if (!Number.isFinite(precio_promo) || precio_promo <= 0) {
+    if (tipo.includes("porc") || tipo === "percent" || tipo === "percentage") {
+      precio_promo = Math.max(0, precio_original * (1 - Number(valor) / 100));
+    } else {
+      // monto
+      precio_promo = Math.max(0, precio_original - Number(valor));
     }
   }
-  // si el valor actual sigue siendo válido, mantenerlo
-  if ([...sel.options].some(o => o.value === current)) sel.value = current;
-});
 
-// ===== Transformación robusta de respuesta =====
-function mapPromoRow(raw) {
-  // Intentar diferentes nombres de campos
-  const producto_id = prd(raw.producto_id ?? raw.id_producto ?? raw.producto ?? '');
-  const nombre_producto = raw.nombre_producto ?? raw.producto_nombre ?? productMeta.get(String(raw.producto_id))?.nombre ?? '—';
-
-  // metas de categoría
-  const meta = productMeta.get(String(raw.producto_id)) || productMeta.get(producto_id) || {};
-  const categoria_id = Number(raw.categoria_id ?? meta.categoria_id ?? 0);
-  const categoria_nombre = categoryNameById.get(categoria_id) || (categoria_id ? `Cat ${categoria_id}` : '—');
-
-  // info promo
-  const promo_nombre = raw.promo_nombre ?? raw.nombre_promocion ?? raw.promocion ?? '—';
-  const tipo = raw.tipo ?? raw.tipo_descuento ?? raw.modalidad ?? '—';
-  const valor = raw.valor ?? raw.descuento ?? raw.monto ?? null;
-
-  // precios (si existen)
-  const precio_original = raw.precio_original ?? raw.precio_base ?? null;
-  const precio_promocional = raw.precio_promocional ?? raw.precio_final ?? null;
-
-  // vigencia
-  const ini = raw.inicio ?? raw.fecha_inicio ?? raw.vigencia_inicio ?? null;
-  const fin = raw.fin ?? raw.fecha_fin ?? raw.vigencia_fin ?? null;
-  const vigencia = ini || fin ? `${fmtDate(ini)} – ${fmtDate(fin)}` : (raw.vigencia ?? '—');
+  const f1 =
+    row.fecha_inicio ?? row.inicio ?? row.fecha_desde ?? row.valid_from ?? row.vigencia_inicio;
+  const f2 = row.fecha_fin ?? row.fin ?? row.fecha_hasta ?? row.valid_to ?? row.vigencia_fin;
 
   return {
-    _raw: raw,
-    producto_id, nombre_producto, categoria_id, categoria_nombre,
-    promo_nombre, tipo, valor, precio_original, precio_promocional, vigencia
+    producto_id: String(producto_id),
+    nombre_producto: String(nombre_producto),
+    categoria_id: categoria_id != null ? Number(categoria_id) : null,
+    nombre_categoria: String(nombre_categoria || ""),
+    promo_nombre: String(promo_nombre || ""),
+    tipo: tipo || (Number(valor) <= 1 && valor > 0 ? "porcentaje" : "monto"),
+    valor: Number(valor) || 0,
+    precio_original,
+    precio_promo,
+    fecha_inicio: f1 ? dateISO(f1) : "",
+    fecha_fin: f2 ? dateISO(f2) : "",
+    _raw: row
   };
 }
 
-// ===== Carga de promociones con filtros =====
-async function cargarPromos() {
+/* =========================
+   DOM refs
+========================= */
+const filtroFecha = document.getElementById("filtroFecha");
+const filtroCategoria = document.getElementById("filtroCategoria");
+const filtroProducto = document.getElementById("filtroProducto");
+const btnBuscar = document.getElementById("btnBuscar");
+const btnLimpiar = document.getElementById("btnLimpiar");
+const btnRefrescar = document.getElementById("btnRefrescar");
+
+const detalleJSON = document.getElementById("detalleJSON");
+const modalDetalleEl = document.getElementById("modalDetalle");
+const bsModalDetalle = () => bootstrap.Modal.getOrCreateInstance(modalDetalleEl);
+
+/* =========================
+   DataTable
+========================= */
+let dt = null;
+function initOrUpdateTable(rows) {
+  const data = (rows || []).map(normalizePromo).filter(Boolean);
+  if (dt) {
+    dt.clear().rows.add(data).draw();
+    return dt;
+  }
+  dt = $("#tablaPromos").DataTable({
+    data,
+    columns: [
+      { data: "producto_id", title: "Producto" },
+      { data: "nombre_producto", title: "Nombre producto" },
+      {
+        data: null,
+        title: "Categoría",
+        render: (row) => row.nombre_categoria || row.categoria_id || ""
+      },
+      { data: "promo_nombre", title: "Promoción" },
+      { data: "tipo", title: "Tipo", render: (v) => (String(v).includes("porc") ? "Porcentaje" : "Monto") },
+      {
+        data: "valor",
+        title: "Valor",
+        render: (v, _t, row) =>
+          String(row.tipo).includes("porc") ? `${Number(v)}%` : money(v)
+      },
+      { data: "precio_original", title: "Precio original", render: (v) => money(v) },
+      { data: "precio_promo", title: "Precio promo", render: (v) => money(v) },
+      {
+        data: null,
+        title: "Vigencia",
+        render: (row) =>
+          row.fecha_inicio && row.fecha_fin ? `${row.fecha_inicio} — ${row.fecha_fin}` : ""
+      },
+      {
+        data: null,
+        title: "Acciones",
+        className: "text-end",
+        orderable: false,
+        render: (row) => `
+          <button class="btn btn-outline-secondary btn-sm btn-detalle" data-id="${row.producto_id}">
+            <i class="fa-solid fa-eye"></i>
+          </button>`
+      }
+    ],
+    pageLength: 10,
+    order: [[0, "asc"]],
+    responsive: true
+  });
+  return dt;
+}
+
+/* =========================
+   Cargas iniciales (categorías / productos)
+========================= */
+async function cargarCategorias() {
   try {
-    const fecha = $('#filtroFecha').value || null;
-    const catid = Number($('#filtroCategoria').value || 0);
-    const prod = $('#filtroProducto').value || '';
+    const resp = assertOk(await categoriasAPI.getList());
+    const list = toArrayData(resp)
+      .map((c) => ({
+        id: c.categoria_id ?? c.id,
+        nombre: c.nombre_categoria ?? c.nombre
+      }))
+      .filter((x) => x.id != null && x.nombre != null);
 
-    const resp = await promocionesAPI.activasPorProducto(fecha || undefined);
-    const list = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : []);
-    const rows = list.map(mapPromoRow)
-      .filter(r => (!catid || r.categoria_id === catid) && (!prod || r.producto_id === prod));
+    // limpiar y poblar
+    while (filtroCategoria.firstChild) filtroCategoria.removeChild(filtroCategoria.firstChild);
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "(Todas)";
+    filtroCategoria.appendChild(optAll);
 
-    dt.clear().rows.add(rows).draw();
-    showAlert('success', `Se cargaron ${rows.length} promoción(es) vigentes${fecha ? ` para ${fmtDate(fecha)}` : ' hoy'}.`);
+    list.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = String(c.id);
+      o.textContent = `${c.id} — ${c.nombre}`;
+      filtroCategoria.appendChild(o);
+    });
+
+    logPaso("(auto) cargar categorías", "/categorias/get_list", resp);
   } catch (err) {
-    dt?.clear().draw();
-    showAlert('danger', err.message || 'No fue posible cargar las promociones');
+    logError("(auto) cargar categorías", "/categorias/get_list", err);
+  }
+}
+async function cargarProductos() {
+  try {
+    const resp = assertOk(await productosAPI.getList());
+    const list = toArrayData(resp)
+      .map((p) => ({
+        id: p.producto_id ?? p.id,
+        nombre: p.nombre_producto ?? p.nombre
+      }))
+      .filter((x) => x.id != null && x.nombre != null);
+
+    while (filtroProducto.firstChild) filtroProducto.removeChild(filtroProducto.firstChild);
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "(Todos)";
+    filtroProducto.appendChild(optAll);
+
+    list.forEach((p) => {
+      const o = document.createElement("option");
+      o.value = String(p.id);
+      o.textContent = `${p.id} — ${p.nombre}`;
+      filtroProducto.appendChild(o);
+    });
+
+    logPaso("(auto) cargar productos", "/productos/get_list", resp);
+  } catch (err) {
+    logError("(auto) cargar productos", "/productos/get_list", err);
   }
 }
 
-// ===== Botones =====
-$('#btnBuscar').addEventListener('click', cargarPromos);
-$('#btnRefrescar').addEventListener('click', cargarPromos);
-$('#btnLimpiar').addEventListener('click', () => {
-  $('#filtroFecha').value = '';
-  $('#filtroCategoria').value = '';
-  $('#filtroProducto').value = '';
-  cargarPromos();
+/* =========================
+   Carga de promociones y filtrado
+========================= */
+let cachePromos = []; // promos normalizadas de la última consulta
+
+async function cargarPromos(fechaISO) {
+  try {
+    const api = `/activas_por_producto${fechaISO ? `?fecha=${fechaISO}` : ""}`;
+    const resp = assertOk(await promocionesAPI.activasPorProducto(fechaISO));
+    const arr = toArrayData(resp).map(normalizePromo).filter(Boolean);
+    cachePromos = arr;
+    initOrUpdateTable(cachePromos);
+    logPaso("Refrescar/Buscar", api, resp);
+  } catch (err) {
+    cachePromos = [];
+    initOrUpdateTable([]);
+    logError("Refrescar/Buscar", "/activas_por_producto", err);
+  }
+}
+
+function aplicarFiltrosFrontend() {
+  const cat = filtroCategoria.value.trim();
+  const prod = filtroProducto.value.trim();
+  let data = cachePromos.slice();
+
+  if (cat) data = data.filter((r) => String(r.categoria_id) === cat);
+  if (prod) data = data.filter((r) => String(r.producto_id) === prod);
+
+  initOrUpdateTable(data);
+}
+
+/* =========================
+   Eventos UI
+========================= */
+btnRefrescar?.addEventListener("click", async () => {
+  const fecha = filtroFecha.value || dateISO(new Date());
+  await cargarPromos(fecha);
+  aplicarFiltrosFrontend();
 });
 
-// ===== Boot =====
-(async function boot() {
-  initTabla();
+btnBuscar?.addEventListener("click", async () => {
+  const fecha = filtroFecha.value || dateISO(new Date());
+  await cargarPromos(fecha);
+  aplicarFiltrosFrontend();
+});
 
-  // fecha por defecto = hoy (local)
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  $('#filtroFecha').value = `${yyyy}-${mm}-${dd}`;
+btnLimpiar?.addEventListener("click", async () => {
+  filtroFecha.value = "";
+  filtroCategoria.value = "";
+  filtroProducto.value = "";
+  const hoy = dateISO(new Date());
+  await cargarPromos(hoy);
+  initOrUpdateTable(cachePromos);
+  logPaso("Limpiar", "(UI)", { ok: true });
+});
 
-  try {
-    await Promise.all([cargarCategorias(), cargarProductosInicial()]);
-    await cargarPromos();
-  } catch (err) {
-    showAlert('danger', err.message || 'Error inicializando el panel');
-  }
-})();
+/* =========================
+   Acciones en tabla
+========================= */
+$("#tablaPromos tbody").on("click", "button.btn-detalle", function () {
+  const row = dt?.row($(this).closest("tr")).data();
+  if (!row) return;
+  // Mostrar el objeto crudo de la promo (para inspección)
+  const pretty = JSON.stringify(row?._raw ?? row, null, 2);
+  detalleJSON.textContent = pretty;
+  bsModalDetalle().show();
+  logPaso("Ver detalle (abrir modal)", "(UI)", row);
+});
+
+/* =========================
+   Boot
+========================= */
+document.addEventListener("DOMContentLoaded", async () => {
+  // selects
+  await Promise.all([cargarCategorias(), cargarProductos()]);
+  // por defecto: vigentes hoy
+  const hoy = dateISO(new Date());
+  filtroFecha.value = "";
+  await cargarPromos(hoy);
+  initOrUpdateTable(cachePromos);
+});
