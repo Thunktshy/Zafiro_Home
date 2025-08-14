@@ -1,252 +1,335 @@
-// UI del Panel de Datos personales
-import { datosPersonalesAPI } from '/admin-resources/scripts/apis/datosPersonalesManager.js';
+// /admin-resources/scripts/forms/datos-personales.js
+// Panel: Datos personales (Bootstrap + DataTables + logs estándar)
+// Respuestas esperadas: { success, message, data }
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
-const alertBox = $('#alertBox');
+import { datosPersonalesAPI } from "/admin-resources/scripts/apis/datosPersonalesManager.js";
 
-function showAlert(type, msg, autoHideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove('d-none');
-  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
+/* =========================
+   Helpers (logs y normalización)
+========================= */
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
 }
 
-const ensurePrefix = (v, prefix) => {
-  const s = String(v ?? '').trim();
-  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
+  }
+  return resp;
+}
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+const ensureCl = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return s;
+  return s.startsWith("cl-") ? s : `cl-${s}`;
 };
-const cli = (id) => ensurePrefix(id, 'cl-');
-const fmtDate = (v) => {
-  const d = v ? new Date(v) : null;
-  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
+const dtStr = (x) => {
+  if (!x) return "";
+  const d = typeof x === "string" || typeof x === "number" ? new Date(x) : x;
+  return isNaN(d?.getTime?.()) ? "" : d.toLocaleString("es-MX");
 };
+function normalizeRow(row) {
+  if (!row || typeof row !== "object") return null;
+  return {
+    datos_id: row.datos_id ?? row.id ?? null,
+    cliente_id: String(row.cliente_id ?? ""),
+    nombre: String(row.nombre ?? ""),
+    apellidos: String(row.apellidos ?? ""),
+    telefono: String(row.telefono ?? ""),
+    direccion: String(row.direccion ?? ""),
+    ciudad: String(row.ciudad ?? ""),
+    codigo_postal: String(row.codigo_postal ?? ""),
+    pais: String(row.pais ?? ""),
+    creado: dtStr(row.fecha_creacion ?? row.created_at ?? row.fecha ?? null)
+  };
+}
 
-// ===== DataTable =====
-let dt;
-function initTabla() {
-  dt = $('#tablaDatosPersonales').DataTable({
-    data: [],
+/* =========================
+   DOM refs
+========================= */
+const alertBox        = document.getElementById("alertBox");
+
+const filtroCliente   = document.getElementById("filtroCliente");
+const btnBuscarCliente= document.getElementById("btnBuscarCliente");
+const btnListarTodo   = document.getElementById("btnListarTodo");
+const btnLimpiar      = document.getElementById("btnLimpiar");
+
+const btnNuevo        = document.getElementById("btnNuevo");
+
+const modalEl         = document.getElementById("modalDatos");
+const formDatos       = document.getElementById("formDatos");
+const modalTitulo     = document.getElementById("modalTitulo");
+
+const f_datos_id      = document.getElementById("datos_id");
+const f_cliente_id    = document.getElementById("cliente_id");
+const f_nombre        = document.getElementById("nombre");
+const f_apellidos     = document.getElementById("apellidos");
+const f_telefono      = document.getElementById("telefono");
+const f_direccion     = document.getElementById("direccion");
+const f_ciudad        = document.getElementById("ciudad");
+const f_cp            = document.getElementById("codigo_postal");
+const f_pais          = document.getElementById("pais");
+
+const modalConfirmEl  = document.getElementById("modalConfirm");
+const confirmTitulo   = document.getElementById("confirmTitulo");
+const confirmMsg      = document.getElementById("confirmMsg");
+const confirmAccion   = document.getElementById("confirmAccion");
+const confirmClienteId= document.getElementById("confirmClienteId");
+
+const bsModal         = () => bootstrap.Modal.getOrCreateInstance(modalEl);
+const bsModalConfirm  = () => bootstrap.Modal.getOrCreateInstance(modalConfirmEl);
+
+/* =========================
+   UI helpers
+========================= */
+function showAlert(kind, msg) {
+  if (!alertBox) return;
+  alertBox.className = `alert alert-${kind}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove("d-none");
+  setTimeout(() => alertBox.classList.add("d-none"), 2600);
+}
+
+/* =========================
+   DataTable
+========================= */
+let dt = null;
+function initOrUpdateTable(rows) {
+  const data = (rows || []).map(normalizeRow).filter(Boolean);
+  if (dt) {
+    dt.clear().rows.add(data).draw();
+    return dt;
+  }
+  dt = $("#tablaDatosPersonales").DataTable({
+    data,
     columns: [
-      { data: 'datos_id', render: v => v ?? '—' },
-      { data: 'cliente_id', render: v => v ?? '—' },
-      { data: 'nombre', render: v => v ?? '—' },
-      { data: 'apellidos', render: v => v ?? '—' },
-      { data: 'telefono', render: v => v ?? '' },
-      { data: 'ciudad', render: v => v ?? '' },
-      { data: 'codigo_postal', render: v => v ?? '' },
-      { data: 'pais', render: v => v ?? '' },
-      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      { data: "datos_id", title: "ID" },
+      { data: "cliente_id", title: "Cliente" },
+      { data: "nombre", title: "Nombre" },
+      { data: "apellidos", title: "Apellidos" },
+      { data: "telefono", title: "Teléfono" },
+      { data: "ciudad", title: "Ciudad" },
+      { data: "codigo_postal", title: "CP" },
+      { data: "pais", title: "País" },
+      { data: "creado", title: "Creado" },
       {
-        data: null, orderable: false, searchable: false, className: 'text-end',
-        render: (row) => {
-          const id = row.datos_id ?? '';
-          const cliente = row.cliente_id ?? '';
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-outline-primary btn-editar" data-id="${id}" data-cliente="${cliente}" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn btn-outline-danger btn-eliminar" data-cliente="${cliente}" data-nombre="${row.nombre||''}" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>`;
-        }
+        data: null,
+        title: "Acciones",
+        orderable: false,
+        className: "text-end",
+        render: (row) => `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-primary btn-editar"
+                    data-datosid="${row.datos_id ?? ""}"
+                    data-cliente="${row.cliente_id}">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-eliminar"
+                    data-cliente="${row.cliente_id}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>`
       }
     ],
-    order: [[8, 'desc']],
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+    pageLength: 10,
+    order: [[0, "desc"]],
+    responsive: true
   });
-
-  // Delegación
-  $('#tablaDatosPersonales tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button');
-    if (!btn) return;
-    if (btn.classList.contains('btn-editar')) abrirModalEditar(btn.dataset.id, btn.dataset.cliente);
-    else if (btn.classList.contains('btn-eliminar')) abrirConfirmEliminar(btn.dataset.cliente, btn.dataset.nombre || '');
-  });
+  return dt;
 }
 
-// ===== Carga de datos =====
+/* =========================
+   Acciones de carga / filtros
+========================= */
 async function listarTodos() {
-  const out = await datosPersonalesAPI.getAll();
-  return Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
-}
-
-async function listarPorCliente(cliente_id) {
-  const out = await datosPersonalesAPI.getByCliente(cli(cliente_id));
-  const data = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
-  // algunos backends devuelven [] o [{...}] por cliente; normalmente 1
-  return data;
-}
-
-async function recargar(escenario = 'all') {
   try {
-    let rows = [];
-    if (escenario === 'cliente') {
-      const id = $('#filtroCliente').value.trim();
-      if (!id) return showAlert('warning', 'Indica un cliente.');
-      rows = await listarPorCliente(id);
-    } else {
-      rows = await listarTodos();
-    }
-    dt.clear().rows.add(rows).draw();
-    showAlert('success', `Se cargaron ${rows.length} registro(s).`);
+    const api = "/select_all";
+    const resp = assertOk(await datosPersonalesAPI.getAll());
+    initOrUpdateTable(toArrayData(resp));
+    logPaso("Listar todos", api, resp);
+    showAlert("info", `Se cargaron ${toArrayData(resp).length} registros`);
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudieron cargar los datos personales');
+    initOrUpdateTable([]);
+    logError("Listar todos", "/select_all", err);
+    showAlert("danger", err?.message || "No fue posible listar");
   }
 }
 
-// ===== Filtros =====
-$('#btnBuscarCliente').addEventListener('click', () => recargar('cliente'));
-$('#btnListarTodo').addEventListener('click', () => recargar('all'));
-$('#btnLimpiar').addEventListener('click', () => {
-  $('#filtroCliente').value = '';
-  recargar('all');
-});
-
-// ===== Modal Crear/Editar =====
-const modalDatos = new bootstrap.Modal('#modalDatos');
-
-function limpiarForm() {
-  $('#datos_id').value = '';
-  $('#cliente_id').value = '';
-  $('#nombre').value = '';
-  $('#apellidos').value = '';
-  $('#telefono').value = '';
-  $('#direccion').value = '';
-  $('#ciudad').value = '';
-  $('#codigo_postal').value = '';
-  $('#pais').value = '';
-  $$('#formDatos .is-invalid').forEach(el => el.classList.remove('is-invalid'));
-}
-
-$('#btnNuevo').addEventListener('click', () => {
-  limpiarForm();
-  $('#modalTitulo').textContent = 'Nuevo registro';
-  $('#btnGuardar').textContent = 'Guardar';
-  modalDatos.show();
-  setTimeout(() => $('#cliente_id')?.focus(), 200);
-});
-
-async function abrirModalEditar(datos_id, cliente_id) {
+async function buscarPorCliente() {
+  const id = ensureCl(filtroCliente.value);
+  if (!id) return;
   try {
-    limpiarForm();
-    $('#modalTitulo').textContent = 'Editar datos';
-    $('#btnGuardar').textContent = 'Actualizar';
-
-    let row = null;
-    if (datos_id) row = (await datosPersonalesAPI.getById(datos_id))?.data ?? null;
-    if (!row && cliente_id) {
-      const list = await listarPorCliente(cliente_id);
-      row = list?.[0];
-    }
-    if (!row) throw new Error('No se pudo cargar el registro');
-
-    $('#datos_id').value = row.datos_id ?? '';
-    $('#cliente_id').value = row.cliente_id ?? '';
-    $('#nombre').value = row.nombre ?? '';
-    $('#apellidos').value = row.apellidos ?? '';
-    $('#telefono').value = row.telefono ?? '';
-    $('#direccion').value = row.direccion ?? '';
-    $('#ciudad').value = row.ciudad ?? '';
-    $('#codigo_postal').value = row.codigo_postal ?? '';
-    $('#pais').value = row.pais ?? '';
-
-    modalDatos.show();
-    setTimeout(() => $('#nombre')?.focus(), 200);
+    const api = `/select_by_cliente/${id}`;
+    const resp = assertOk(await datosPersonalesAPI.getByCliente(id));
+    initOrUpdateTable(toArrayData(resp));
+    logPaso("Buscar por cliente", api, resp);
+    showAlert("info", `Se cargaron ${toArrayData(resp).length} registros`);
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible abrir el formulario');
+    initOrUpdateTable([]);
+    logError("Buscar por cliente", `/select_by_cliente/${id}`, err);
+    showAlert("danger", err?.message || "Cliente sin datos personales");
   }
 }
 
-// ===== Validación =====
-function validarForm() {
-  let ok = true;
-  const reqs = [
-    ['cliente_id', v => !!v.trim()],
-    ['nombre', v => !!v.trim() && v.trim().length <= 50],
-    ['apellidos', v => !!v.trim() && v.trim().length <= 100]
-  ];
-  reqs.forEach(([id, test]) => {
-    const el = document.getElementById(id);
-    el.classList.remove('is-invalid');
-    if (!test(el.value || '')) { el.classList.add('is-invalid'); ok = false; }
-  });
-  // Longitudes opcionales
-  [['telefono', 20], ['direccion', 200], ['ciudad', 50], ['codigo_postal', 10], ['pais', 50]].forEach(([id, max]) => {
-    const el = document.getElementById(id);
-    if ((el.value || '').length > max) { el.classList.add('is-invalid'); ok = false; }
-  });
-  return ok;
+function limpiar() {
+  filtroCliente.value = "";
+  initOrUpdateTable([]);
+  logPaso("Limpiar", "(UI)", { ok: true });
 }
 
-// ===== Guardar (insert/update por cliente_id) =====
-$('#formDatos').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  if (!validarForm()) return;
+btnListarTodo?.addEventListener("click", listarTodos);
+btnBuscarCliente?.addEventListener("click", buscarPorCliente);
+btnLimpiar?.addEventListener("click", limpiar);
+
+filtroCliente?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorCliente();
+  }
+});
+
+/* =========================
+   Nuevo / Editar
+========================= */
+btnNuevo?.addEventListener("click", () => {
+  formDatos.reset();
+  f_datos_id.value   = "";
+  modalTitulo.textContent = "Nuevo registro";
+  bsModal().show();
+  logPaso("Nuevo registro", "(abrir modal)", { ok: true });
+});
+
+$("#tablaDatosPersonales tbody").on("click", "button.btn-editar", function () {
+  // Cargamos los datos desde la fila del DataTable (ya normalizados)
+  const row = dt?.row($(this).closest("tr")).data();
+  if (!row) return;
+
+  f_datos_id.value   = row.datos_id ?? "";
+  f_cliente_id.value = row.cliente_id ?? "";
+  f_nombre.value     = row.nombre ?? "";
+  f_apellidos.value  = row.apellidos ?? "";
+  f_telefono.value   = row.telefono ?? "";
+  f_direccion.value  = row.direccion ?? "";
+  f_ciudad.value     = row.ciudad ?? "";
+  f_cp.value         = row.codigo_postal ?? "";
+  f_pais.value       = row.pais ?? "";
+
+  modalTitulo.textContent = "Editar registro";
+  bsModal().show();
+  logPaso("Editar (abrir modal)", "(UI)", row);
+});
+
+/* =========================
+   Guardar (insert / update)
+========================= */
+formDatos?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formDatos.classList.add("was-validated");
+  if (!formDatos.checkValidity()) return;
 
   const payload = {
-    cliente_id: cli($('#cliente_id').value.trim()),
-    nombre: $('#nombre').value.trim(),
-    apellidos: $('#apellidos').value.trim(),
-    telefono: $('#telefono').value.trim() || null,
-    direccion: $('#direccion').value.trim() || null,
-    ciudad: $('#ciudad').value.trim() || null,
-    codigo_postal: $('#codigo_postal').value.trim() || null,
-    pais: $('#pais').value.trim() || null
+    cliente_id: ensureCl(f_cliente_id.value),
+    nombre: f_nombre.value.trim(),
+    apellidos: f_apellidos.value.trim(),
+    telefono: f_telefono.value.trim() || null,
+    direccion: f_direccion.value.trim() || null,
+    ciudad: f_ciudad.value.trim() || null,
+    codigo_postal: f_cp.value.trim() || null,
+    pais: f_pais.value.trim() || null
   };
 
   try {
-    if ($('#datos_id').value.trim()) {
-      await datosPersonalesAPI.update(payload);
-      showAlert('success', 'Datos personales actualizados.');
+    if (f_datos_id.value) {
+      // Update por cliente_id (según panel)
+      const api = "/update";
+      const resp = assertOk(await datosPersonalesAPI.update(payload));
+      logPaso("Guardar edición", api, resp);
+      bsModal().hide();
+      await recargarSegunFiltro();
+      showAlert("success", "Registro actualizado.");
     } else {
-      await datosPersonalesAPI.insert(payload);
-      showAlert('success', 'Datos personales guardados.');
+      const api = "/insert";
+      const resp = assertOk(await datosPersonalesAPI.insert(payload));
+      logPaso("Guardar nuevo", api, resp);
+      bsModal().hide();
+      await recargarSegunFiltro();
+      showAlert("success", "Registro creado.");
     }
-    modalDatos.hide();
-    const filtro = $('#filtroCliente').value.trim();
-    await recargar(filtro ? 'cliente' : 'all');
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible guardar');
+    logError(f_datos_id.value ? "Guardar edición" : "Guardar nuevo",
+             f_datos_id.value ? "/update" : "/insert", err);
+    showAlert("danger", err?.message || "No se pudo guardar");
   }
 });
 
-// ===== Confirmación (Eliminar por cliente) =====
-const modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-function abrirConfirmEliminar(cliente_id, nombre='') {
-  $('#confirmAccion').value = 'eliminar';
-  $('#confirmClienteId').value = cliente_id || '';
-  $('#confirmTitulo').textContent = 'Eliminar datos personales';
-  $('#confirmMsg').textContent = `¿Eliminar los datos personales del cliente ${cliente_id}${nombre ? ` (${nombre})` : ''}? Esta acción no se puede deshacer.`;
-  modalConfirm.show();
+/* =========================
+   Eliminar (confirmación)
+========================= */
+function abrirConfirmDelete(cliente_id) {
+  confirmAccion.value = "delete";
+  confirmClienteId.value = cliente_id;
+  confirmTitulo.textContent = "Eliminar datos personales";
+  confirmMsg.textContent = `¿Eliminar datos personales del cliente ${cliente_id}?`;
+  bsModalConfirm().show();
 }
 
-$('#btnConfirmarAccion').addEventListener('click', async () => {
-  const accion = $('#confirmAccion').value;
-  const cliente_id = $('#confirmClienteId').value || $('#cliente_id').value;
+$("#tablaDatosPersonales tbody").on("click", "button.btn-eliminar", function () {
+  const row = dt?.row($(this).closest("tr")).data();
+  if (!row) return;
+  abrirConfirmDelete(row.cliente_id);
+  logPaso("Eliminar (abrir confirmación)", "(modal)", { cliente_id: row.cliente_id });
+});
+
+document.getElementById("btnConfirmarAccion")?.addEventListener("click", async () => {
+  if (confirmAccion.value !== "delete") return;
+  const id = confirmClienteId.value;
   try {
-    if (accion === 'eliminar') {
-      await datosPersonalesAPI.remove(cli(cliente_id));
-    }
-    modalConfirm.hide();
-    showAlert('success', 'Registro eliminado.');
-    const filtro = $('#filtroCliente').value.trim();
-    await recargar(filtro ? 'cliente' : 'all');
+    const api = "/delete";
+    const resp = assertOk(await datosPersonalesAPI.remove(id));
+    logPaso("Eliminar", api, resp);
+    bsModalConfirm().hide();
+    await recargarSegunFiltro();
+    showAlert("success", "Registro eliminado.");
   } catch (err) {
-    modalConfirm.hide();
-    showAlert('danger', err.message || 'No fue posible eliminar');
+    logError("Eliminar", "/delete", err);
+    showAlert("danger", err?.message || "No se pudo eliminar");
   }
 });
 
-// ===== Boot =====
-(async function boot() {
+/* =========================
+   Recarga según filtro activo
+========================= */
+async function recargarSegunFiltro() {
+  const id = ensureCl(filtroCliente.value);
   try {
-    initTabla();
-    await recargar('all');
+    if (id) {
+      const resp = assertOk(await datosPersonalesAPI.getByCliente(id));
+      initOrUpdateTable(toArrayData(resp));
+      return;
+    }
+    const resp = assertOk(await datosPersonalesAPI.getAll());
+    initOrUpdateTable(toArrayData(resp));
   } catch (err) {
-    showAlert('danger', err.message || 'Error inicializando el panel');
+    initOrUpdateTable([]);
+    logError("recargarSegunFiltro", "(datos_personales)", err);
   }
-})();
+}
+
+/* =========================
+   Boot (opcional: listar todos)
+========================= */
+document.addEventListener("DOMContentLoaded", async () => {
+  // Opcional: mostrar lista inicial vacía o todos
+  // initOrUpdateTable([]);
+  await listarTodos();
+});
