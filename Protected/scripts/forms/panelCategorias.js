@@ -3,26 +3,41 @@
 import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 
 /* =========================
-   Normalizadores de respuesta
-   Aceptan:
-   - { success, message, data: [...] }   -> array
-   - { success, message, data: {...} }   -> objeto
-   - [ ... ] / { ... }                   -> compatibilidad hacia atrás
+   Normalización de respuestas y filas
    ========================= */
-function toArrayData(resp) {
-  if (resp && typeof resp === "object" && "data" in resp) {
-    if (Array.isArray(resp.data)) return resp.data;
-    return resp.data ? [resp.data] : [];
+// Valida success y retorna el cuerpo completo (para log)
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
   }
-  if (Array.isArray(resp)) return resp;
-  return resp ? [resp] : [];
+  return resp;
 }
 
-function toOneData(resp) {
-  if (resp && typeof resp === "object" && "data" in resp) {
-    return Array.isArray(resp.data) ? resp.data[0] : resp.data ?? null;
-  }
-  return Array.isArray(resp) ? resp[0] : resp ?? null;
+// Devuelve array siempre (acepta {data:[...]}, {data:{…}}, [...], {…} o null)
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+
+// Asegura el shape {categoria_id, nombre_categoria, descripcion}
+function normalizeCategoria(row) {
+  if (!row || typeof row !== "object") return null;
+  const id  = row.categoria_id ?? row.id ?? row.categoriaId ?? row.CategoriaID;
+  const nom = row.nombre_categoria ?? row.nombre ?? row.name ?? row.Nombre;
+  const des = row.descripcion ?? row.desc ?? row.Descripcion ?? "";
+  if (id == null || nom == null) return null;
+  return {
+    categoria_id: Number(id),
+    nombre_categoria: String(nom),
+    descripcion: String(des || "")
+  };
+}
+
+// Mapea y filtra nulos
+function mapCategorias(listish) {
+  return toArrayData(listish).map(normalizeCategoria).filter(Boolean);
 }
 
 /* =========================
@@ -37,21 +52,19 @@ function renderDataTable(selector, data, columns) {
     columns,
     pageLength: 10,
     responsive: true,
-    autoWidth: false,
+    autoWidth: false
   });
 }
 
 /* =========================
-   Consola formateada
+   Consola formateada (estilo solicitado)
    ========================= */
-function logAccion(boton, api, payloadOrResp) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
-  if (payloadOrResp !== undefined) console.log("respuesta :", payloadOrResp);
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
 }
 function logError(boton, api, error) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
   console.error("respuesta :", error?.message || error);
 }
 
@@ -83,7 +96,7 @@ const bsModalEliminar = () => bootstrap.Modal.getOrCreateInstance(modalEliminarE
 const colsBase = [
   { data: "categoria_id", title: "ID" },
   { data: "nombre_categoria", title: "Nombre" },
-  { data: "descripcion", title: "Descripción" },
+  { data: "descripcion", title: "Descripción" }
 ];
 
 /* =========================
@@ -91,11 +104,11 @@ const colsBase = [
    ========================= */
 btnCargarTodas?.addEventListener("click", async () => {
   try {
-    logAccion("Cargar Todas", "/get_all");
-    const resp = await categoriasAPI.getAll();
-    const data = toArrayData(resp);
+    const boton = "Cargar Todas", api = "/get_all";
+    const resp = assertOk(await categoriasAPI.getAll());
+    const data = mapCategorias(resp);
     renderDataTable("#tablaCategorias", data, colsBase);
-    logAccion("Cargar Todas", "/get_all", resp);
+    logPaso(boton, api, resp);
   } catch (err) {
     logError("Cargar Todas", "/get_all", err);
   }
@@ -106,18 +119,30 @@ btnCargarTodas?.addEventListener("click", async () => {
    ========================= */
 btnProbarDropdown?.addEventListener("click", async () => {
   try {
-    logAccion("Probar Dropbox", "/get_list");
-    const resp = await categoriasAPI.getList();
-    const list = toArrayData(resp);
-    // llenar select
-    selectCategorias.innerHTML = `<option value="">— seleccionar —</option>`;
-    list.forEach(({ categoria_id, nombre_categoria }) => {
+    const boton = "Probar Dropbox", api = "/get_list";
+    const resp  = assertOk(await categoriasAPI.getList());
+    const list  = mapCategorias(resp);
+
+    // Rellena select con fragment para rendimiento
+    while (selectCategorias.firstChild) selectCategorias.removeChild(selectCategorias.firstChild);
+    const frag = document.createDocumentFragment();
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = list.length ? "— seleccionar —" : "— sin datos —";
+    frag.appendChild(placeholder);
+
+    list.forEach((item) => {
       const opt = document.createElement("option");
-      opt.value = String(categoria_id);
-      opt.textContent = `${categoria_id} — ${nombre_categoria}`;
-      selectCategorias.appendChild(opt);
+      opt.value = String(item.categoria_id);
+      opt.textContent = `${item.categoria_id} — ${item.nombre_categoria}`;
+      frag.appendChild(opt);
     });
-    logAccion("Probar Dropbox", "/get_list", resp);
+
+    selectCategorias.appendChild(frag);
+
+    logPaso(boton, api, resp);
+    console.log(`Dropbox: ${list.length} opciones cargadas`);
   } catch (err) {
     logError("Probar Dropbox", "/get_list", err);
   }
@@ -136,12 +161,11 @@ async function buscarPorId() {
   const id = inputBuscarId.value.trim();
   if (!id) return;
   try {
-    logAccion("Buscar", `/by_id/${id}`);
-    const resp  = await categoriasAPI.getOne(id);
-    const item  = toOneData(resp);
-    const table = item ? [item] : [];
-    renderDataTable("#tablaBusqueda", table, colsBase);
-    logAccion("Buscar", `/by_id/${id}`, resp);
+    const boton = "Buscar", api = `/by_id/${id}`;
+    const resp  = assertOk(await categoriasAPI.getOne(id));
+    const item  = mapCategorias(resp)[0] || null;
+    renderDataTable("#tablaBusqueda", item ? [item] : [], colsBase);
+    logPaso(boton, api, resp);
   } catch (err) {
     renderDataTable("#tablaBusqueda", [], colsBase);
     logError("Buscar", `/by_id/${id}`, err);
@@ -160,9 +184,10 @@ inputBuscarId?.addEventListener("keydown", (e) => {
    ========================= */
 async function cargarTablaCRUD() {
   try {
-    logAccion("Refrescar CRUD", "/get_all");
-    const resp = await categoriasAPI.getAll();
-    const data = toArrayData(resp);
+    const boton = "Refrescar CRUD", api = "/get_all";
+    const resp = assertOk(await categoriasAPI.getAll());
+    const data = mapCategorias(resp);
+
     renderDataTable("#tablaCRUD", data, [
       ...colsBase,
       {
@@ -174,10 +199,11 @@ async function cargarTablaCRUD() {
                    data-id="${row.categoria_id}"
                    data-nombre="${row.nombre_categoria}">
              <i class="fa-solid fa-trash"></i>
-           </button>`,
-      },
+           </button>`
+      }
     ]);
-    logAccion("Refrescar CRUD", "/get_all", resp);
+
+    logPaso(boton, api, resp);
   } catch (err) {
     logError("Refrescar CRUD", "/get_all", err);
   }
@@ -198,9 +224,9 @@ $("#tablaCRUD tbody").on("click", "button.btn-eliminar", function () {
 btnConfirmarEliminar?.addEventListener("click", async () => {
   const id = Number(delIdSpan.textContent);
   try {
-    logAccion("Confirmar eliminar", "/delete");
-    const resp = await categoriasAPI.remove(id);
-    logAccion("Confirmar eliminar", "/delete", resp);
+    const boton = "Confirmar eliminar", api = "/delete";
+    const resp  = assertOk(await categoriasAPI.remove(id));
+    logPaso(boton, api, resp);
     bsModalEliminar().hide();
     await cargarTablaCRUD();
   } catch (err) {
@@ -216,12 +242,12 @@ formAgregar?.addEventListener("submit", async (e) => {
   const fd = new FormData(formAgregar);
   const payload = {
     nombre_categoria: fd.get("nombre_categoria")?.toString().trim(),
-    descripcion: fd.get("descripcion")?.toString().trim() || null,
+    descripcion: fd.get("descripcion")?.toString().trim() || null
   };
   try {
-    logAccion("Agregar categoría", "/insert", payload);
-    const resp = await categoriasAPI.insert(payload);
-    logAccion("Agregar categoría", "/insert", resp);
+    const boton = "Agregar categoría", api = "/insert";
+    const resp  = assertOk(await categoriasAPI.insert(payload));
+    logPaso(boton, api, resp);
     formAgregar.reset();
     bsModalAgregar().hide();
     await cargarTablaCRUD();
@@ -231,17 +257,17 @@ formAgregar?.addEventListener("submit", async (e) => {
 });
 
 // Cargar datos en modal Editar
-document.getElementById("btnCargarEditar")?.addEventListener("click", async () => {
+btnCargarEditar?.addEventListener("click", async () => {
   const fd = new FormData(formEditar);
   const id = fd.get("categoria_id");
   if (!id) return;
   try {
-    logAccion("Cargar datos (editar)", `/by_id/${id}`);
-    const resp = await categoriasAPI.getOne(id);
-    const item = toOneData(resp);
+    const boton = "Cargar datos (editar)", api = `/by_id/${id}`;
+    const resp  = assertOk(await categoriasAPI.getOne(id));
+    const item  = mapCategorias(resp)[0] || null;
     formEditar.elements["nombre_categoria"].value = item?.nombre_categoria || "";
-    formEditar.elements["descripcion"].value = item?.descripcion || "";
-    logAccion("Cargar datos (editar)", `/by_id/${id}`, resp);
+    formEditar.elements["descripcion"].value      = item?.descripcion || "";
+    logPaso(boton, api, resp);
   } catch (err) {
     logError("Cargar datos (editar)", `/by_id/${id}`, err);
   }
@@ -254,12 +280,12 @@ formEditar?.addEventListener("submit", async (e) => {
   const payload = {
     categoria_id: Number(fd.get("categoria_id")),
     nombre_categoria: fd.get("nombre_categoria")?.toString().trim(),
-    descripcion: fd.get("descripcion")?.toString().trim() || null,
+    descripcion: fd.get("descripcion")?.toString().trim() || null
   };
   try {
-    logAccion("Modificar categoría", "/update", payload);
-    const resp = await categoriasAPI.update(payload);
-    logAccion("Modificar categoría", "/update", resp);
+    const boton = "Modificar categoría", api = "/update";
+    const resp  = assertOk(await categoriasAPI.update(payload));
+    logPaso(boton, api, resp);
     bsModalEditar().hide();
     await cargarTablaCRUD();
   } catch (err) {
