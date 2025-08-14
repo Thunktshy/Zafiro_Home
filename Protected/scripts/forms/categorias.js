@@ -1,5 +1,5 @@
 // UI Panel de Categorías
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
+import { categoriasAPI } from '/admin-resources/scripts/apis/categoriasManager.js';
 
 const $  = (s, c = document) => c.querySelector(s);
 const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
