@@ -1,310 +1,392 @@
-// Controlador de UI del Panel de Productos
-import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
-import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
+// /admin-resources/scripts/forms/productos.js
+// Panel de administración de Productos
+// Usa: productosAPI y categoriasAPI
+import { productosAPI } from "/admin-resources/scripts/apis/productosManager.js";
+import { categoriasAPI } from "/admin-resources/scripts/apis/categoriesManager.js";
 
-// ===== Helpers DOM / feedback =====
-const $  = (sel, ctx = document) => ctx.querySelector(sel);
-const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-const alertBox = $('#alertBox');
+/* ------------------------------
+   Normalización y utilidades
+--------------------------------*/
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
+  }
+  return resp;
+}
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+function normalizeProducto(row) {
+  if (!row || typeof row !== "object") return null;
+  const p = {
+    producto_id: row.producto_id ?? row.id ?? row.productoId ?? row.ProductoID,
+    nombre_producto: row.nombre_producto ?? row.nombre ?? row.name ?? row.Nombre,
+    descripcion: row.descripcion ?? row.desc ?? row.Descripcion ?? "",
+    precio_unitario: row.precio_unitario ?? row.precio ?? row.Precio ?? 0,
+    stock: row.stock ?? row.Stock ?? 0,
+    categoria_id: row.categoria_id ?? row.categoria ?? row.CategoriaID ?? null,
+    estado_producto: row.estado_producto ?? row.estado ?? "activo",
+    fecha_creacion: row.fecha_creacion ?? row.created_at ?? row.fecha ?? null
+  };
+  if (p.producto_id == null || p.nombre_producto == null) return null;
+  p.producto_id = String(p.producto_id);
+  p.nombre_producto = String(p.nombre_producto);
+  p.descripcion = String(p.descripcion ?? "");
+  p.precio_unitario = Number(p.precio_unitario) || 0;
+  p.stock = Number(p.stock) || 0;
+  p.categoria_id = p.categoria_id != null ? Number(p.categoria_id) : null;
+  p.estado_producto = String(p.estado_producto || "activo");
+  p.fecha_creacion = p.fecha_creacion ? String(p.fecha_creacion) : "";
+  return p;
+}
+function mapProductos(resp) {
+  return toArrayData(resp).map(normalizeProducto).filter(Boolean);
+}
+const money = (n) =>
+  (Number(n) || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
-function showAlert(type, msg, autoHideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove('d-none');
-  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
 }
 
-const fmtMoney = (v) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }).format(Number(v || 0));
+function showAlert(kind, msg) {
+  const box = document.getElementById("alertBox");
+  if (!box) return;
+  box.className = `alert alert-${kind}`;
+  box.textContent = msg;
+  box.classList.remove("d-none");
+  setTimeout(() => box.classList.add("d-none"), 2500);
+}
 
-const fmtDate = (v) => {
-  const d = v ? new Date(v) : null;
-  return d && !isNaN(d) ? d.toLocaleDateString('es-MX') : (v || '—');
+/* ------------------------------
+   Referencias DOM
+--------------------------------*/
+const filtroNombre   = document.getElementById("filtroNombre");
+const btnBuscarNombre= document.getElementById("btnBuscarNombre");
+const filtroCategoria= document.getElementById("filtroCategoria");
+const ordenarPor     = document.getElementById("ordenarPor");
+const btnLimpiar     = document.getElementById("btnLimpiar");
+const btnNuevo       = document.getElementById("btnNuevo");
+
+// Modal crear/editar
+const modalProductoEl   = document.getElementById("modalProducto");
+const formProducto      = document.getElementById("formProducto");
+const modalTitulo       = document.getElementById("modalProductoTitulo");
+const f_id              = document.getElementById("producto_id");
+const f_nombre          = document.getElementById("nombre_producto");
+const f_precio          = document.getElementById("precio_unitario");
+const f_stock           = document.getElementById("stock");
+const f_categoria       = document.getElementById("categoria_id");
+const f_desc            = document.getElementById("descripcion");
+const f_estado          = document.getElementById("estado_producto");
+
+// Modal confirmar
+const modalConfirmEl    = document.getElementById("modalConfirm");
+const confirmMsg        = document.getElementById("confirmMsg");
+const confirmId         = document.getElementById("confirmId");
+const btnConfirmarAccion= document.getElementById("btnConfirmarAccion");
+
+// Helpers bootstrap
+const bsModalProducto = () => bootstrap.Modal.getOrCreateInstance(modalProductoEl);
+const bsModalConfirm  = () => bootstrap.Modal.getOrCreateInstance(modalConfirmEl);
+
+/* ------------------------------
+   DataTable
+--------------------------------*/
+let dt; // instancia DataTable
+
+const COLMAP = {
+  // mapea select "ordenarPor" -> índice de columna DataTable
+  nombre_producto: 1,
+  precio_unitario: 3,
+  stock: 4,
+  categoria_id: 5,
+  estado_producto: 6
 };
 
-// ===== Estado local =====
-let dt; // DataTable instance
-let categorias = [];               // [{ categoria_id, nombre_categoria }]
-const catMap = new Map();          // id -> nombre
-
-// ====== Cargar categorías (filtros + modal) ======
-async function cargarCategorias() {
-  const res = await categoriasAPI.getList(); // puede venir como {data:[...]} o array plano
-  const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-  categorias = list;
-  catMap.clear();
-  list.forEach(c => catMap.set(Number(c.categoria_id), c.nombre_categoria));
-
-  // popular selects
-  const filtro = $('#filtroCategoria');
-  const selModal = $('#categoria_id');
-  [filtro, selModal].forEach(sel => {
-    // limpiar menos la opción (Todas) del filtro
-    const opts = sel.querySelectorAll('option:not(:first-child)');
-    opts.forEach(o => o.remove());
-    list.forEach(({ categoria_id, nombre_categoria }) => {
-      const opt = document.createElement('option');
-      opt.value = String(categoria_id);
-      opt.textContent = `${nombre_categoria} (ID ${categoria_id})`;
-      sel.appendChild(opt);
-    });
-  });
-}
-
-// ====== DataTable ======
-function initTabla() {
-  dt = $('#tablaProductos').DataTable({
-    data: [],
+function initOrUpdateTable(rows) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (dt) {
+    dt.clear().rows.add(data).draw();
+    return dt;
+  }
+  dt = $("#tablaProductos").DataTable({
+    data,
     columns: [
-      { data: 'producto_id' },
-      { data: 'nombre_producto' },
-      { data: 'descripcion', defaultContent: '' },
-      {
-        data: 'precio_unitario',
-        render: (d) => fmtMoney(d)
-      },
-      { data: 'stock' },
-      {
-        data: 'categoria_id',
-        render: (id) => {
-          const name = catMap.get(Number(id)) || '';
-          return name ? `${id} — ${name}` : String(id ?? '');
-        }
-      },
-      { data: 'estado_producto' },
-      { data: 'fecha_creacion', render: (d) => fmtDate(d) },
+      { data: "producto_id", title: "ID" },
+      { data: "nombre_producto", title: "Nombre" },
+      { data: "descripcion", title: "Descripción" },
+      { data: "precio_unitario", title: "Precio", render: (v) => money(v) },
+      { data: "stock", title: "Stock" },
+      { data: "categoria_id", title: "Categoría" },
+      { data: "estado_producto", title: "Estado" },
+      { data: "fecha_creacion", title: "Fecha" },
       {
         data: null,
+        title: "Acciones",
+        className: "text-end",
         orderable: false,
-        searchable: false,
-        className: 'text-end',
-        render: (row) => {
-          const id = row.producto_id;
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-name="${(row.nombre_producto||'').replaceAll('"','&quot;')}" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>`;
-        }
+        render: (row) => `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-primary btn-editar" data-id="${row.producto_id}">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-eliminar" data-id="${row.producto_id}" data-name="${row.nombre_producto}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>`
       }
     ],
-    order: [[1, 'asc']],
-    language: {
-      url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
-    }
+    responsive: true,
+    pageLength: 10,
+    order: [[0, "desc"]]
   });
-
-  // Delegación de eventos en acciones de la tabla
-  $('#tablaProductos tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button');
-    if (!btn) return;
-    const id = btn.dataset.id;
-    if (btn.classList.contains('btn-editar')) {
-      abrirModalEditar(id);
-    } else if (btn.classList.contains('btn-eliminar')) {
-      abrirModalEliminar(id, btn.dataset.name || '');
-    }
-  });
+  return dt;
 }
 
-// ====== Carga de datos ======
-async function recargarProductos(origen = 'all') {
+/* ------------------------------
+   Cargas iniciales
+--------------------------------*/
+async function cargarCategoriasEnSelects() {
   try {
-    let data;
-    const nombre = $('#filtroNombre').value.trim();
-    const catId  = $('#filtroCategoria').value.trim();
+    const resp = assertOk(await categoriasAPI.getList());
+    const list = toArrayData(resp)
+      .map((r) => ({ id: r.categoria_id ?? r.id, nombre: r.nombre_categoria ?? r.nombre }))
+      .filter((x) => x.id != null && x.nombre != null);
 
-    if (origen === 'nombre' && nombre) {
-      data = await productosAPI.getByName(nombre);
-    } else if (origen === 'categoria' && catId) {
-      data = await productosAPI.getByCategoria(Number(catId));
-    } else {
-      data = await productosAPI.getAll();
-    }
+    // Filtro (arriba)
+    while (filtroCategoria.firstChild) filtroCategoria.removeChild(filtroCategoria.firstChild);
+    const optTodas = document.createElement("option");
+    optTodas.value = "";
+    optTodas.textContent = "(Todas)";
+    filtroCategoria.appendChild(optTodas);
+    list.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = String(c.id);
+      o.textContent = `${c.id} — ${c.nombre}`;
+      filtroCategoria.appendChild(o);
+    });
 
-    const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-    dt.clear().rows.add(rows).draw();
+    // Select del formulario (modal)
+    while (f_categoria.firstChild) f_categoria.removeChild(f_categoria.firstChild);
+    const optSel = document.createElement("option");
+    optSel.value = "";
+    optSel.textContent = "Selecciona…";
+    f_categoria.appendChild(optSel);
+    list.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = String(c.id);
+      o.textContent = `${c.id} — ${c.nombre}`;
+      f_categoria.appendChild(o);
+    });
 
-    showAlert('success', `Se cargaron ${rows.length} producto(s).`);
+    console.log("se preciono el boton \"(auto) cargar categorias\" y se llamo a la api \"/categorias/get_list\" respuesta :", resp);
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudieron cargar los productos');
+    console.error("Error cargando categorías:", err?.message || err);
   }
 }
 
-// ====== Filtros / acciones de barra ======
-function wireFiltros() {
-  $('#btnBuscarNombre').addEventListener('click', () => recargarProductos('nombre'));
-  $('#filtroCategoria').addEventListener('change', () => recargarProductos('categoria'));
-
-  $('#ordenarPor').addEventListener('change', (e) => {
-    const col = String(e.target.value);
-    // Mapa columnas -> índice en la DataTable
-    const colIndex = {
-      producto_id: 0,
-      nombre_producto: 1,
-      descripcion: 2,
-      precio_unitario: 3,
-      stock: 4,
-      categoria_id: 5,
-      estado_producto: 6,
-      fecha_creacion: 7
-    }[col] ?? 1;
-    dt.order([colIndex, 'asc']).draw();
-  });
-
-  $('#btnLimpiar').addEventListener('click', () => {
-    $('#filtroNombre').value = '';
-    $('#filtroCategoria').value = '';
-    $('#ordenarPor').value = 'nombre_producto';
-    recargarProductos('all');
-  });
-
-  $('#btnNuevo').addEventListener('click', abrirModalNuevo);
-}
-
-// ====== Modales ======
-const modalProd   = new bootstrap.Modal('#modalProducto');
-const modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-function limpiarFormulario() {
-  $('#producto_id').value = '';
-  $('#nombre_producto').value = '';
-  $('#descripcion').value = '';
-  $('#precio_unitario').value = '';
-  $('#stock').value = '';
-  $('#categoria_id').value = '';
-  $('#estado_producto').value = 'activo';
-  // quitar invalid
-  $$('#formProducto .is-invalid').forEach(el => el.classList.remove('is-invalid'));
-}
-
-function abrirModalNuevo() {
-  limpiarFormulario();
-  $('#modalProductoTitulo').textContent = 'Nuevo producto';
-  $('#btnGuardar').textContent = 'Guardar';
-  modalProd.show();
-  setTimeout(() => $('#nombre_producto')?.focus(), 200);
-}
-
-async function abrirModalEditar(producto_id) {
-  limpiarFormulario();
-  $('#modalProductoTitulo').textContent = 'Editar producto';
-  $('#btnGuardar').textContent = 'Actualizar';
-
+async function cargarTodo() {
   try {
-    // Si ya está en la tabla, úsalo; si prefieres la API exacta, descomenta getOne
-    const row = dt
-      .rows()
-      .data()
-      .toArray()
-      .find(r => String(r.producto_id) === String(producto_id));
-    // const row = (await productosAPI.getOne(producto_id))?.data;
-
-    if (!row) throw new Error('No se pudo cargar el producto');
-
-    $('#producto_id').value = row.producto_id || '';
-    $('#nombre_producto').value = row.nombre_producto || '';
-    $('#descripcion').value = row.descripcion || '';
-    $('#precio_unitario').value = row.precio_unitario ?? '';
-    $('#stock').value = row.stock ?? '';
-    $('#categoria_id').value = row.categoria_id ?? '';
-    $('#estado_producto').value = row.estado_producto || 'activo';
-
-    modalProd.show();
-    setTimeout(() => $('#nombre_producto')?.focus(), 200);
+    const boton = "(auto) cargar todo", api = "/get_all";
+    const resp = assertOk(await productosAPI.getAll());
+    const data = mapProductos(resp);
+    initOrUpdateTable(data);
+    logPaso(boton, api, resp);
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible abrir el formulario');
+    logError("(auto) cargar todo", "/get_all", err);
+    initOrUpdateTable([]);
   }
 }
 
-function abrirModalEliminar(id, nombre='') {
-  $('#confirmId').value = id;
-  $('#confirmMsg').textContent = `¿Eliminar el producto "${nombre}" (ID ${id})? Esta acción no se puede deshacer.`;
-  modalConfirm.show();
-}
-
-// ====== Validación mínima del formulario ======
-function validarFormulario() {
-  let ok = true;
-
-  const nombre = $('#nombre_producto');
-  const precio = $('#precio_unitario');
-  const stock  = $('#stock');
-  const cat    = $('#categoria_id');
-
-  // limpiar
-  [nombre, precio, stock, cat].forEach(el => el.classList.remove('is-invalid'));
-
-  if (!nombre.value.trim() || nombre.value.trim().length > 50) {
-    nombre.classList.add('is-invalid'); ok = false;
+/* ------------------------------
+   Filtros y acciones (encabezado)
+--------------------------------*/
+btnBuscarNombre?.addEventListener("click", async () => {
+  const nombre = String(filtroNombre.value || "").trim();
+  if (!nombre) return;
+  try {
+    const boton = "Buscar por nombre", api = `/by_name?nombre=${nombre}`;
+    const resp = assertOk(await productosAPI.getByName(nombre));
+    const data = mapProductos(resp);
+    initOrUpdateTable(data);
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Buscar por nombre", `/by_name?nombre=${filtroNombre.value}`, err);
   }
-  const nPrecio = Number(precio.value);
-  if (!Number.isFinite(nPrecio) || nPrecio < 0) { precio.classList.add('is-invalid'); ok = false; }
+});
 
-  const nStock = Number(stock.value);
-  if (!Number.isInteger(nStock) || nStock < 0) { stock.classList.add('is-invalid'); ok = false; }
+filtroCategoria?.addEventListener("change", async () => {
+  const cat = filtroCategoria.value;
+  try {
+    if (!cat) {
+      const boton = "Filtrar por categoría (todas)", api = "/get_all";
+      const resp = assertOk(await productosAPI.getAll());
+      initOrUpdateTable(mapProductos(resp));
+      logPaso(boton, api, resp);
+      return;
+    }
+    const boton = "Filtrar por categoría", api = `/by_categoria/${cat}`;
+    const resp = assertOk(await productosAPI.getByCategoria(cat));
+    initOrUpdateTable(mapProductos(resp));
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Filtrar por categoría", `/by_categoria/${cat || ""}`, err);
+  }
+});
 
-  if (!cat.value) { cat.classList.add('is-invalid'); ok = false; }
+ordenarPor?.addEventListener("change", () => {
+  const col = COLMAP[ordenarPor.value] ?? 0;
+  dt?.order([col, "asc"]).draw();
+});
 
-  return ok;
-}
+btnLimpiar?.addEventListener("click", async () => {
+  filtroNombre.value = "";
+  filtroCategoria.value = "";
+  ordenarPor.value = "nombre_producto";
+  try {
+    const boton = "Limpiar filtros", api = "/get_all";
+    const resp = assertOk(await productosAPI.getAll());
+    initOrUpdateTable(mapProductos(resp));
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Limpiar filtros", "/get_all", err);
+  }
+});
 
-// ====== Guardar (insert/update) ======
-$('#formProducto').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  if (!validarFormulario()) return;
+/* ------------------------------
+   Crear / Editar
+--------------------------------*/
+btnNuevo?.addEventListener("click", () => {
+  modalTitulo.textContent = "Nuevo producto";
+  f_id.value = "";
+  formProducto.reset();
+  f_estado.value = "activo";
+  bsModalProducto().show();
+  logPaso("Nuevo producto", "(abrir modal)", { ok: true });
+});
+
+// Delegación: editar / eliminar
+$("#tablaProductos tbody").on("click", "button.btn-editar", async function () {
+  const id = this.dataset.id;
+  try {
+    const boton = "Editar (cargar por id)", api = `/by_id/${id}`;
+    const resp = assertOk(await productosAPI.getOne(id));
+    const p = mapProductos(resp)[0];
+    if (!p) throw new Error("Producto no encontrado");
+
+    modalTitulo.textContent = "Editar producto";
+    f_id.value = p.producto_id;
+    f_nombre.value = p.nombre_producto;
+    f_precio.value = p.precio_unitario;
+    f_stock.value = p.stock;
+    f_categoria.value = p.categoria_id ?? "";
+    f_desc.value = p.descripcion || "";
+    f_estado.value = p.estado_producto || "activo";
+    bsModalProducto().show();
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Editar (cargar por id)", `/by_id/${id}`, err);
+  }
+});
+
+$("#tablaProductos tbody").on("click", "button.btn-eliminar", function () {
+  const id = this.dataset.id;
+  const name = this.dataset.name || id;
+  confirmId.value = id;
+  confirmMsg.textContent = `¿Seguro que deseas eliminar el producto "${name}" (ID ${id})?`;
+  bsModalConfirm().show();
+  logPaso("Eliminar (abrir confirmación)", "(modal)", { id, name });
+});
+
+// Guardar (crear/actualizar)
+formProducto?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formProducto.classList.add("was-validated");
+  if (!formProducto.checkValidity()) return;
 
   const payload = {
-    nombre_producto: $('#nombre_producto').value.trim(),
-    descripcion: $('#descripcion').value.trim() || null,
-    precio_unitario: Number($('#precio_unitario').value),
-    stock: Number($('#stock').value),
-    categoria_id: Number($('#categoria_id').value),
-    estado_producto: $('#estado_producto').value
+    producto_id: f_id.value || undefined,
+    nombre_producto: f_nombre.value.trim(),
+    descripcion: f_desc.value.trim() || null,
+    precio_unitario: Number(f_precio.value),
+    stock: Number(f_stock.value),
+    categoria_id: Number(f_categoria.value),
+    estado_producto: f_estado.value
   };
 
-  const producto_id = $('#producto_id').value.trim();
-
   try {
-    if (producto_id) {
-      await productosAPI.update({ producto_id, ...payload });
-      showAlert('success', 'Producto actualizado correctamente');
+    if (payload.producto_id) {
+      const boton = "Guardar edición", api = "/update";
+      const resp = assertOk(await productosAPI.update(payload));
+      logPaso(boton, api, resp);
+      showAlert("success", "Producto actualizado");
     } else {
-      await productosAPI.insert(payload);
-      showAlert('success', 'Producto creado correctamente');
+      const boton = "Guardar nuevo", api = "/insert";
+      const resp = assertOk(await productosAPI.insert(payload));
+      logPaso(boton, api, resp);
+      showAlert("success", "Producto creado");
     }
-    modalProd.hide();
-    recargarProductos('all');
+    bsModalProducto().hide();
+    await recargarSegunFiltroActual();
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible guardar el producto');
+    showAlert("danger", err?.message || "Error al guardar");
+    logError(payload.producto_id ? "Guardar edición" : "Guardar nuevo", payload.producto_id ? "/update" : "/insert", err);
   }
 });
 
-// ====== Confirmar eliminación (hard delete) ======
-$('#btnConfirmarAccion').addEventListener('click', async () => {
-  const id = $('#confirmId').value;
+// Confirmar eliminación
+btnConfirmarAccion?.addEventListener("click", async () => {
+  const id = confirmId.value;
+  if (!id) return;
   try {
-    await productosAPI.remove(id);
-    modalConfirm.hide();
-    showAlert('success', 'Producto eliminado');
-    recargarProductos('all');
+    const boton = "Confirmar eliminar", api = "/delete";
+    const resp = assertOk(await productosAPI.remove(id));
+    logPaso(boton, api, resp);
+    showAlert("success", "Producto eliminado");
+    bsModalConfirm().hide();
+    await recargarSegunFiltroActual();
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudo eliminar');
+    showAlert("danger", err?.message || "Error al eliminar");
+    logError("Confirmar eliminar", "/delete", err);
   }
 });
 
-// ====== Boot ======
-(async function boot() {
+/* ------------------------------
+   Recarga según filtros activos
+--------------------------------*/
+async function recargarSegunFiltroActual() {
+  const nombre = String(filtroNombre.value || "").trim();
+  const cat    = String(filtroCategoria.value || "");
   try {
-    await cargarCategorias();  // llena selects usando categoriasManager
-    initTabla();               // prepara DataTable
-    wireFiltros();             // listeners
-    await recargarProductos('all'); // primera carga
+    if (nombre) {
+      const resp = assertOk(await productosAPI.getByName(nombre));
+      return initOrUpdateTable(mapProductos(resp));
+    }
+    if (cat) {
+      const resp = assertOk(await productosAPI.getByCategoria(cat));
+      return initOrUpdateTable(mapProductos(resp));
+    }
+    const resp = assertOk(await productosAPI.getAll());
+    return initOrUpdateTable(mapProductos(resp));
   } catch (err) {
-    showAlert('danger', err.message || 'Error inicializando el panel');
+    logError("recargarSegunFiltroActual", "(según filtro)", err);
+    initOrUpdateTable([]);
   }
-})();
+}
+
+/* ------------------------------
+   Boot
+--------------------------------*/
+document.addEventListener("DOMContentLoaded", async () => {
+  await cargarCategoriasEnSelects();
+  await cargarTodo();
+});
