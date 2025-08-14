@@ -2,7 +2,33 @@
 // Requiere: /admin-resources/scripts/apis/categoriasManager.js (categoriasAPI)
 import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 
-// Utilidad: (re)inicializar una DataTable con datos
+/* ------------------------- Helpers de datos / logs ------------------------- */
+const asArray = (resp) => {
+  // Acepta: { data: [...] }  o  [...] (tolerancia)
+  if (Array.isArray(resp)) return resp;
+  if (Array.isArray(resp?.data)) return resp.data;
+  if (resp?.data == null) return [];
+  return Array.isArray(resp.data) ? resp.data : [resp.data];
+};
+
+const firstOrNull = (resp) => {
+  const arr = asArray(resp);
+  return arr.length ? arr[0] : null;
+};
+
+// Consolas en el formato solicitado
+function logAccion(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}"`);
+  if (api) console.log(`se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}"`);
+  if (api) console.log(`se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
+}
+
+/* ------------------------------- DataTables ------------------------------- */
 function renderDataTable(selector, data, columns) {
   if ($.fn.DataTable.isDataTable(selector)) {
     $(selector).DataTable().clear().destroy();
@@ -16,19 +42,7 @@ function renderDataTable(selector, data, columns) {
   });
 }
 
-// Consola formateada
-function logAccion(boton, api, respuesta) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
-  if (respuesta !== undefined) console.log("respuesta :", respuesta);
-}
-function logError(boton, api, error) {
-  console.log(`se preciono el boton "${boton}"`);
-  if (api) console.log(`se llamo a la api "${api}"`);
-  console.error("respuesta :", error?.message || error);
-}
-
-// Referencias DOM
+/* --------------------------------- DOM ----------------------------------- */
 const btnCargarTodas   = document.getElementById("btnCargarTodas");
 const btnProbarDropdown= document.getElementById("btnProbarDropdown");
 const btnRefrescarCrud = document.getElementById("btnRefrescarCrud");
@@ -45,35 +59,37 @@ const delIdSpan        = document.getElementById("delId");
 const delNombreStrong  = document.getElementById("delNombre");
 const btnConfirmarEliminar = document.getElementById("btnConfirmarEliminar");
 
-// Helpers para Bootstrap Modals
+// Helpers Bootstrap Modals
 const bsModalAgregar = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalAgregar"));
 const bsModalEditar  = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalEditar"));
 const bsModalEliminar= () => bootstrap.Modal.getOrCreateInstance(modalEliminarEl);
 
-// Columnas comunes
+/* ------------------------------ Columnas base ----------------------------- */
 const colsBase = [
   { data: "categoria_id", title: "ID" },
   { data: "nombre_categoria", title: "Nombre" },
   { data: "descripcion", title: "Descripción" }
 ];
 
-// --- Botón: Cargar Todas -> #tablaCategorias
+/* ------------------------ Botón: Cargar Todas (tabla) --------------------- */
 btnCargarTodas?.addEventListener("click", async () => {
   try {
     logAccion("Cargar Todas", "/get_all");
-    const data = await categoriasAPI.getAll();
+    const resp = await categoriasAPI.getAll();
+    const data = asArray(resp);
     renderDataTable("#tablaCategorias", data, colsBase);
-    logAccion("Cargar Todas", "/get_all", data);
+    logAccion("Cargar Todas", "/get_all", resp);
   } catch (err) {
     logError("Cargar Todas", "/get_all", err);
   }
 });
 
-// --- Botón: Probar Dropbox -> selectCategorias
+/* ------------------------- Botón: Probar Dropbox -------------------------- */
 btnProbarDropdown?.addEventListener("click", async () => {
   try {
     logAccion("Probar Dropbox", "/get_list");
-    const list = await categoriasAPI.getList();
+    const resp = await categoriasAPI.getList();
+    const list = asArray(resp);
     // llenar select
     selectCategorias.innerHTML = `<option value="">— seleccionar —</option>`;
     list.forEach(({ categoria_id, nombre_categoria }) => {
@@ -82,7 +98,7 @@ btnProbarDropdown?.addEventListener("click", async () => {
       opt.textContent = `${categoria_id} — ${nombre_categoria}`;
       selectCategorias.appendChild(opt);
     });
-    logAccion("Probar Dropbox", "/get_list", list);
+    logAccion("Probar Dropbox", "/get_list", resp);
   } catch (err) {
     logError("Probar Dropbox", "/get_list", err);
   }
@@ -94,23 +110,21 @@ selectCategorias?.addEventListener("change", (e) => {
   if (id) console.log(`se selecciono la categoria con id ${id}`);
 });
 
-// --- Búsqueda por ID -> #tablaBusqueda
+/* ----------------------- Búsqueda por ID -> #tablaBusqueda ---------------- */
 async function buscarPorId() {
   const id = inputBuscarId.value.trim();
   if (!id) return;
   try {
     logAccion("Buscar", `/by_id/${id}`);
-    const item = await categoriasAPI.getOne(id);
-    // DataTables espera array
-    renderDataTable("#tablaBusqueda", item ? [item] : [], colsBase);
-    logAccion("Buscar", `/by_id/${id}`, item);
+    const resp = await categoriasAPI.getOne(id);
+    const rows = asArray(resp); // debe ser un arreglo (0 o 1 elemento)
+    renderDataTable("#tablaBusqueda", rows, colsBase);
+    logAccion("Buscar", `/by_id/${id}`, resp);
   } catch (err) {
-    // 404 u otro error -> tabla vacía
     renderDataTable("#tablaBusqueda", [], colsBase);
     logError("Buscar", `/by_id/${id}`, err);
   }
 }
-
 btnBuscar?.addEventListener("click", buscarPorId);
 inputBuscarId?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
@@ -119,11 +133,12 @@ inputBuscarId?.addEventListener("keydown", (e) => {
   }
 });
 
-// --- Tabla CRUD (get_all + columna Eliminar) -> #tablaCRUD
+/* -------------------- Tabla CRUD (get_all + columna Eliminar) ------------- */
 async function cargarTablaCRUD() {
   try {
     logAccion("Refrescar CRUD", "/get_all");
-    const data = await categoriasAPI.getAll();
+    const resp = await categoriasAPI.getAll();
+    const data = asArray(resp);
     renderDataTable("#tablaCRUD", data, [
       ...colsBase,
       {
@@ -138,14 +153,12 @@ async function cargarTablaCRUD() {
            </button>`
       }
     ]);
-    logAccion("Refrescar CRUD", "/get_all", data);
+    logAccion("Refrescar CRUD", "/get_all", resp);
   } catch (err) {
     logError("Refrescar CRUD", "/get_all", err);
   }
 }
-
 btnRefrescarCrud?.addEventListener("click", cargarTablaCRUD);
-// Carga inicial mínima de CRUD
 document.addEventListener("DOMContentLoaded", cargarTablaCRUD);
 
 // Delegación: click en botones Eliminar dentro de la tabla CRUD
@@ -171,7 +184,7 @@ btnConfirmarEliminar?.addEventListener("click", async () => {
   }
 });
 
-// --- Form: Agregar categoría
+/* ------------------------- Formulario: Agregar ---------------------------- */
 formAgregar?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(formAgregar);
@@ -191,23 +204,24 @@ formAgregar?.addEventListener("submit", async (e) => {
   }
 });
 
-// --- Modal Editar: Cargar datos por ID
+/* -------------------------- Modal Editar: Cargar -------------------------- */
 btnCargarEditar?.addEventListener("click", async () => {
   const fd = new FormData(formEditar);
   const id = fd.get("categoria_id");
   if (!id) return;
   try {
     logAccion("Cargar datos (editar)", `/by_id/${id}`);
-    const item = await categoriasAPI.getOne(id);
+    const resp = await categoriasAPI.getOne(id);
+    const item = firstOrNull(resp);
     formEditar.elements["nombre_categoria"].value = item?.nombre_categoria || "";
     formEditar.elements["descripcion"].value = item?.descripcion || "";
-    logAccion("Cargar datos (editar)", `/by_id/${id}`, item);
+    logAccion("Cargar datos (editar)", `/by_id/${id}`, resp);
   } catch (err) {
     logError("Cargar datos (editar)", `/by_id/${id}`, err);
   }
 });
 
-// --- Form: Editar (update por ID)
+/* ----------------------------- Form: Editar ------------------------------- */
 formEditar?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(formEditar);
