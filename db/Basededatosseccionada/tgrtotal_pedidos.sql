@@ -1,3 +1,14 @@
+/* ===========================================
+   tgrtotal_pedidos.sql  (versión corregida)
+   - Proc: pedidos_recalc_total
+   - Triggers AFTER I/U/D en detalle_pedidos
+   - Recalculo masivo inicial
+   =========================================== */
+
+USE tiendaonline;
+GO
+
+/* ---------- PROC: Recalcula total del pedido ---------- */
 CREATE OR ALTER PROCEDURE dbo.pedidos_recalc_total
   @pedido_id NVARCHAR(20)
 AS
@@ -20,99 +31,82 @@ BEGIN
 END
 GO
 
-/* ===========================================================
-   TRIGGERS EN detalle_pedidos
-   - Llaman a dbo.pedidos_recalc_total en I/U/D (después del cambio)
-   - Compatibles con operaciones por lote (manejan múltiples pedidos)
-   =========================================================== */
+/* ---------- Limpia triggers previos (si existen) ---------- */
+IF OBJECT_ID('dbo.trg_dp_after_insert_recalc', 'TR') IS NOT NULL DROP TRIGGER dbo.trg_dp_after_insert_recalc;
+IF OBJECT_ID('dbo.trg_dp_after_update_recalc', 'TR') IS NOT NULL DROP TRIGGER dbo.trg_dp_after_update_recalc;
+IF OBJECT_ID('dbo.trg_dp_after_delete_recalc', 'TR') IS NOT NULL DROP TRIGGER dbo.trg_dp_after_delete_recalc;
+GO
 
-/* INSERT */
+/* ---------- INSERT: recalcular total ---------- */
 CREATE TRIGGER dbo.trg_dp_after_insert_recalc
 ON dbo.detalle_pedidos
 AFTER INSERT
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @ids TABLE (pedido_id NVARCHAR(20) PRIMARY KEY);
 
-  ;WITH D AS (
-    SELECT DISTINCT i.pedido_id FROM inserted AS i
-  )
-  SELECT 1; -- marcador (evita advertencias de conjunto de resultados vacío)
+  INSERT INTO @ids(pedido_id)
+  SELECT DISTINCT i.pedido_id FROM inserted AS i;
 
   DECLARE @pid NVARCHAR(20);
-  DECLARE c CURSOR LOCAL FAST_FORWARD FOR
-    SELECT pedido_id FROM D;
-
-  OPEN c;
-  FETCH NEXT FROM c INTO @pid;
-  WHILE @@FETCH_STATUS = 0
+  WHILE EXISTS (SELECT 1 FROM @ids)
   BEGIN
+    SELECT TOP 1 @pid = pedido_id FROM @ids ORDER BY pedido_id;
     EXEC dbo.pedidos_recalc_total @pedido_id = @pid;
-    FETCH NEXT FROM c INTO @pid;
+    DELETE FROM @ids WHERE pedido_id = @pid;
   END
-  CLOSE c; DEALLOCATE c;
 END
 GO
 
-/* UPDATE */
+/* ---------- UPDATE: recalcular total ---------- */
 CREATE TRIGGER dbo.trg_dp_after_update_recalc
 ON dbo.detalle_pedidos
 AFTER UPDATE
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @ids TABLE (pedido_id NVARCHAR(20) PRIMARY KEY);
 
-  ;WITH D AS (
-    SELECT pedido_id FROM inserted
-    UNION
-    SELECT pedido_id FROM deleted
-  )
-  SELECT 1;
+  INSERT INTO @ids(pedido_id)
+  SELECT DISTINCT pedido_id FROM inserted
+  UNION
+  SELECT DISTINCT pedido_id FROM deleted;
 
   DECLARE @pid NVARCHAR(20);
-  DECLARE c CURSOR LOCAL FAST_FORWARD FOR
-    SELECT DISTINCT pedido_id FROM D;
-
-  OPEN c;
-  FETCH NEXT FROM c INTO @pid;
-  WHILE @@FETCH_STATUS = 0
+  WHILE EXISTS (SELECT 1 FROM @ids)
   BEGIN
+    SELECT TOP 1 @pid = pedido_id FROM @ids ORDER BY pedido_id;
     EXEC dbo.pedidos_recalc_total @pedido_id = @pid;
-    FETCH NEXT FROM c INTO @pid;
+    DELETE FROM @ids WHERE pedido_id = @pid;
   END
-  CLOSE c; DEALLOCATE c;
 END
 GO
 
-/* DELETE */
+/* ---------- DELETE: recalcular total ---------- */
 CREATE TRIGGER dbo.trg_dp_after_delete_recalc
 ON dbo.detalle_pedidos
 AFTER DELETE
 AS
 BEGIN
   SET NOCOUNT ON;
+  DECLARE @ids TABLE (pedido_id NVARCHAR(20) PRIMARY KEY);
 
-  ;WITH D AS (
-    SELECT DISTINCT d.pedido_id FROM deleted AS d
-  )
-  SELECT 1;
+  INSERT INTO @ids(pedido_id)
+  SELECT DISTINCT d.pedido_id FROM deleted AS d;
 
   DECLARE @pid NVARCHAR(20);
-  DECLARE c CURSOR LOCAL FAST_FORWARD FOR
-    SELECT pedido_id FROM D;
-
-  OPEN c;
-  FETCH NEXT FROM c INTO @pid;
-  WHILE @@FETCH_STATUS = 0
+  WHILE EXISTS (SELECT 1 FROM @ids)
   BEGIN
+    SELECT TOP 1 @pid = pedido_id FROM @ids ORDER BY pedido_id;
     EXEC dbo.pedidos_recalc_total @pedido_id = @pid;
-    FETCH NEXT FROM c INTO @pid;
+    DELETE FROM @ids WHERE pedido_id = @pid;
   END
-  CLOSE c; DEALLOCATE c;
 END
 GO
 
-
+/* ---------- Recalculo masivo (una sola vez) ---------- */
+PRINT 'Recalculando total_pedido para todos los pedidos...';
 UPDATE p
 SET p.total_pedido = ISNULL(x.suma, 0)
 FROM dbo.pedidos AS p
@@ -122,3 +116,9 @@ OUTER APPLY (
   WHERE d.pedido_id = p.pedido_id
 ) AS x;
 GO
+
+/* -- Pruebas (opcional)
+SELECT pedido_id, total_pedido FROM dbo.pedidos ORDER BY fecha_pedido DESC;
+EXEC dbo.pedidos_recalc_total @pedido_id = 'ped-1';
+SELECT total_pedido FROM dbo.pedidos WHERE pedido_id = 'ped-1';
+*/
