@@ -34,7 +34,7 @@ document.getElementById('navUserLabel').innerHTML = `<i class="fa-solid fa-circl
 let productosAPI;
 try {
   // usa módulos bajo client-resources si existen; si no, recurre al path genérico
-  ({ productosAPI } = await import('/client-resources/apis/productosManager.js'));
+  ({ productosAPI } = await import('/client-resources/scripts/apis/productosManager.js'));
 } catch {
   ({ productosAPI } = await import('/scripts/apis/productosManager.js')); // fallback
 }
