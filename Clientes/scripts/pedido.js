@@ -1,35 +1,40 @@
 // /client-resources/scripts/pedido.js
-// Crea/confirmar pedido leyendo el carrito y mostrando un modal de envío/pago (demo).
+// Crea/confirmar pedido leyendo el carrito y mostrando un modal de envío/pago.
 
-// ====== Imports con fallback a rutas públicas si hiciera falta ======
 let pedidosAPI, confirmarConVerificacion;
 let controlPedidosAPI, addItemConVerificacion;
 let clientsAPI, datosPersonalesAPI, datosFacturacionAPI, metodosPagoAPI;
 
 async function loadApis() {
   try {
-    ({ pedidosAPI, confirmarConVerificacion } = await import('/client-resources/scripts/apis/pedidosManager.js')); // :contentReference[oaicite:7]{index=7}
+    ({ pedidosAPI, confirmarConVerificacion } = await import('/client-resources/scripts/apis/pedidosManager.js'));
   } catch { ({ pedidosAPI, confirmarConVerificacion } = await import('/scripts/apis/pedidosManager.js')); }
 
   try {
-    ({ controlPedidosAPI, addItemConVerificacion } = await import('/client-resources/scripts/apis/controlPedidosManager.js')); // :contentReference[oaicite:8]{index=8}
+    ({ controlPedidosAPI, addItemConVerificacion } = await import('/client-resources/scripts/apis/controlPedidosManager.js'));
   } catch { ({ controlPedidosAPI, addItemConVerificacion } = await import('/scripts/apis/controlPedidosManager.js')); }
 
   try {
-    ({ clientsAPI } = await import('/client-resources/scripts/apis/clientesManager.js')); // :contentReference[oaicite:9]{index=9}
+    ({ clientsAPI } = await import('/client-resources/scripts/apis/clientesManager.js'));
   } catch { ({ clientsAPI } = await import('/scripts/apis/clientesManager.js')); }
 
   try {
-    ({ datosPersonalesAPI } = await import('/client-resources/scripts/apis/datosPersonalesManager.js')); // :contentReference[oaicite:10]{index=10}
+    ({ datosPersonalesAPI } = await import('/client-resources/scripts/apis/datosPersonalesManager.js'));
   } catch { ({ datosPersonalesAPI } = await import('/scripts/apis/datosPersonalesManager.js')); }
 
   try {
-    ({ datosFacturacionAPI } = await import('/client-resources/scripts/apis/datosFacturacionManager.js')); // :contentReference[oaicite:11]{index=11}
+    ({ datosFacturacionAPI } = await import('/client-resources/scripts/apis/datosFacturacionManager.js'));
   } catch { ({ datosFacturacionAPI } = await import('/scripts/apis/datosFacturacionManager.js')); }
 
   try {
-    ({ metodosPagoAPI } = await import('/client-resources/scripts/apis/metodosPagoManager.js')); // :contentReference[oaicite:12]{index=12}
+    ({ metodosPagoAPI } = await import('/client-resources/scripts/apis/metodosPagoManager.js'));
   } catch { ({ metodosPagoAPI } = await import('/scripts/apis/metodosPagoManager.js')); }
+
+  try {
+    ({ productosAPI } = await import('/client-resources/scripts/apis/productosManager.js'));
+  } catch {
+    ({ productosAPI } = await import('/scripts/apis/productosManager.js'));
+  }
 }
 
 // ====== Utils ======
@@ -142,11 +147,26 @@ export async function openPedidoModal() {
 
       if (!pedido_id) throw new Error('No se pudo crear el pedido');
 
-      // 2) Agregar cada línea
+      // 2) Agregar cada línea con cantidad + precio_unitario
       for (const it of items) {
-        const payload = { pedido_id, producto_id: it.producto_id, cantidad: it.cantidad };
+        // it: { producto_id, cantidad } recolectado del DOM
+        // Obtenemos precio_unitario confiable desde la API de productos
+        let precio_unitario = 0;
+        try {
+          const p = await productosAPI.getOne(it.producto_id);
+          const row = Array.isArray(p?.data) ? p.data[0] : p?.data || p;
+          precio_unitario = Number(row?.precio_unitario || 0);
+        } catch {}
+
+        const payload = {
+          pedido_id,
+          producto_id: it.producto_id,
+          cantidad: Number(it.cantidad || 0),
+          precio_unitario
+        };
+
         logPaso('Agregar item', '/pedidos/add_item', payload);
-        await addItemConVerificacion(payload, controlPedidosAPI); // maneja "stock insuficiente" con detalle
+        await addItemConVerificacion(payload, controlPedidosAPI);
       }
 
       // 3) Confirmar (intentará y reportará faltantes si hay)
@@ -167,6 +187,9 @@ export async function openPedidoModal() {
       showMsg('success','¡Tu pedido fue creado!');
       // Limpia carrito y cierra modal
       localStorage.setItem('tmpCartIds', '[]');
+      localStorage.removeItem('tmpCartIds');
+      localStorage.removeItem('temProdIds');
+      console.log('local storage tem prodIds = []');
       setTimeout(() => location.href = `/client-resources/pages/miCuenta.html?uid=${encodeURIComponent(uid)}`, 1200);
     } catch (e) {
       logError('Finalizar compra', '/pedidos', e);

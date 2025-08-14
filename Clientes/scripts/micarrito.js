@@ -210,11 +210,8 @@ document.getElementById('btnCheckout')?.addEventListener('click', async () => {
   try {
     // 0) Modal (si existe); si no, confirm simple
     if (typeof openPedidoModal === 'function') {
-      const res = await openPedidoModal({ items: state.items });
-      if (res === false) return; // usuario canceló
-    } else {
-      const ok = confirm('¿Deseas finalizar tu compra?');
-      if (!ok) return;
+        await openPedidoModal({ items: state.items });
+        return; // el modal maneja todo el proceso
     }
 
     // 1) Validaciones básicas
