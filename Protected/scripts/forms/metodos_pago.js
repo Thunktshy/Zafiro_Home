@@ -1,252 +1,330 @@
-// scripts/forms/metodos_pago.js
-// UI de administración para Métodos de Pago (DataTable + crear/editar/eliminar + principal)
-// Requiere: metodosPagoAPI
-
+// UI del Panel de Métodos de pago
 import { metodosPagoAPI } from '/admin-resources/scripts/apis/metodosPagoManager.js';
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
-const money = (n) => (Number(n)||0).toLocaleString('es-MX',{ style:'currency', currency:'MXN' });
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-function badge(bool) {
-  return bool ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-secondary">No</span>';
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function showAlert(kind, html) {
-  const box = $('#alertBox');
-  box.classList.remove('d-none','alert-success','alert-danger','alert-info','alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = html;
-  setTimeout(() => box.classList.add('d-none'), 4000);
-}
+const ensurePrefix = (v, prefix) => {
+  const s = String(v ?? '').trim();
+  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+};
+const cli = (id) => ensurePrefix(id, 'cl-');
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
+};
 
-function unpack(res) {
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  return [];
-}
-
-let tabla, modalCrear, modalEditar, modalConfirm;
-let accionConfirm = null; // { type:'delete'|'principal', id, row }
-
-const COL_INDEX = { metodo_id:0, cliente_id:1, tipo:2, direccion:3, ciudad:4, cp:5, pais:6, principal:7, fecha:8 };
-
-function configurarTabla() {
-  if (tabla) { tabla.destroy(); $('#tablaMP tbody').innerHTML=''; }
-  tabla = new DataTable('#tablaMP', {
-    paging:true,
-    pageLength:10,
-    lengthChange:false,
-    ordering:true,
-    order:[[COL_INDEX.fecha,'desc']],
-    searching:true,
-    language:{ url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
-    columns:[
-      { data:'metodo_id' },
-      { data:'cliente_id' },
-      { data:'tipo' },
-      { data:'direccion', defaultContent:'' },
-      { data:'ciudad', defaultContent:'' },
-      { data:'codigo_postal', defaultContent:'' },
-      { data:'pais', defaultContent:'' },
-      { data:'es_principal', render:v => badge(!!v) },
-      { data:'fecha_creacion', render:v => v? new Date(v).toLocaleString('es-MX'):'' },
-      { data:null, orderable:false, searchable:false, className:'text-end', render:(_v,_t,row)=>{
+// ===== DataTable =====
+let dt;
+function initTabla() {
+  dt = $('#tablaMetodos').DataTable({
+    data: [],
+    columns: [
+      { data: 'metodo_id', render: v => v ?? '—' },
+      { data: 'cliente_id', render: v => v ?? '—' },
+      { data: 'tipo', render: v => v ?? '—' },
+      { data: 'es_principal', render: v => Number(v) ? 'Sí' : 'No' },
+      { data: 'direccion', render: v => v ?? '' },
+      { data: 'ciudad', render: v => v ?? '' },
+      { data: 'codigo_postal', render: v => v ?? '' },
+      { data: 'pais', render: v => v ?? '' },
+      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      {
+        data: null, orderable: false, searchable: false, className: 'text-end',
+        render: (row) => {
+          const id = row.metodo_id;
           return `
-            <button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${row.metodo_id}"><i class="bi bi-pencil-square"></i> Editar</button>
-            <button class="btn btn-sm btn-outline-dark me-1" data-action="principal" data-id="${row.metodo_id}"><i class="bi bi-pin-angle"></i> Principal</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="del" data-id="${row.metodo_id}"><i class="bi bi-trash"></i> Eliminar</button>`;
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn btn-outline-secondary btn-principal" data-id="${id}" title="Marcar como principal">
+                <i class="fa-solid fa-star"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
         }
       }
-    ]
+    ],
+    order: [[8, 'desc']],
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  $('#tablaMP tbody').addEventListener('click', onTablaAction);
+  // Delegación
+  $('#tablaMetodos tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.classList.contains('btn-editar')) abrirModalEditar(id);
+    else if (btn.classList.contains('btn-eliminar')) abrirConfirmEliminar(id);
+    else if (btn.classList.contains('btn-principal')) marcarPrincipalRapido(id);
+  });
 }
 
-function onTablaAction(ev) {
-  const btn = ev.target.closest('button[data-action]');
-  if (!btn) return;
-  const id = Number(btn.getAttribute('data-id'));
-  const action = btn.getAttribute('data-action');
-  if (action==='edit') return abrirEditar(id);
-  if (action==='del')  return prepararConfirm('delete', id);
-  if (action==='principal') return prepararConfirm('principal', id);
+// ===== Carga =====
+async function listarTodos() {
+  const out = await metodosPagoAPI.getAll();
+  return Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
 }
 
-async function cargarAll() {
+async function listarPorCliente(cliente_id) {
+  const out = await metodosPagoAPI.getByCliente(cli(cliente_id));
+  const data = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+  return data;
+}
+
+async function recargar(escenario = 'all') {
   try {
-    const rows = unpack(await metodosPagoAPI.getAll());
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('success','Lista cargada');
+    let rows = [];
+    if (escenario === 'cliente') {
+      const id = $('#filtroCliente').value.trim();
+      if (!id) return showAlert('warning', 'Indica un cliente.');
+      rows = await listarPorCliente(id);
+    } else {
+      rows = await listarTodos();
+    }
+    dt.clear().rows.add(rows).draw();
+    showAlert('success', `Se cargaron ${rows.length} método(s).`);
   } catch (err) {
-    console.error('cargarAll',err);
-    showAlert('danger', `Error al listar: ${err.message}`);
+    showAlert('danger', err.message || 'No se pudieron cargar los métodos de pago');
   }
 }
 
-async function cargarPorCliente() {
-  const id = $('#filtroCliente').value.trim();
-  if (!id) return showAlert('warning','Proporciona un ID de cliente');
+// ===== Filtros =====
+$('#btnBuscarCliente').addEventListener('click', () => recargar('cliente'));
+$('#btnListarTodo').addEventListener('click', () => recargar('all'));
+$('#btnLimpiar').addEventListener('click', () => {
+  $('#filtroCliente').value = '';
+  recargar('all');
+});
+
+// ===== Modal Crear/Editar =====
+const modalMet = new bootstrap.Modal('#modalMetodo');
+
+function limpiarForm() {
+  $('#metodo_id').value = '';
+  $('#cliente_id').value = '';
+  $('#tipo').value = '';
+  $('#es_principal').checked = false;
+  $('#datos').value = '';
+  $('#direccion').value = '';
+  $('#ciudad').value = '';
+  $('#codigo_postal').value = '';
+  $('#pais').value = '';
+  $$('#formMetodo .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+}
+
+function toggleOrigen() {
+  const isPersonales = $('#origenPersonales').checked;
+  $('#grupoCamposManual').classList.toggle('d-none', isPersonales);
+  $('#btnFormatearJSON').disabled = isPersonales;
+}
+$$('input[name="origen"]').forEach(r => r.addEventListener('change', toggleOrigen));
+
+$('#btnNuevo').addEventListener('click', () => {
+  limpiarForm();
+  $('#modalTitulo').textContent = 'Nuevo método';
+  $('#btnGuardar').textContent = 'Guardar';
+  $('#origenManual').checked = true;
+  toggleOrigen();
+  modalMet.show();
+  setTimeout(() => $('#cliente_id')?.focus(), 200);
+});
+
+async function abrirModalEditar(metodo_id) {
   try {
-    let rows = unpack(await metodosPagoAPI.getByCliente(id));
-    if ($('#soloPrincipal').checked) rows = rows.filter(r => !!r.es_principal);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Métodos de pago del cliente <strong>${id}</strong>`);
+    limpiarForm();
+    $('#modalTitulo').textContent = 'Editar método';
+    $('#btnGuardar').textContent = 'Actualizar';
+
+    const row = (await metodosPagoAPI.getById(Number(metodo_id)))?.data;
+    if (!row) throw new Error('No se pudo cargar el método');
+
+    $('#metodo_id').value = row.metodo_id ?? '';
+    $('#cliente_id').value = row.cliente_id ?? '';
+    $('#tipo').value = row.tipo ?? '';
+    $('#es_principal').checked = Number(row.es_principal) === 1;
+    $('#datos').value = (typeof row.datos === 'string') ? row.datos : JSON.stringify(row.datos ?? {}, null, 2);
+    $('#direccion').value = row.direccion ?? '';
+    $('#ciudad').value = row.ciudad ?? '';
+    $('#codigo_postal').value = row.codigo_postal ?? '';
+    $('#pais').value = row.pais ?? '';
+
+    // edición siempre en modo "manual" para poder actualizar campos
+    $('#origenManual').checked = true;
+    toggleOrigen();
+
+    modalMet.show();
+    setTimeout(() => $('#tipo')?.focus(), 200);
   } catch (err) {
-    console.error('cargarPorCliente',err);
-    showAlert('danger', `Error al consultar por cliente: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible abrir el formulario');
   }
 }
 
-function ordenarTabla(){
-  const v = $('#ordenarPor').value;
-  const dir = v==='fecha_creacion' ? 'desc' : 'asc';
-  const idx = COL_INDEX[v] ?? COL_INDEX.fecha;
-  tabla.order([idx,dir]).draw();
+// ===== Validación simple =====
+function validarForm() {
+  let ok = true;
+  const cliente = $('#cliente_id');
+  const tipo = $('#tipo');
+  [cliente, tipo].forEach(el => el.classList.remove('is-invalid'));
+
+  if (!cliente.value.trim()) { cliente.classList.add('is-invalid'); ok = false; }
+  if (!tipo.value.trim()) { tipo.classList.add('is-invalid'); ok = false; }
+
+  return ok;
 }
 
-function limpiar(){
-  $('#filtroCliente').value='';
-  $('#soloPrincipal').checked=false;
-  $('#ordenarPor').value='fecha_creacion';
-  tabla.clear().draw();
+// ===== Helpers JSON =====
+$('#btnFormatearJSON').addEventListener('click', () => {
+  const txt = $('#datos').value.trim();
+  if (!txt) return;
+  try {
+    const obj = JSON.parse(txt);
+    $('#datos').value = JSON.stringify(obj, null, 2);
+    showAlert('success', 'JSON formateado.');
+  } catch {
+    showAlert('warning', 'No es JSON válido; se enviará como texto.');
+  }
+});
+
+function obtenerDatosNormalizados() {
+  const raw = $('#datos').value.trim();
+  if (!raw) return '';
+  try { return JSON.parse(raw); } catch { return raw; } // el manager lo normaliza a JSON string
 }
 
-function validarCrear(){
-  const c = $('#c_cliente_id').value.trim();
-  const t = $('#c_tipo').value.trim();
-  if (!c || !t) return false;
-  return true;
-}
-
-async function crear(ev){
+// ===== Guardar (insert/update | manual o desde personales) =====
+$('#formMetodo').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  if (!validarCrear()) { $('#formCrear').classList.add('was-validated'); return; }
-  const cliente_id = $('#c_cliente_id').value.trim();
-  const tipo = $('#c_tipo').value.trim();
-  const es_principal = $('#c_es_principal').checked ? 1 : 0;
-  try {
-    await metodosPagoAPI.insertFromPersonales({ cliente_id, tipo, es_principal });
-    showAlert('success','Método de pago creado');
-    modalCrear.hide();
-    $('#filtroCliente').value = cliente_id;
-    await cargarPorCliente();
-  } catch (err) {
-    console.error('crear',err);
-    showAlert('danger', `No se pudo crear: ${err.message}`);
-  }
-}
+  if (!validarForm()) return;
 
-async function abrirEditar(id){
-  try {
-    const row = (await metodosPagoAPI.getOne(id))?.data || null;
-    if (!row) throw new Error('No encontrado');
-    $('#e_metodo_id').value = row.metodo_id;
-    $('#e_tipo').value = row.tipo;
-    $('#e_direccion').value = row.direccion || '';
-    $('#e_ciudad').value = row.ciudad || '';
-    $('#e_cp').value = row.codigo_postal || '';
-    $('#e_pais').value = row.pais || '';
-    $('#e_es_principal').checked = !!row.es_principal;
-    $('#formEditar').classList.remove('was-validated');
-    modalEditar.show();
-  } catch (err) {
-    console.error('abrirEditar',err);
-    showAlert('danger', `No se pudo cargar: ${err.message}`);
-  }
-}
-
-function validarEditar(){
-  const t = $('#e_tipo').value.trim();
-  if (!t) return false;
-  return true;
-}
-
-async function guardar(ev){
-  ev.preventDefault();
-  if (!validarEditar()) { $('#formEditar').classList.add('was-validated'); return; }
-  const payload = {
-    metodo_id: Number($('#e_metodo_id').value),
-    tipo: $('#e_tipo').value.trim(),
-    direccion: $('#e_direccion').value.trim() || null,
-    ciudad: $('#e_ciudad').value.trim() || null,
-    codigo_postal: $('#e_cp').value.trim() || null,
-    pais: $('#e_pais').value.trim() || null,
-    es_principal: $('#e_es_principal').checked ? 1 : undefined // undefined conserva valor si no se marca
+  const payloadBase = {
+    cliente_id: cli($('#cliente_id').value.trim()),
+    tipo: $('#tipo').value.trim(),
+    es_principal: $('#es_principal').checked
   };
+
   try {
-    await metodosPagoAPI.update(payload);
-    showAlert('success','Actualizado correctamente');
-    modalEditar.hide();
-    // refresca según filtro
-    const cli = $('#filtroCliente').value.trim();
-    if (cli) await cargarPorCliente(); else await cargarAll();
+    const esEdicion = !!$('#metodo_id').value.trim();
+    const origen = $('#origenPersonales').checked ? 'personales' : 'manual';
+
+    if (esEdicion) {
+      // UPDATE siempre manual (hay que enviar tipo+datos)
+      await metodosPagoAPI.update({
+        metodo_id: Number($('#metodo_id').value.trim()),
+        tipo: payloadBase.tipo,
+        datos: obtenerDatosNormalizados(),
+        direccion: $('#direccion').value.trim() || null,
+        ciudad: $('#ciudad').value.trim() || null,
+        codigo_postal: $('#codigo_postal').value.trim() || null,
+        pais: $('#pais').value.trim() || null,
+        es_principal: payloadBase.es_principal // null mantendría, pero aquí respetamos el check
+      });
+      showAlert('success', 'Método actualizado.');
+    } else {
+      if (origen === 'personales') {
+        await metodosPagoAPI.insertFromPersonales({
+          cliente_id: payloadBase.cliente_id,
+          tipo: payloadBase.tipo,
+          es_principal: payloadBase.es_principal
+        });
+      } else {
+        await metodosPagoAPI.insert({
+          ...payloadBase,
+          datos: obtenerDatosNormalizados(),
+          direccion: $('#direccion').value.trim() || null,
+          ciudad: $('#ciudad').value.trim() || null,
+          codigo_postal: $('#codigo_postal').value.trim() || null,
+          pais: $('#pais').value.trim() || null
+        });
+      }
+      showAlert('success', 'Método guardado.');
+    }
+
+    modalMet.hide();
+    const filtro = $('#filtroCliente').value.trim();
+    await recargar(filtro ? 'cliente' : 'all');
   } catch (err) {
-    console.error('guardar',err);
-    showAlert('danger', `No se pudo actualizar: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible guardar');
+  }
+});
+
+// ===== Marcar principal rápido =====
+// Carga el método, reenvía los mismos campos con es_principal=1
+async function marcarPrincipalRapido(metodo_id) {
+  try {
+    const row = (await metodosPagoAPI.getById(Number(metodo_id)))?.data;
+    if (!row) throw new Error('No se encontró el método.');
+
+    await metodosPagoAPI.update({
+      metodo_id: Number(metodo_id),
+      tipo: row.tipo,
+      datos: row.datos, // el manager normaliza
+      direccion: row.direccion ?? null,
+      ciudad: row.ciudad ?? null,
+      codigo_postal: row.codigo_postal ?? null,
+      pais: row.pais ?? null,
+      es_principal: 1
+    });
+
+    showAlert('success', 'Marcado como principal.');
+    const filtro = $('#filtroCliente').value.trim();
+    await recargar(filtro ? 'cliente' : 'all');
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible marcar como principal');
   }
 }
 
-function prepararConfirm(type, id){
-  accionConfirm = { type, id };
-  const msg = type==='delete' ? `¿Eliminar el método #<strong>${id}</strong>?` : `¿Marcar #<strong>${id}</strong> como principal?`;
-  $('#confirmMsg').innerHTML = msg;
+// ===== Confirmación eliminar =====
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
+
+function abrirConfirmEliminar(metodo_id) {
+  $('#confirmAccion').value = 'eliminar';
+  $('#confirmId').value = String(metodo_id);
+  $('#confirmTitulo').textContent = 'Eliminar método';
+  $('#confirmMsg').textContent = `¿Eliminar el método ID ${metodo_id}? Esta acción no se puede deshacer.`;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm(){
-  if (!accionConfirm) return;
-  const { type, id } = accionConfirm;
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const id = Number($('#confirmId').value);
   try {
-    if (type==='delete') {
-      await metodosPagoAPI.remove(id);
-      showAlert('success','Eliminado correctamente');
-    } else if (type==='principal') {
-      // Para marcar como principal debo enviar tipo y demás campos: rehidrato la fila actual
-      const curr = (await metodosPagoAPI.getOne(id))?.data;
-      await metodosPagoAPI.update({
-        metodo_id: id,
-        tipo: curr.tipo,
-        direccion: curr.direccion,
-        ciudad: curr.ciudad,
-        codigo_postal: curr.codigo_postal,
-        pais: curr.pais,
-        es_principal: 1
-      });
-      showAlert('success','Marcado como principal');
-    }
+    if (accion === 'eliminar') await metodosPagoAPI.remove(id);
     modalConfirm.hide();
-    const cli = $('#filtroCliente').value.trim();
-    if (cli) await cargarPorCliente(); else await cargarAll();
+    showAlert('success', 'Método eliminado.');
+    const filtro = $('#filtroCliente').value.trim();
+    await recargar(filtro ? 'cliente' : 'all');
   } catch (err) {
-    console.error('ejecutarConfirm',err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
-  } finally {
-    accionConfirm = null;
+    modalConfirm.hide();
+    showAlert('danger', err.message || 'No fue posible eliminar');
   }
-}
+});
 
-async function init(){
-  modalCrear  = new bootstrap.Modal('#modalCrear');
-  modalEditar = new bootstrap.Modal('#modalEditar');
-  modalConfirm= new bootstrap.Modal('#modalConfirm');
-  configurarTabla();
-  await cargarAll();
-
-  // Filtros/acciones
-  $('#btnBuscarCliente').addEventListener('click', cargarPorCliente);
-  $('#soloPrincipal').addEventListener('change', cargarPorCliente);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiar);
-  $('#btnNuevo').addEventListener('click', () => { $('#formCrear').reset(); $('#formCrear').classList.remove('was-validated'); modalCrear.show(); });
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Formularios
-  $('#formCrear').addEventListener('submit', crear);
-  $('#formEditar').addEventListener('submit', guardar);
-}
-
-window.addEventListener('DOMContentLoaded', init);
+// ===== Boot =====
+(async function boot() {
+  try {
+    initTabla();
+    // si llegas con ?cl=... precarga por cliente
+    const url = new URL(location.href);
+    const q = url.searchParams.get('cl');
+    if (q) {
+      $('#filtroCliente').value = q;
+      await recargar('cliente');
+    } else {
+      await recargar('all');
+    }
+  } catch (err) {
+    showAlert('danger', err.message || 'Error inicializando el panel');
+  }
+})();

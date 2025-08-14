@@ -132,6 +132,14 @@ app.use('/metodos_pago', MetodosPagoRoutes);
 const ProductosRoutes = require('./Server/routes/productosRoute.js');
 app.use('/productos', ProductosRoutes);
 
+// Consultas de pedidos
+const pedidosRouter = require('./Server/routes/pedidosRoute.js');
+app.use('/pedidos', pedidosRouter);
+
+// Control de pedidos (mutaciones)
+const controlPedidosRouter = require('./Server/routes/control_pedidosRoute.js');
+app.use('/pedidos', controlPedidosRouter);
+
 //Gestion stock y alertas
 const GestionRoutes = require('./Server/routes/gestion_stock_y_alertasRoute.js');
 app.use('/gestion_stock_y_alertas', GestionRoutes);

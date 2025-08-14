@@ -1,252 +1,249 @@
-// scripts/forms/empleados.js
-// UI de administración para Empleados (DataTable + crear/editar + soft/reactivar/hard + registrar_login)
-// Requiere: empleadosAPI
-
+// UI del Panel de Empleados
 import { empleadosAPI } from '/admin-resources/scripts/apis/empleadosManager.js';
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
-const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-function showAlert(kind, html){
-  const box = $('#alertBox');
-  box.classList.remove('d-none','alert-success','alert-danger','alert-info','alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = html;
-  setTimeout(()=>box.classList.add('d-none'), 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(res){
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  return [];
-}
-
-let tabla, modalCrear, modalEditar, modalConfirm;
-let accionConfirm = null; // { type:'soft'|'reactivar'|'hard'|'login', id }
-
-const COL_INDEX = {
-  empleado_id:0, cuenta:1, email:2, puesto:3, estado:4, ultimo_login:5, fecha_registro:6
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
 };
 
-function badgeEstado(row){
-  const activo = (row.estado === 1) || (String(row.estado_descripcion||'').toLowerCase().includes('activo'));
-  return `<span class="badge ${activo? 'bg-success' : 'bg-secondary'}">${activo? 'Activo':'Inactivo'}</span>`;
-}
-
-function configurarTabla(){
-  if (tabla){ tabla.destroy(); $('#tablaEmpleados tbody').innerHTML=''; }
-  tabla = new DataTable('#tablaEmpleados', {
-    paging:true,
-    pageLength:10,
-    lengthChange:false,
-    ordering:true,
-    order:[[COL_INDEX.cuenta,'asc']],
-    searching:true,
-    language:{ url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
-    columns:[
-      { data:'empleado_id' },
-      { data:'cuenta' },
-      { data:'email' },
-      { data:'puesto', defaultContent:'' },
-      { data:null, render:(_v,_t,row)=>badgeEstado(row) },
-      { data:'ultimo_login', render:v=> v? new Date(v).toLocaleString('es-MX'):'' },
-      { data:'fecha_registro', render:v=> v? new Date(v).toLocaleString('es-MX'):'' },
-      { data:null, orderable:false, searchable:false, className:'text-end', render:(_v,_t,row)=>{
-          const activo = (row.estado === 1) || (String(row.estado_descripcion||'').toLowerCase().includes('activo'));
-          const softBtn = activo
-            ? `<button class="btn btn-sm btn-outline-warning me-1" data-action="soft" data-id="${row.empleado_id}"><i class="bi bi-slash-circle"></i> Desactivar</button>`
-            : `<button class="btn btn-sm btn-outline-success me-1" data-action="reactivar" data-id="${row.empleado_id}"><i class="bi bi-arrow-counterclockwise"></i> Reactivar</button>`;
+// ===== DataTable =====
+let dt;
+function initTabla() {
+  dt = $('#tablaEmpleados').DataTable({
+    data: [],
+    columns: [
+      { data: 'empleado_id', render: v => v ?? '—' },
+      { data: 'cuenta', render: v => v ?? '—' },
+      { data: 'email', render: v => v ?? '—' },
+      { data: 'puesto', render: v => v ?? '—' },
+      { data: 'estado', render: v => (v == null ? '—' : (Number(v) ? 'activo' : 'inactivo')) },
+      { data: 'ultimo_acceso', render: v => fmtDate(v) },
+      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      {
+        data: null, orderable: false, searchable: false, className: 'text-end',
+        render: (row) => {
+          const id = row.empleado_id;
+          const activo = Number(row.estado) === 1;
           return `
-            <button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${row.empleado_id}"><i class="bi bi-pencil-square"></i> Editar</button>
-            ${softBtn}
-            <button class="btn btn-sm btn-outline-dark me-1" data-action="login" data-id="${row.empleado_id}"><i class="bi bi-clock-history"></i> Registrar login</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="hard" data-id="${row.empleado_id}"><i class="bi bi-trash"></i> Eliminar</button>`;
-        }}
-    ]
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              ${activo
+                ? `<button class="btn btn-outline-warning btn-desactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Desactivar">
+                     <i class="fa-solid fa-user-slash"></i>
+                   </button>`
+                : `<button class="btn btn-outline-success btn-reactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Reactivar">
+                     <i class="fa-solid fa-user-check"></i>
+                   </button>`
+              }
+              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
+        }
+      }
+    ],
+    order: [[6, 'desc']], // por fecha_creacion
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  $('#tablaEmpleados tbody').addEventListener('click', onRowAction);
+  // Delegación de eventos
+  $('#tablaEmpleados tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.classList.contains('btn-editar')) abrirModalEditar(id);
+    else if (btn.classList.contains('btn-desactivar')) abrirConfirm('desactivar', id, btn.dataset.cuenta);
+    else if (btn.classList.contains('btn-reactivar')) abrirConfirm('reactivar', id, btn.dataset.cuenta);
+    else if (btn.classList.contains('btn-eliminar')) abrirConfirm('eliminar', id, btn.dataset.cuenta);
+  });
 }
 
-function onRowAction(ev){
-  const btn = ev.target.closest('button[data-action]');
-  if (!btn) return;
-  const id = Number(btn.getAttribute('data-id'));
-  const action = btn.getAttribute('data-action');
-  if (action==='edit') return abrirEditar(id);
-  if (action==='soft') return prepararConfirm('soft', id);
-  if (action==='reactivar') return prepararConfirm('reactivar', id);
-  if (action==='hard') return prepararConfirm('hard', id);
-  if (action==='login') return prepararConfirm('login', id);
-}
+// ===== Carga de datos =====
+async function recargarEmpleados(origen='search') {
+  try {
+    let rows = [];
+    if (origen === 'byId') {
+      const id = $('#filtroId').value.trim();
+      if (!id) return showAlert('warning', 'Indica un ID.');
+      const out = await empleadosAPI.getOne(Number(id));
+      const r = out?.data ?? out;
+      rows = r ? [r] : [];
+    } else if (origen === 'all') {
+      const out = await empleadosAPI.getAll();
+      rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    } else {
+      const term = $('#filtroTerm').value.trim();
+      const solo_activos = $('#soloActivos').checked ? 1 : 0;
+      const out = await empleadosAPI.search({ term, solo_activos });
+      rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    }
 
-async function cargarTodos(){
-  try{
-    const rows = unpack(await empleadosAPI.getAll());
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('success','Empleados cargados');
-  }catch(err){
-    console.error('cargarTodos',err);
-    showAlert('danger', `Error al listar: ${err.message}`);
+    dt.clear().rows.add(rows).draw();
+    showAlert('success', `Se cargaron ${rows.length} empleado(s).`);
+  } catch (err) {
+    showAlert('danger', err.message || 'No se pudieron cargar los empleados');
   }
 }
 
-async function buscar(){
-  const term = $('#filtroTerm').value.trim();
-  const solo_activos = $('#soloActivos').checked ? 1 : 0;
-  if (!term){ return cargarTodos(); }
-  try{
-    const ids = unpack(await empleadosAPI.search({ term, solo_activos }))
-      .map(r => r.empleado_id).filter(Boolean);
-    if (!ids.length){ tabla.clear().draw(); return showAlert('info','Sin resultados'); }
-    const results = await Promise.all(ids.map(id => empleadosAPI.getOne(id).then(r => r?.data)));
-    const rows = results.filter(Boolean);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Resultados para "${term}" (${rows.length})`);
-  }catch(err){
-    console.error('buscar',err);
-    showAlert('danger', `Error en búsqueda: ${err.message}`);
+// ===== Filtros =====
+$('#btnBuscar').addEventListener('click', () => recargarEmpleados('search'));
+$('#btnBuscarId').addEventListener('click', () => recargarEmpleados('byId'));
+$('#btnListarTodo').addEventListener('click', () => recargarEmpleados('all'));
+$('#btnLimpiar').addEventListener('click', () => {
+  $('#filtroTerm').value = '';
+  $('#filtroId').value = '';
+  $('#soloActivos').checked = true;
+  recargarEmpleados('search');
+});
+
+// ===== Modal Crear/Editar =====
+const modalEmp = new bootstrap.Modal('#modalEmpleado');
+
+function limpiarForm() {
+  $('#empleado_id').value = '';
+  $('#cuenta').value = '';
+  $('#email').value = '';
+  $('#contrasena').value = '';
+  $('#puesto').value = 'Administrador';
+  $$('#formEmpleado .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+}
+
+$('#btnNuevo').addEventListener('click', () => {
+  limpiarForm();
+  $('#modalEmpleadoTitulo').textContent = 'Nuevo empleado';
+  $('#grupoContrasena').classList.remove('d-none'); // en alta se pide contraseña
+  $('#contrasena').required = true;
+  $('#btnGuardar').textContent = 'Guardar';
+  modalEmp.show();
+  setTimeout(() => $('#cuenta')?.focus(), 200);
+});
+
+async function abrirModalEditar(empleado_id) {
+  limpiarForm();
+  $('#modalEmpleadoTitulo').textContent = 'Editar empleado';
+  $('#btnGuardar').textContent = 'Actualizar';
+  $('#grupoContrasena').classList.add('d-none'); // no se cambia aquí
+  $('#contrasena').required = false;
+
+  try {
+    // toma de la tabla o de la API
+    const tableRow = dt.rows().data().toArray().find(r => String(r.empleado_id) === String(empleado_id));
+    const row = tableRow ?? (await empleadosAPI.getOne(Number(empleado_id)))?.data;
+    if (!row) throw new Error('No se pudo cargar el empleado');
+
+    $('#empleado_id').value = row.empleado_id || '';
+    $('#cuenta').value = row.cuenta || '';
+    $('#email').value = row.email || '';
+    $('#puesto').value = row.puesto || 'Administrador';
+
+    modalEmp.show();
+    setTimeout(() => $('#cuenta')?.focus(), 200);
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible abrir el formulario');
   }
 }
 
-function ordenarTabla(){
-  const v = $('#ordenarPor').value;
-  const idx = COL_INDEX[v] ?? COL_INDEX.cuenta;
-  const dir = (v==='fecha_registro' || v==='ultimo_login') ? 'desc' : (v==='estado' ? 'desc' : 'asc');
-  tabla.order([idx, dir]).draw();
+function validarForm(esAlta) {
+  let ok = true;
+  const cuenta = $('#cuenta');
+  const email = $('#email');
+  const pass = $('#contrasena');
+  const puesto = $('#puesto');
+  [cuenta, email, pass, puesto].forEach(el => el.classList.remove('is-invalid'));
+
+  if (!cuenta.value.trim() || cuenta.value.trim().length > 20) { cuenta.classList.add('is-invalid'); ok = false; }
+  const emailVal = email.value.trim();
+  if (!emailVal || emailVal.length > 150 || !/\S+@\S+\.\S+/.test(emailVal)) { email.classList.add('is-invalid'); ok = false; }
+  if (esAlta && !pass.value.trim()) { pass.classList.add('is-invalid'); ok = false; }
+  if (!puesto.value.trim()) { puesto.classList.add('is-invalid'); ok = false; }
+
+  return ok;
 }
 
-function limpiar(){
-  $('#filtroTerm').value='';
-  $('#soloActivos').checked=true;
-  $('#ordenarPor').value='cuenta';
-  cargarTodos();
-}
-
-function validarCrear(){
-  const cta = $('#c_cuenta').value.trim();
-  const em  = $('#c_email').value.trim();
-  const pw  = $('#c_contrasena').value.trim();
-  if (!cta || cta.length>20) return false;
-  if (!em || em.length>150 || !em.includes('@')) return false;
-  if (!pw || pw.length<8) return false;
-  return true;
-}
-
-async function crear(ev){
+$('#formEmpleado').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  if (!validarCrear()) { $('#formCrear').classList.add('was-validated'); return; }
-  const cuenta = $('#c_cuenta').value.trim();
-  const email  = $('#c_email').value.trim();
-  const contrasena = $('#c_contrasena').value.trim();
-  try{
-    await empleadosAPI.insert({ cuenta, email, contrasena });
-    showAlert('success','Empleado creado correctamente');
-    modalCrear.hide();
-    await cargarTodos();
-  }catch(err){
-    console.error('crear',err);
-    showAlert('danger', `No se pudo crear: ${err.message}`);
+  const esAlta = !$('#empleado_id').value.trim();
+  if (!validarForm(esAlta)) return;
+
+  try {
+    if (esAlta) {
+      await empleadosAPI.insert({
+        cuenta: $('#cuenta').value.trim(),
+        email: $('#email').value.trim(),
+        contrasena: $('#contrasena').value.trim()
+      });
+      showAlert('success', 'Empleado creado correctamente.');
+    } else {
+      await empleadosAPI.update({
+        empleado_id: Number($('#empleado_id').value.trim()),
+        cuenta: $('#cuenta').value.trim(),
+        email: $('#email').value.trim(),
+        puesto: $('#puesto').value.trim()
+      });
+      showAlert('success', 'Empleado actualizado.');
+    }
+    modalEmp.hide();
+    recargarEmpleados('search');
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible guardar');
   }
-}
+});
 
-function validarEditar(){
-  const cta = $('#e_cuenta').value.trim();
-  const em  = $('#e_email').value.trim();
-  if (!cta || cta.length>20) return false;
-  if (!em || em.length>150 || !em.includes('@')) return false;
-  return true;
-}
+// ===== Confirmaciones: desactivar / reactivar / eliminar =====
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
 
-async function abrirEditar(id){
-  try{
-    const row = (await empleadosAPI.getOne(id))?.data || null;
-    if (!row) throw new Error('No encontrado');
-    $('#e_empleado_id').value = row.empleado_id;
-    $('#e_cuenta').value = row.cuenta;
-    $('#e_email').value = row.email;
-    $('#e_puesto').value = row.puesto || '';
-    $('#formEditar').classList.remove('was-validated');
-    modalEditar.show();
-  }catch(err){
-    console.error('abrirEditar',err);
-    showAlert('danger', `No se pudo cargar: ${err.message}`);
-  }
-}
+function abrirConfirm(accion, empleado_id, cuenta = '') {
+  $('#confirmAccion').value = accion;
+  $('#confirmId').value = String(empleado_id);
 
-async function guardar(ev){
-  ev.preventDefault();
-  if (!validarEditar()) { $('#formEditar').classList.add('was-validated'); return; }
-  const payload = {
-    empleado_id: Number($('#e_empleado_id').value),
-    cuenta: $('#e_cuenta').value.trim(),
-    email:  $('#e_email').value.trim(),
-    puesto: $('#e_puesto').value.trim() || 'Administrador'
-  };
-  try{
-    await empleadosAPI.update(payload);
-    showAlert('success','Actualizado correctamente');
-    modalEditar.hide();
-    const term = $('#filtroTerm').value.trim();
-    if (term) await buscar(); else await cargarTodos();
-  }catch(err){
-    console.error('guardar',err);
-    showAlert('danger', `No se pudo actualizar: ${err.message}`);
-  }
-}
+  let titulo = 'Confirmar';
+  let msg = '¿Seguro que deseas continuar?';
+  if (accion === 'desactivar') { titulo = 'Desactivar empleado'; msg = `¿Desactivar a "${cuenta}" (ID ${empleado_id})?`; }
+  if (accion === 'reactivar')  { titulo = 'Reactivar empleado';  msg = `¿Reactivar a "${cuenta}" (ID ${empleado_id})?`; }
+  if (accion === 'eliminar')   { titulo = 'Eliminar empleado';   msg = `¿Eliminar definitivamente a "${cuenta}" (ID ${empleado_id})? Esta acción no se puede deshacer.`; }
 
-function prepararConfirm(type, id){
-  accionConfirm = { type, id };
-  const msg = type==='soft' ? `¿Desactivar empleado #<strong>${id}</strong>?` :
-              type==='reactivar' ? `¿Reactivar empleado #<strong>${id}</strong>?` :
-              type==='hard' ? `¿Eliminar definitivamente al empleado #<strong>${id}</strong>?` :
-              `¿Registrar último acceso para #<strong>${id}</strong>?`;
-  $('#confirmMsg').innerHTML = msg;
+  $('#confirmTitulo').textContent = titulo;
+  $('#confirmMsg').textContent = msg;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm(){
-  if (!accionConfirm) return;
-  const { type, id } = accionConfirm;
-  try{
-    if (type==='soft') await empleadosAPI.softDelete(id);
-    else if (type==='reactivar') await empleadosAPI.reactivate(id);
-    else if (type==='hard') await empleadosAPI.remove(id);
-    else if (type==='login') await empleadosAPI.registrarLogin(id);
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const id = Number($('#confirmId').value);
+  try {
+    if (accion === 'desactivar') await empleadosAPI.softDelete(id);
+    else if (accion === 'reactivar') await empleadosAPI.reactivate(id);
+    else if (accion === 'eliminar') await empleadosAPI.remove(id);
 
     modalConfirm.hide();
-    accionConfirm = null;
-    const term = $('#filtroTerm').value.trim();
-    if (term) await buscar(); else await cargarTodos();
-    showAlert('success','Acción ejecutada');
-  }catch(err){
-    console.error('ejecutarConfirm',err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
+    showAlert('success', 'Operación realizada.');
+    recargarEmpleados('search');
+  } catch (err) {
+    modalConfirm.hide();
+    showAlert('danger', err.message || 'No fue posible completar la acción');
   }
-}
+});
 
-async function init(){
-  modalCrear   = new bootstrap.Modal('#modalCrear');
-  modalEditar  = new bootstrap.Modal('#modalEditar');
-  modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-  configurarTabla();
-  await cargarTodos();
-
-  // Filtros/acciones
-  $('#btnBuscar').addEventListener('click', buscar);
-  $('#soloActivos').addEventListener('change', buscar);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiar);
-  $('#btnNuevo').addEventListener('click', ()=>{ $('#formCrear').reset(); $('#formCrear').classList.remove('was-validated'); modalCrear.show(); });
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Formularios
-  $('#formCrear').addEventListener('submit', crear);
-  $('#formEditar').addEventListener('submit', guardar);
-}
-
-window.addEventListener('DOMContentLoaded', init);
+// ===== Boot =====
+(async function boot() {
+  try {
+    initTabla();
+    // primera carga: activos por defecto (search con term vacío + solo_activos=1)
+    await recargarEmpleados('search');
+  } catch (err) {
+    showAlert('danger', err.message || 'Error inicializando el panel');
+  }
+})();

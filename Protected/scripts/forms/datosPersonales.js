@@ -1,252 +1,252 @@
-// scripts/forms/datos_personales.js
-// UI de administración para Datos Personales (DataTable + crear/editar/eliminar)
-// Requiere: datosPersonalesAPI
-
+// UI del Panel de Datos personales
 import { datosPersonalesAPI } from '/admin-resources/scripts/apis/datosPersonalesManager.js';
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-function showAlert(kind, html){
-  const box = $('#alertBox');
-  box.classList.remove('d-none','alert-success','alert-danger','alert-info','alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = html;
-  setTimeout(()=>box.classList.add('d-none'), 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(res){
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  return [];
-}
+const ensurePrefix = (v, prefix) => {
+  const s = String(v ?? '').trim();
+  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+};
+const cli = (id) => ensurePrefix(id, 'cl-');
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
+};
 
-let tabla, modalCrear, modalEditar, modalConfirm;
-let accionConfirm = null; // { type:'delete', datos_id, cliente_id }
-
-const COL_INDEX = { datos_id:0, cliente_id:1, nombre:2, apellidos:3, telefono:4, direccion:5, ciudad:6, codigo_postal:7, pais:8 };
-
-function configurarTabla(){
-  if (tabla){ tabla.destroy(); $('#tablaDP tbody').innerHTML=''; }
-  tabla = new DataTable('#tablaDP', {
-    paging:true,
-    pageLength:10,
-    lengthChange:false,
-    ordering:true,
-    order:[[COL_INDEX.cliente_id,'asc']],
-    searching:true,
-    language:{ url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
-    columns:[
-      { data:'datos_id' },
-      { data:'cliente_id' },
-      { data:'nombre' },
-      { data:'apellidos' },
-      { data:'telefono', defaultContent:'' },
-      { data:'direccion', defaultContent:'' },
-      { data:'ciudad', defaultContent:'' },
-      { data:'codigo_postal', defaultContent:'' },
-      { data:'pais', defaultContent:'' },
-      { data:null, orderable:false, searchable:false, className:'text-end', render:(_v,_t,row)=>
-        `<button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${row.datos_id}"><i class="bi bi-pencil-square"></i> Editar</button>
-         <button class="btn btn-sm btn-outline-danger" data-action="del" data-id="${row.datos_id}"><i class="bi bi-trash"></i> Eliminar</button>`
+// ===== DataTable =====
+let dt;
+function initTabla() {
+  dt = $('#tablaDatosPersonales').DataTable({
+    data: [],
+    columns: [
+      { data: 'datos_id', render: v => v ?? '—' },
+      { data: 'cliente_id', render: v => v ?? '—' },
+      { data: 'nombre', render: v => v ?? '—' },
+      { data: 'apellidos', render: v => v ?? '—' },
+      { data: 'telefono', render: v => v ?? '' },
+      { data: 'ciudad', render: v => v ?? '' },
+      { data: 'codigo_postal', render: v => v ?? '' },
+      { data: 'pais', render: v => v ?? '' },
+      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      {
+        data: null, orderable: false, searchable: false, className: 'text-end',
+        render: (row) => {
+          const id = row.datos_id ?? '';
+          const cliente = row.cliente_id ?? '';
+          return `
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-editar" data-id="${id}" data-cliente="${cliente}" title="Editar">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-eliminar" data-cliente="${cliente}" data-nombre="${row.nombre||''}" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
+        }
       }
-    ]
+    ],
+    order: [[8, 'desc']],
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  $('#tablaDP tbody').addEventListener('click', onRowAction);
+  // Delegación
+  $('#tablaDatosPersonales tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    if (btn.classList.contains('btn-editar')) abrirModalEditar(btn.dataset.id, btn.dataset.cliente);
+    else if (btn.classList.contains('btn-eliminar')) abrirConfirmEliminar(btn.dataset.cliente, btn.dataset.nombre || '');
+  });
 }
 
-function onRowAction(ev){
-  const btn = ev.target.closest('button[data-action]');
-  if (!btn) return;
-  const id = Number(btn.getAttribute('data-id'));
-  const action = btn.getAttribute('data-action');
-  if (action==='edit') return abrirEditar(id);
-  if (action==='del')  return prepararConfirm('delete', id);
+// ===== Carga de datos =====
+async function listarTodos() {
+  const out = await datosPersonalesAPI.getAll();
+  return Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
 }
 
-async function cargarTodos(){
-  try{
-    const rows = unpack(await datosPersonalesAPI.getAll());
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('success','Registros cargados');
-  }catch(err){
-    console.error('cargarTodos',err);
-    showAlert('danger', `Error al listar: ${err.message}`);
+async function listarPorCliente(cliente_id) {
+  const out = await datosPersonalesAPI.getByCliente(cli(cliente_id));
+  const data = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+  // algunos backends devuelven [] o [{...}] por cliente; normalmente 1
+  return data;
+}
+
+async function recargar(escenario = 'all') {
+  try {
+    let rows = [];
+    if (escenario === 'cliente') {
+      const id = $('#filtroCliente').value.trim();
+      if (!id) return showAlert('warning', 'Indica un cliente.');
+      rows = await listarPorCliente(id);
+    } else {
+      rows = await listarTodos();
+    }
+    dt.clear().rows.add(rows).draw();
+    showAlert('success', `Se cargaron ${rows.length} registro(s).`);
+  } catch (err) {
+    showAlert('danger', err.message || 'No se pudieron cargar los datos personales');
   }
 }
 
-async function cargarPorCliente(){
-  const id = $('#filtroCliente').value.trim();
-  if (!id) return showAlert('warning','Proporciona un ID de cliente');
-  try{
-    const rows = unpack(await datosPersonalesAPI.getByCliente(id));
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', rows.length ? `Registro para <strong>${id}</strong>` : `Sin registro para <strong>${id}</strong>`);
-  }catch(err){
-    console.error('cargarPorCliente',err);
-    showAlert('danger', `Error al consultar: ${err.message}`);
+// ===== Filtros =====
+$('#btnBuscarCliente').addEventListener('click', () => recargar('cliente'));
+$('#btnListarTodo').addEventListener('click', () => recargar('all'));
+$('#btnLimpiar').addEventListener('click', () => {
+  $('#filtroCliente').value = '';
+  recargar('all');
+});
+
+// ===== Modal Crear/Editar =====
+const modalDatos = new bootstrap.Modal('#modalDatos');
+
+function limpiarForm() {
+  $('#datos_id').value = '';
+  $('#cliente_id').value = '';
+  $('#nombre').value = '';
+  $('#apellidos').value = '';
+  $('#telefono').value = '';
+  $('#direccion').value = '';
+  $('#ciudad').value = '';
+  $('#codigo_postal').value = '';
+  $('#pais').value = '';
+  $$('#formDatos .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+}
+
+$('#btnNuevo').addEventListener('click', () => {
+  limpiarForm();
+  $('#modalTitulo').textContent = 'Nuevo registro';
+  $('#btnGuardar').textContent = 'Guardar';
+  modalDatos.show();
+  setTimeout(() => $('#cliente_id')?.focus(), 200);
+});
+
+async function abrirModalEditar(datos_id, cliente_id) {
+  try {
+    limpiarForm();
+    $('#modalTitulo').textContent = 'Editar datos';
+    $('#btnGuardar').textContent = 'Actualizar';
+
+    let row = null;
+    if (datos_id) row = (await datosPersonalesAPI.getById(datos_id))?.data ?? null;
+    if (!row && cliente_id) {
+      const list = await listarPorCliente(cliente_id);
+      row = list?.[0];
+    }
+    if (!row) throw new Error('No se pudo cargar el registro');
+
+    $('#datos_id').value = row.datos_id ?? '';
+    $('#cliente_id').value = row.cliente_id ?? '';
+    $('#nombre').value = row.nombre ?? '';
+    $('#apellidos').value = row.apellidos ?? '';
+    $('#telefono').value = row.telefono ?? '';
+    $('#direccion').value = row.direccion ?? '';
+    $('#ciudad').value = row.ciudad ?? '';
+    $('#codigo_postal').value = row.codigo_postal ?? '';
+    $('#pais').value = row.pais ?? '';
+
+    modalDatos.show();
+    setTimeout(() => $('#nombre')?.focus(), 200);
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible abrir el formulario');
   }
 }
 
-function ordenarTabla(){
-  const v = $('#ordenarPor').value;
-  const idx = COL_INDEX[v] ?? COL_INDEX.cliente_id;
-  const dir = (v==='cliente_id') ? 'asc' : 'asc';
-  tabla.order([idx, dir]).draw();
+// ===== Validación =====
+function validarForm() {
+  let ok = true;
+  const reqs = [
+    ['cliente_id', v => !!v.trim()],
+    ['nombre', v => !!v.trim() && v.trim().length <= 50],
+    ['apellidos', v => !!v.trim() && v.trim().length <= 100]
+  ];
+  reqs.forEach(([id, test]) => {
+    const el = document.getElementById(id);
+    el.classList.remove('is-invalid');
+    if (!test(el.value || '')) { el.classList.add('is-invalid'); ok = false; }
+  });
+  // Longitudes opcionales
+  [['telefono', 20], ['direccion', 200], ['ciudad', 50], ['codigo_postal', 10], ['pais', 50]].forEach(([id, max]) => {
+    const el = document.getElementById(id);
+    if ((el.value || '').length > max) { el.classList.add('is-invalid'); ok = false; }
+  });
+  return ok;
 }
 
-function limpiar(){
-  $('#filtroCliente').value='';
-  $('#ordenarPor').value='cliente_id';
-  tabla.clear().draw();
-}
-
-// Validaciones básicas (alineadas con longitudes de la BD)
-function validarCrear(){
-  const c = $('#c_cliente_id').value.trim();
-  const n = $('#c_nombre').value.trim();
-  const a = $('#c_apellidos').value.trim();
-  const tel = $('#c_telefono').value.trim();
-  const cp  = $('#c_cp').value.trim();
-  if (!c) return false;
-  if (!n || n.length>50) return false;
-  if (!a || a.length>100) return false;
-  if (tel && tel.length>20) return false;
-  if (cp && cp.length>10) return false; // (MX: 5 dígitos; se admite genérico ≤10)
-  return true;
-}
-
-async function crear(ev){
+// ===== Guardar (insert/update por cliente_id) =====
+$('#formDatos').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  if (!validarCrear()){ $('#formCrear').classList.add('was-validated'); return; }
+  if (!validarForm()) return;
+
   const payload = {
-    cliente_id:    $('#c_cliente_id').value.trim(),
-    nombre:        $('#c_nombre').value.trim(),
-    apellidos:     $('#c_apellidos').value.trim(),
-    telefono:      $('#c_telefono').value.trim() || null,
-    direccion:     $('#c_direccion').value.trim() || null,
-    ciudad:        $('#c_ciudad').value.trim() || null,
-    codigo_postal: $('#c_cp').value.trim() || null,
-    pais:          $('#c_pais').value.trim() || null
+    cliente_id: cli($('#cliente_id').value.trim()),
+    nombre: $('#nombre').value.trim(),
+    apellidos: $('#apellidos').value.trim(),
+    telefono: $('#telefono').value.trim() || null,
+    direccion: $('#direccion').value.trim() || null,
+    ciudad: $('#ciudad').value.trim() || null,
+    codigo_postal: $('#codigo_postal').value.trim() || null,
+    pais: $('#pais').value.trim() || null
   };
-  try{
-    await datosPersonalesAPI.insert(payload);
-    showAlert('success','Datos personales creados');
-    modalCrear.hide();
-    $('#filtroCliente').value = payload.cliente_id;
-    await cargarPorCliente();
-  }catch(err){
-    console.error('crear',err);
-    showAlert('danger', `No se pudo crear: ${err.message}`);
+
+  try {
+    if ($('#datos_id').value.trim()) {
+      await datosPersonalesAPI.update(payload);
+      showAlert('success', 'Datos personales actualizados.');
+    } else {
+      await datosPersonalesAPI.insert(payload);
+      showAlert('success', 'Datos personales guardados.');
+    }
+    modalDatos.hide();
+    const filtro = $('#filtroCliente').value.trim();
+    await recargar(filtro ? 'cliente' : 'all');
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible guardar');
   }
-}
+});
 
-function validarEditar(){
-  const n = $('#e_nombre').value.trim();
-  const a = $('#e_apellidos').value.trim();
-  const tel = $('#e_telefono').value.trim();
-  const cp  = $('#e_cp').value.trim();
-  if (!n || n.length>50) return false;
-  if (!a || a.length>100) return false;
-  if (tel && tel.length>20) return false;
-  if (cp && cp.length>10) return false;
-  return true;
-}
+// ===== Confirmación (Eliminar por cliente) =====
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
 
-async function abrirEditar(datos_id){
-  try{
-    const row = (await datosPersonalesAPI.getById(datos_id))?.data || null;
-    if (!row) throw new Error('No encontrado');
-    $('#e_datos_id').value = row.datos_id;
-    $('#e_cliente_id').value = row.cliente_id;
-    $('#e_nombre').value = row.nombre || '';
-    $('#e_apellidos').value = row.apellidos || '';
-    $('#e_telefono').value = row.telefono || '';
-    $('#e_direccion').value = row.direccion || '';
-    $('#e_ciudad').value = row.ciudad || '';
-    $('#e_cp').value = row.codigo_postal || '';
-    $('#e_pais').value = row.pais || '';
-    $('#formEditar').classList.remove('was-validated');
-    modalEditar.show();
-  }catch(err){
-    console.error('abrirEditar',err);
-    showAlert('danger', `No se pudo cargar: ${err.message}`);
-  }
-}
-
-async function guardar(ev){
-  ev.preventDefault();
-  if (!validarEditar()){ $('#formEditar').classList.add('was-validated'); return; }
-  const payload = {
-    cliente_id:    $('#e_cliente_id').value.trim(), // requerido por /update
-    nombre:        $('#e_nombre').value.trim(),
-    apellidos:     $('#e_apellidos').value.trim(),
-    telefono:      $('#e_telefono').value.trim() || null,
-    direccion:     $('#e_direccion').value.trim() || null,
-    ciudad:        $('#e_ciudad').value.trim() || null,
-    codigo_postal: $('#e_cp').value.trim() || null,
-    pais:          $('#e_pais').value.trim() || null
-  };
-  try{
-    await datosPersonalesAPI.update(payload);
-    showAlert('success','Actualizado correctamente');
-    modalEditar.hide();
-    const cli = $('#filtroCliente').value.trim();
-    if (cli) await cargarPorCliente(); else await cargarTodos();
-  }catch(err){
-    console.error('guardar',err);
-    showAlert('danger', `No se pudo actualizar: ${err.message}`);
-  }
-}
-
-function prepararConfirm(type, datos_id){
-  accionConfirm = { type, datos_id };
-  $('#confirmMsg').innerHTML = `¿Eliminar el registro #<strong>${datos_id}</strong>?`;
+function abrirConfirmEliminar(cliente_id, nombre='') {
+  $('#confirmAccion').value = 'eliminar';
+  $('#confirmClienteId').value = cliente_id || '';
+  $('#confirmTitulo').textContent = 'Eliminar datos personales';
+  $('#confirmMsg').textContent = `¿Eliminar los datos personales del cliente ${cliente_id}${nombre ? ` (${nombre})` : ''}? Esta acción no se puede deshacer.`;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm(){
-  if (!accionConfirm) return;
-  const { datos_id } = accionConfirm;
-  try{
-    // Necesitamos cliente_id para /delete
-    const row = (await datosPersonalesAPI.getById(datos_id))?.data;
-    if (!row) throw new Error('Registro no encontrado');
-    await datosPersonalesAPI.remove(row.cliente_id);
-    showAlert('success','Eliminado correctamente');
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const cliente_id = $('#confirmClienteId').value || $('#cliente_id').value;
+  try {
+    if (accion === 'eliminar') {
+      await datosPersonalesAPI.remove(cli(cliente_id));
+    }
     modalConfirm.hide();
-    const cli = $('#filtroCliente').value.trim();
-    if (cli) await cargarPorCliente(); else await cargarTodos();
-  }catch(err){
-    console.error('ejecutarConfirm',err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
-  }finally{
-    accionConfirm = null;
+    showAlert('success', 'Registro eliminado.');
+    const filtro = $('#filtroCliente').value.trim();
+    await recargar(filtro ? 'cliente' : 'all');
+  } catch (err) {
+    modalConfirm.hide();
+    showAlert('danger', err.message || 'No fue posible eliminar');
   }
-}
+});
 
-async function init(){
-  modalCrear  = new bootstrap.Modal('#modalCrear');
-  modalEditar = new bootstrap.Modal('#modalEditar');
-  modalConfirm= new bootstrap.Modal('#modalConfirm');
-
-  configurarTabla();
-  // Por seguridad, este módulo arranca vacío; listamos todo sólo a petición
-
-  // Filtros/acciones
-  $('#btnBuscarCliente').addEventListener('click', cargarPorCliente);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiar);
-  $('#btnListarTodos').addEventListener('click', cargarTodos);
-  $('#btnNuevo').addEventListener('click', ()=>{ $('#formCrear').reset(); $('#formCrear').classList.remove('was-validated'); modalCrear.show(); });
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Formularios
-  $('#formCrear').addEventListener('submit', crear);
-  $('#formEditar').addEventListener('submit', guardar);
-}
-
-window.addEventListener('DOMContentLoaded', init);
+// ===== Boot =====
+(async function boot() {
+  try {
+    initTabla();
+    await recargar('all');
+  } catch (err) {
+    showAlert('danger', err.message || 'Error inicializando el panel');
+  }
+})();

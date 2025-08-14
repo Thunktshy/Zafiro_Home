@@ -1,281 +1,264 @@
-// scripts/forms/productos.js
-// UI de administración para Productos (DataTable + modales + CRUD)
-// Requiere: productosAPI (productosManager.js) y categoriasAPI (categoriesManager.js)
-
-import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
+// Controlador de UI del Panel de Productos
 import { categoriasAPI } from '/admin-resources/scripts/apis/categoriesManager.js';
+import { productosAPI } from '/admin-resources/scripts/apis/productosManager.js';
 
-// Utilidades UI
-const $ = (sel, ctx = document) => ctx.querySelector(sel);
+// ===== Helpers DOM / feedback =====
+const $  = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-const money = (n) => (Number(n) || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+const alertBox = $('#alertBox');
 
-function showAlert(kind, msg) {
-  const box = $('#alertBox');
-  box.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-info', 'alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.textContent = msg;
-  // auto-hide
-  setTimeout(() => { box.classList.add('d-none'); }, 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(response) {
-  // Soporta { success, data } o respuesta directa (Array)
-  if (!response) return [];
-  if (Array.isArray(response)) return response;
-  if (typeof response === 'object' && Array.isArray(response.data)) return response.data;
-  return [];
-}
+const fmtMoney = (v) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }).format(Number(v || 0));
 
-function stateBadge(estado) {
-  const e = String(estado || '').toLowerCase();
-  const cls = e === 'activo' ? 'bg-success' : 'bg-secondary';
-  return `<span class="badge ${cls}">${e || 'N/D'}</span>`;
-}
-
-let tabla; // instancia DataTable
-let modalProducto, modalConfirm; // bootstrap modals
-let accionConfirm = null; // { type: 'soft'|'restore'|'hard', id }
-
-// Mapea campo → índice de columna en la tabla para ordenar
-const COL_INDEX = {
-  producto_id: 0,
-  nombre_producto: 1,
-  descripcion: 2,
-  precio_unitario: 3,
-  stock: 4,
-  categoria_id: 5,
-  estado_producto: 6,
-  fecha_creacion: 7
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleDateString('es-MX') : (v || '—');
 };
 
+// ===== Estado local =====
+let dt; // DataTable instance
+let categorias = [];               // [{ categoria_id, nombre_categoria }]
+const catMap = new Map();          // id -> nombre
+
+// ====== Cargar categorías (filtros + modal) ======
 async function cargarCategorias() {
-  try {
-    const res = await categoriasAPI.getList();
-    const items = unpack(res);
+  const res = await categoriasAPI.getList(); // puede venir como {data:[...]} o array plano
+  const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  categorias = list;
+  catMap.clear();
+  list.forEach(c => catMap.set(Number(c.categoria_id), c.nombre_categoria));
 
-    const selFiltro = $('#filtroCategoria');
-    const selModal = $('#categoria_id');
-
-    // limpia
-    selFiltro.innerHTML = '<option value="">(Todas)</option>';
-    selModal.innerHTML = '<option value="">Selecciona…</option>';
-
-    for (const it of items) {
-      // categories.get_list suele exponer { categoria_id, nombre_categoria }
-      const id = it.categoria_id ?? it.id ?? it.value;
-      const name = it.nombre_categoria ?? it.nombre ?? it.text;
-      selFiltro.insertAdjacentHTML('beforeend', `<option value="${id}">${name}</option>`);
-      selModal.insertAdjacentHTML('beforeend', `<option value="${id}">${name}</option>`);
-    }
-  } catch (err) {
-    console.error('cargarCategorias error:', err);
-    showAlert('danger', `No se pudieron cargar categorías: ${err.message}`);
-  }
+  // popular selects
+  const filtro = $('#filtroCategoria');
+  const selModal = $('#categoria_id');
+  [filtro, selModal].forEach(sel => {
+    // limpiar menos la opción (Todas) del filtro
+    const opts = sel.querySelectorAll('option:not(:first-child)');
+    opts.forEach(o => o.remove());
+    list.forEach(({ categoria_id, nombre_categoria }) => {
+      const opt = document.createElement('option');
+      opt.value = String(categoria_id);
+      opt.textContent = `${nombre_categoria} (ID ${categoria_id})`;
+      sel.appendChild(opt);
+    });
+  });
 }
 
-function configurarTabla() {
-  if (tabla) {
-    tabla.destroy();
-    $('#tablaProductos tbody').innerHTML = '';
-  }
-  tabla = new DataTable('#tablaProductos', {
-    paging: true,
-    pageLength: 10,
-    lengthChange: false,
-    ordering: true,
-    order: [[COL_INDEX.nombre_producto, 'asc']],
-    searching: true,
-    language: {
-      url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
-    },
+// ====== DataTable ======
+function initTabla() {
+  dt = $('#tablaProductos').DataTable({
+    data: [],
     columns: [
       { data: 'producto_id' },
       { data: 'nombre_producto' },
       { data: 'descripcion', defaultContent: '' },
-      { data: 'precio_unitario', render: (v) => money(v) },
+      {
+        data: 'precio_unitario',
+        render: (d) => fmtMoney(d)
+      },
       { data: 'stock' },
-      { data: 'categoria_id' },
-      { data: 'estado_producto', render: (v) => stateBadge(v) },
-      { data: 'fecha_creacion', render: (v) => v ? new Date(v).toLocaleString('es-MX') : '' },
+      {
+        data: 'categoria_id',
+        render: (id) => {
+          const name = catMap.get(Number(id)) || '';
+          return name ? `${id} — ${name}` : String(id ?? '');
+        }
+      },
+      { data: 'estado_producto' },
+      { data: 'fecha_creacion', render: (d) => fmtDate(d) },
       {
         data: null,
         orderable: false,
         searchable: false,
         className: 'text-end',
-        render: (_v, _t, row) => {
+        render: (row) => {
           const id = row.producto_id;
-          const isInactive = String(row.estado_producto).toLowerCase() === 'inactivo';
-          const softBtn = isInactive
-            ? `<button class="btn btn-sm btn-outline-success me-1" data-action="restore" data-id="${id}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`
-            : `<button class="btn btn-sm btn-outline-warning me-1" data-action="soft" data-id="${id}"><i class="bi bi-slash-circle"></i> Desactivar</button>`;
           return `
-            <button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${id}"><i class="bi bi-pencil-square"></i> Editar</button>
-            ${softBtn}
-            <button class="btn btn-sm btn-outline-danger" data-action="hard" data-id="${id}"><i class="bi bi-trash"></i> Eliminar</button>
-          `;
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-name="${(row.nombre_producto||'').replaceAll('"','&quot;')}" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
         }
       }
-    ]
+    ],
+    order: [[1, 'asc']],
+    language: {
+      url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
+    }
   });
 
-  // Delegación de eventos de acciones
-  $('#tablaProductos tbody').addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-action]');
+  // Delegación de eventos en acciones de la tabla
+  $('#tablaProductos tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
     if (!btn) return;
-    const id = btn.getAttribute('data-id');
-    const action = btn.getAttribute('data-action');
-
-    if (action === 'edit') {
+    const id = btn.dataset.id;
+    if (btn.classList.contains('btn-editar')) {
       abrirModalEditar(id);
-    } else if (action === 'soft' || action === 'restore' || action === 'hard') {
-      prepararConfirm(action, id);
+    } else if (btn.classList.contains('btn-eliminar')) {
+      abrirModalEliminar(id, btn.dataset.name || '');
     }
   });
 }
 
-async function cargarTodos() {
+// ====== Carga de datos ======
+async function recargarProductos(origen = 'all') {
   try {
-    const res = await productosAPI.getAll();
-    const rows = unpack(res);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('success', 'Productos cargados');
+    let data;
+    const nombre = $('#filtroNombre').value.trim();
+    const catId  = $('#filtroCategoria').value.trim();
+
+    if (origen === 'nombre' && nombre) {
+      data = await productosAPI.getByName(nombre);
+    } else if (origen === 'categoria' && catId) {
+      data = await productosAPI.getByCategoria(Number(catId));
+    } else {
+      data = await productosAPI.getAll();
+    }
+
+    const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    dt.clear().rows.add(rows).draw();
+
+    showAlert('success', `Se cargaron ${rows.length} producto(s).`);
   } catch (err) {
-    console.error('cargarTodos error:', err);
-    showAlert('danger', `Error al cargar productos: ${err.message}`);
+    showAlert('danger', err.message || 'No se pudieron cargar los productos');
   }
 }
 
-async function buscarPorNombre() {
-  const nombre = $('#filtroNombre').value.trim();
-  if (!nombre) return showAlert('warning', 'Escribe un nombre para buscar.');
-  try {
-    const res = await productosAPI.getByName(nombre);
-    const rows = unpack(res);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Resultados para nombre = "${nombre}"`);
-  } catch (err) {
-    console.error('buscarPorNombre error:', err);
-    showAlert('danger', `Error al buscar por nombre: ${err.message}`);
-  }
+// ====== Filtros / acciones de barra ======
+function wireFiltros() {
+  $('#btnBuscarNombre').addEventListener('click', () => recargarProductos('nombre'));
+  $('#filtroCategoria').addEventListener('change', () => recargarProductos('categoria'));
+
+  $('#ordenarPor').addEventListener('change', (e) => {
+    const col = String(e.target.value);
+    // Mapa columnas -> índice en la DataTable
+    const colIndex = {
+      producto_id: 0,
+      nombre_producto: 1,
+      descripcion: 2,
+      precio_unitario: 3,
+      stock: 4,
+      categoria_id: 5,
+      estado_producto: 6,
+      fecha_creacion: 7
+    }[col] ?? 1;
+    dt.order([colIndex, 'asc']).draw();
+  });
+
+  $('#btnLimpiar').addEventListener('click', () => {
+    $('#filtroNombre').value = '';
+    $('#filtroCategoria').value = '';
+    $('#ordenarPor').value = 'nombre_producto';
+    recargarProductos('all');
+  });
+
+  $('#btnNuevo').addEventListener('click', abrirModalNuevo);
 }
 
-async function filtrarPorCategoria() {
-  const cid = $('#filtroCategoria').value;
-  if (!cid) return cargarTodos();
-  try {
-    const res = await productosAPI.getByCategoria(cid);
-    const rows = unpack(res);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Resultados para categoría #${cid}`);
-  } catch (err) {
-    console.error('filtrarPorCategoria error:', err);
-    showAlert('danger', `Error al filtrar por categoría: ${err.message}`);
-  }
-}
+// ====== Modales ======
+const modalProd   = new bootstrap.Modal('#modalProducto');
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
 
-function ordenarTabla() {
-  const value = $('#ordenarPor').value;
-  const idx = COL_INDEX[value] ?? COL_INDEX.nombre_producto;
-  tabla.order([idx, 'asc']).draw();
-}
-
-function limpiarFiltros() {
-  $('#filtroNombre').value = '';
-  $('#filtroCategoria').value = '';
-  $('#ordenarPor').value = 'nombre_producto';
-  cargarTodos();
-}
-
-function abrirModalNuevo() {
-  $('#modalProductoTitulo').textContent = 'Nuevo producto';
+function limpiarFormulario() {
   $('#producto_id').value = '';
   $('#nombre_producto').value = '';
   $('#descripcion').value = '';
   $('#precio_unitario').value = '';
   $('#stock').value = '';
-  $('#estado_producto').value = 'activo';
   $('#categoria_id').value = '';
-
-  $('#formProducto').classList.remove('was-validated');
-  modalProducto.show();
+  $('#estado_producto').value = 'activo';
+  // quitar invalid
+  $$('#formProducto .is-invalid').forEach(el => el.classList.remove('is-invalid'));
 }
 
-async function abrirModalEditar(id) {
+function abrirModalNuevo() {
+  limpiarFormulario();
+  $('#modalProductoTitulo').textContent = 'Nuevo producto';
+  $('#btnGuardar').textContent = 'Guardar';
+  modalProd.show();
+  setTimeout(() => $('#nombre_producto')?.focus(), 200);
+}
+
+async function abrirModalEditar(producto_id) {
+  limpiarFormulario();
+  $('#modalProductoTitulo').textContent = 'Editar producto';
+  $('#btnGuardar').textContent = 'Actualizar';
+
   try {
-    const res = await productosAPI.getOne(id);
-    const data = res?.data || res; // soporta { data: {...} }
+    // Si ya está en la tabla, úsalo; si prefieres la API exacta, descomenta getOne
+    const row = dt
+      .rows()
+      .data()
+      .toArray()
+      .find(r => String(r.producto_id) === String(producto_id));
+    // const row = (await productosAPI.getOne(producto_id))?.data;
 
-    $('#modalProductoTitulo').textContent = `Editar · ${data.producto_id}`;
-    $('#producto_id').value = data.producto_id;
-    $('#nombre_producto').value = data.nombre_producto || '';
-    $('#descripcion').value = data.descripcion || '';
-    $('#precio_unitario').value = data.precio_unitario ?? '';
-    $('#stock').value = data.stock ?? '';
-    $('#estado_producto').value = (data.estado_producto || 'activo');
-    $('#categoria_id').value = data.categoria_id ?? '';
+    if (!row) throw new Error('No se pudo cargar el producto');
 
-    $('#formProducto').classList.remove('was-validated');
-    modalProducto.show();
+    $('#producto_id').value = row.producto_id || '';
+    $('#nombre_producto').value = row.nombre_producto || '';
+    $('#descripcion').value = row.descripcion || '';
+    $('#precio_unitario').value = row.precio_unitario ?? '';
+    $('#stock').value = row.stock ?? '';
+    $('#categoria_id').value = row.categoria_id ?? '';
+    $('#estado_producto').value = row.estado_producto || 'activo';
+
+    modalProd.show();
+    setTimeout(() => $('#nombre_producto')?.focus(), 200);
   } catch (err) {
-    console.error('abrirModalEditar error:', err);
-    showAlert('danger', `No se pudo cargar el producto: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible abrir el formulario');
   }
 }
 
-function prepararConfirm(type, id) {
-  accionConfirm = { type, id };
-  const msg = type === 'hard'
-    ? `¿Eliminar definitivamente el producto <strong>${id}</strong>?`
-    : type === 'soft'
-      ? `¿Desactivar el producto <strong>${id}</strong>? Podrás restaurarlo luego.`
-      : `¿Restaurar el producto <strong>${id}</strong>?`;
-  $('#confirmMsg').innerHTML = msg;
+function abrirModalEliminar(id, nombre='') {
+  $('#confirmId').value = id;
+  $('#confirmMsg').textContent = `¿Eliminar el producto "${nombre}" (ID ${id})? Esta acción no se puede deshacer.`;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm() {
-  if (!accionConfirm) return;
-  const { type, id } = accionConfirm;
-  try {
-    if (type === 'hard') await productosAPI.remove(id);
-    else if (type === 'soft') await productosAPI.softDelete(id);
-    else if (type === 'restore') await productosAPI.restore(id);
-
-    modalConfirm.hide();
-    accionConfirm = null;
-    await cargarTodos();
-  } catch (err) {
-    console.error('ejecutarConfirm error:', err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
-  }
-}
-
+// ====== Validación mínima del formulario ======
 function validarFormulario() {
-  const form = $('#formProducto');
-  form.classList.add('was-validated');
+  let ok = true;
 
-  const nombre = $('#nombre_producto').value.trim();
-  const precio = Number($('#precio_unitario').value);
-  const stock = Number($('#stock').value);
-  const cat = $('#categoria_id').value;
+  const nombre = $('#nombre_producto');
+  const precio = $('#precio_unitario');
+  const stock  = $('#stock');
+  const cat    = $('#categoria_id');
 
-  if (!nombre || nombre.length > 50) return false;
-  if (!Number.isFinite(precio) || precio < 0) return false;
-  if (!Number.isInteger(stock) || stock < 0) return false;
-  if (!cat) return false;
-  return true;
+  // limpiar
+  [nombre, precio, stock, cat].forEach(el => el.classList.remove('is-invalid'));
+
+  if (!nombre.value.trim() || nombre.value.trim().length > 50) {
+    nombre.classList.add('is-invalid'); ok = false;
+  }
+  const nPrecio = Number(precio.value);
+  if (!Number.isFinite(nPrecio) || nPrecio < 0) { precio.classList.add('is-invalid'); ok = false; }
+
+  const nStock = Number(stock.value);
+  if (!Number.isInteger(nStock) || nStock < 0) { stock.classList.add('is-invalid'); ok = false; }
+
+  if (!cat.value) { cat.classList.add('is-invalid'); ok = false; }
+
+  return ok;
 }
 
-async function guardarProducto(ev) {
+// ====== Guardar (insert/update) ======
+$('#formProducto').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   if (!validarFormulario()) return;
 
   const payload = {
-    producto_id: $('#producto_id').value.trim(),
     nombre_producto: $('#nombre_producto').value.trim(),
     descripcion: $('#descripcion').value.trim() || null,
     precio_unitario: Number($('#precio_unitario').value),
@@ -284,45 +267,44 @@ async function guardarProducto(ev) {
     estado_producto: $('#estado_producto').value
   };
 
+  const producto_id = $('#producto_id').value.trim();
+
   try {
-    if (payload.producto_id) {
-      await productosAPI.update(payload);
+    if (producto_id) {
+      await productosAPI.update({ producto_id, ...payload });
       showAlert('success', 'Producto actualizado correctamente');
     } else {
-      // En insert, el backend genera producto_id con prefijo prd- y secuencia
-      const { producto_id, ...body } = payload; // no enviar id
-      await productosAPI.insert(body);
+      await productosAPI.insert(payload);
       showAlert('success', 'Producto creado correctamente');
     }
-    modalProducto.hide();
-    await cargarTodos();
+    modalProd.hide();
+    recargarProductos('all');
   } catch (err) {
-    console.error('guardarProducto error:', err);
-    showAlert('danger', `No se pudo guardar: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible guardar el producto');
   }
-}
+});
 
-async function init() {
-  // Instancia de modales
-  modalProducto = new bootstrap.Modal('#modalProducto');
-  modalConfirm  = new bootstrap.Modal('#modalConfirm');
+// ====== Confirmar eliminación (hard delete) ======
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const id = $('#confirmId').value;
+  try {
+    await productosAPI.remove(id);
+    modalConfirm.hide();
+    showAlert('success', 'Producto eliminado');
+    recargarProductos('all');
+  } catch (err) {
+    showAlert('danger', err.message || 'No se pudo eliminar');
+  }
+});
 
-  // DataTable + datos base
-  configurarTabla();
-  await cargarCategorias();
-  await cargarTodos();
-
-  // Eventos de filtros/acciones
-  $('#btnBuscarNombre').addEventListener('click', buscarPorNombre);
-  $('#filtroCategoria').addEventListener('change', filtrarPorCategoria);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiarFiltros);
-  $('#btnNuevo').addEventListener('click', abrirModalNuevo);
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Guardado del formulario (create/update)
-  $('#formProducto').addEventListener('submit', guardarProducto);
-}
-
-// Espera a que carguen las dependencias (bootstrap/dataTables)
-window.addEventListener('DOMContentLoaded', init);
+// ====== Boot ======
+(async function boot() {
+  try {
+    await cargarCategorias();  // llena selects usando categoriasManager
+    initTabla();               // prepara DataTable
+    wireFiltros();             // listeners
+    await recargarProductos('all'); // primera carga
+  } catch (err) {
+    showAlert('danger', err.message || 'Error inicializando el panel');
+  }
+})();

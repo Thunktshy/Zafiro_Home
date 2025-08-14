@@ -1,244 +1,245 @@
-// scripts/forms/clientes.js
-// UI de administración para Clientes (DataTable + crear/editar + soft/reactivar/hard + registrar_login)
-// Requiere: clientsAPI
-
+// UI del Panel de Clientes
 import { clientsAPI } from '/admin-resources/scripts/apis/clientesManager.js';
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-function showAlert(kind, html){
-  const box = $('#alertBox');
-  box.classList.remove('d-none','alert-success','alert-danger','alert-info','alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = html;
-  setTimeout(()=>box.classList.add('d-none'), 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(res){
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  return [];
-}
+// helpers
+const ensurePrefix = (v, prefix) => {
+  const s = String(v ?? '').trim();
+  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+};
+const cli = (id) => ensurePrefix(id, 'cl-');
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
+};
 
-let tabla, modalCrear, modalEditar, modalConfirm;
-let accionConfirm = null; // { type:'soft'|'reactivar'|'hard'|'login', id }
-
-const COL_INDEX = { cliente_id:0, cuenta:1, email:2, estado:3, ultimo_login:4, fecha_registro:5 };
-
-function badgeEstado(row){
-  const activo = (row.estado === 1) || String(row.estado||'').toString() === '1';
-  return `<span class="badge ${activo? 'bg-success' : 'bg-secondary'}">${activo? 'Activo':'Inactivo'}</span>`;
-}
-
-function configurarTabla(){
-  if (tabla){ tabla.destroy(); $('#tablaClientes tbody').innerHTML=''; }
-  tabla = new DataTable('#tablaClientes', {
-    paging:true,
-    pageLength:10,
-    lengthChange:false,
-    ordering:true,
-    order:[[COL_INDEX.cuenta,'asc']],
-    searching:true,
-    language:{ url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
-    columns:[
-      { data:'cliente_id' },
-      { data:'cuenta' },
-      { data:'email' },
-      { data:null, render:(_v,_t,row)=>badgeEstado(row) },
-      { data:'ultimo_login', render:v=> v? new Date(v).toLocaleString('es-MX'):'' },
-      { data:'fecha_registro', render:v=> v? new Date(v).toLocaleString('es-MX'):'' },
-      { data:null, orderable:false, searchable:false, className:'text-end', render:(_v,_t,row)=>{
-          const activo = (row.estado === 1) || String(row.estado||'') === '1';
-          const softBtn = activo
-            ? `<button class="btn btn-sm btn-outline-warning me-1" data-action="soft" data-id="${row.cliente_id}"><i class="bi bi-slash-circle"></i> Desactivar</button>`
-            : `<button class="btn btn-sm btn-outline-success me-1" data-action="reactivar" data-id="${row.cliente_id}"><i class="bi bi-arrow-counterclockwise"></i> Reactivar</button>`;
+// ===== DataTable =====
+let dt;
+function initTabla() {
+  dt = $('#tablaClientes').DataTable({
+    data: [],
+    columns: [
+      { data: 'cliente_id', render: v => v ?? '—' },
+      { data: 'cuenta', render: v => v ?? '—' },
+      { data: 'email', render: v => v ?? '—' },
+      { data: 'estado', render: v => (v == null ? '—' : (Number(v) ? 'activo' : 'inactivo')) },
+      { data: 'ultimo_acceso', render: v => fmtDate(v) },
+      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      {
+        data: null, orderable: false, searchable: false, className: 'text-end',
+        render: (row) => {
+          const id = row.cliente_id;
+          const activo = Number(row.estado) === 1;
           return `
-            <button class="btn btn-sm btn-primary me-1" data-action="edit" data-id="${row.cliente_id}"><i class="bi bi-pencil-square"></i> Editar</button>
-            ${softBtn}
-            <button class="btn btn-sm btn-outline-dark me-1" data-action="login" data-id="${row.cliente_id}"><i class="bi bi-clock-history"></i> Registrar login</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="hard" data-id="${row.cliente_id}"><i class="bi bi-trash"></i> Eliminar</button>`;
-        }}
-    ]
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              ${activo
+                ? `<button class="btn btn-outline-warning btn-desactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Desactivar">
+                     <i class="fa-solid fa-user-slash"></i>
+                   </button>`
+                : `<button class="btn btn-outline-success btn-reactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Reactivar">
+                     <i class="fa-solid fa-user-check"></i>
+                   </button>`
+              }
+              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
+        }
+      }
+    ],
+    order: [[5, 'desc']], // por fecha_creacion
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  $('#tablaClientes tbody').addEventListener('click', onRowAction);
+  // delegación de eventos
+  $('#tablaClientes tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.classList.contains('btn-editar')) abrirModalEditar(id);
+    else if (btn.classList.contains('btn-desactivar')) abrirConfirm('desactivar', id, btn.dataset.cuenta);
+    else if (btn.classList.contains('btn-reactivar')) abrirConfirm('reactivar', id, btn.dataset.cuenta);
+    else if (btn.classList.contains('btn-eliminar')) abrirConfirm('eliminar', id, btn.dataset.cuenta);
+  });
 }
 
-function onRowAction(ev){
-  const btn = ev.target.closest('button[data-action]');
-  if (!btn) return;
-  const id = btn.getAttribute('data-id');
-  const action = btn.getAttribute('data-action');
-  if (action==='edit') return abrirEditar(id);
-  if (action==='soft') return prepararConfirm('soft', id);
-  if (action==='reactivar') return prepararConfirm('reactivar', id);
-  if (action==='hard') return prepararConfirm('hard', id);
-  if (action==='login') return prepararConfirm('login', id);
-}
+// ===== Carga de datos =====
+async function recargarClientes(origen='search') {
+  try {
+    let rows = [];
+    if (origen === 'byId') {
+      const id = $('#filtroId').value.trim();
+      if (!id) return showAlert('warning', 'Indica un ID.');
+      const out = await clientsAPI.getOne(cli(id));
+      const r = out?.data ?? out; // según backend
+      rows = r ? [r] : [];
+    } else {
+      const term = $('#filtroTerm').value.trim();
+      const solo_activos = $('#soloActivos').checked ? 1 : 0;
+      const out = await clientsAPI.search({ term, solo_activos });
+      rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    }
 
-async function listar(term='', solo_activos=1){
-  try{
-    const ids = unpack(await clientsAPI.search({ term, solo_activos })).map(r=>r.cliente_id);
-    const results = await Promise.all(ids.map(id => clientsAPI.getOne(id).then(r=>r?.data)));
-    const rows = results.filter(Boolean);
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    if (term) showAlert('info', `Resultados para "${term}" (${rows.length})`);
-    else showAlert('success','Listado actualizado');
-  }catch(err){
-    console.error('listar',err);
-    showAlert('danger', `Error al listar/buscar: ${err.message}`);
+    dt.clear().rows.add(rows).draw();
+    showAlert('success', `Se cargaron ${rows.length} cliente(s).`);
+  } catch (err) {
+    showAlert('danger', err.message || 'No se pudieron cargar los clientes');
   }
 }
 
-async function cargarTodos(){
-  const term = '';
-  const solo = $('#soloActivos').checked ? 1 : 0;
-  await listar(term, solo);
+// ===== Filtros =====
+$('#btnBuscar').addEventListener('click', () => recargarClientes('search'));
+$('#btnBuscarId').addEventListener('click', () => recargarClientes('byId'));
+$('#btnLimpiar').addEventListener('click', () => {
+  $('#filtroTerm').value = '';
+  $('#filtroId').value = '';
+  $('#soloActivos').checked = true;
+  recargarClientes('search');
+});
+
+// ===== Modal Crear/Editar =====
+const modalCli = new bootstrap.Modal('#modalCliente');
+
+function limpiarForm() {
+  $('#cliente_id').value = '';
+  $('#cuenta').value = '';
+  $('#email').value = '';
+  $('#contrasena').value = '';
+  $$('#formCliente .is-invalid').forEach(el => el.classList.remove('is-invalid'));
 }
 
-async function buscar(){
-  const term = $('#filtroTerm').value.trim();
-  const solo = $('#soloActivos').checked ? 1 : 0;
-  if (!term) return cargarTodos();
-  await listar(term, solo);
+$('#btnNuevo').addEventListener('click', () => {
+  limpiarForm();
+  $('#modalClienteTitulo').textContent = 'Nuevo cliente';
+  $('#grupoContrasena').classList.remove('d-none'); // en alta se pide contraseña
+  $('#contrasena').required = true;
+  $('#btnGuardar').textContent = 'Guardar';
+  modalCli.show();
+  setTimeout(() => $('#cuenta')?.focus(), 200);
+});
+
+async function abrirModalEditar(cliente_id) {
+  limpiarForm();
+  $('#modalClienteTitulo').textContent = 'Editar cliente';
+  $('#btnGuardar').textContent = 'Actualizar';
+  $('#grupoContrasena').classList.add('d-none'); // no se cambia aquí
+  $('#contrasena').required = false;
+
+  try {
+    // si el backend no expone getOne con todo, también vale tomar de la tabla:
+    const tableRow = dt.rows().data().toArray().find(r => String(r.cliente_id) === String(cliente_id));
+    const row = tableRow ?? (await clientsAPI.getOne(cliente_id))?.data;
+    if (!row) throw new Error('No se pudo cargar el cliente');
+
+    $('#cliente_id').value = row.cliente_id || '';
+    $('#cuenta').value = row.cuenta || '';
+    $('#email').value = row.email || '';
+
+    modalCli.show();
+    setTimeout(() => $('#cuenta')?.focus(), 200);
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible abrir el formulario');
+  }
 }
 
-function ordenarTabla(){
-  const v = $('#ordenarPor').value;
-  const idx = COL_INDEX[v] ?? COL_INDEX.cuenta;
-  const dir = (v==='fecha_registro' || v==='ultimo_login') ? 'desc' : (v==='estado' ? 'desc' : 'asc');
-  tabla.order([idx, dir]).draw();
+function validarForm(esAlta) {
+  let ok = true;
+  const cuenta = $('#cuenta');
+  const email = $('#email');
+  const pass = $('#contrasena');
+  [cuenta, email, pass].forEach(el => el.classList.remove('is-invalid'));
+
+  if (!cuenta.value.trim() || cuenta.value.trim().length > 20) { cuenta.classList.add('is-invalid'); ok = false; }
+  const emailVal = email.value.trim();
+  if (!emailVal || emailVal.length > 150 || !/\S+@\S+\.\S+/.test(emailVal)) { email.classList.add('is-invalid'); ok = false; }
+  if (esAlta && !pass.value.trim()) { pass.classList.add('is-invalid'); ok = false; }
+
+  return ok;
 }
 
-function limpiar(){
-  $('#filtroTerm').value='';
-  $('#soloActivos').checked=true;
-  $('#ordenarPor').value='cuenta';
-  cargarTodos();
-}
-
-function validarCrear(){
-  const cta = $('#c_cuenta').value.trim();
-  const em  = $('#c_email').value.trim();
-  const pw  = $('#c_contrasena').value.trim();
-  if (!cta || cta.length>20) return false;
-  if (!em || em.length>150 || !em.includes('@')) return false;
-  if (!pw || pw.length<8) return false;
-  return true;
-}
-
-async function crear(ev){
+$('#formCliente').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  if (!validarCrear()) { $('#formCrear').classList.add('was-validated'); return; }
-  const cuenta = $('#c_cuenta').value.trim();
-  const email  = $('#c_email').value.trim();
-  const contrasena = $('#c_contrasena').value.trim();
-  try{
-    await clientsAPI.insert({ cuenta, email, contrasena });
-    showAlert('success','Cliente creado correctamente');
-    modalCrear.hide();
-    await cargarTodos();
-  }catch(err){
-    console.error('crear',err);
-    showAlert('danger', `No se pudo crear: ${err.message}`);
+  const esAlta = !$('#cliente_id').value.trim();
+  if (!validarForm(esAlta)) return;
+
+  try {
+    if (esAlta) {
+      await clientsAPI.insert({
+        cuenta: $('#cuenta').value.trim(),
+        email: $('#email').value.trim(),
+        contrasena: $('#contrasena').value.trim()
+      });
+      showAlert('success', 'Cliente creado correctamente.');
+    } else {
+      await clientsAPI.update({
+        cliente_id: $('#cliente_id').value.trim(),
+        cuenta: $('#cuenta').value.trim(),
+        email: $('#email').value.trim()
+      });
+      showAlert('success', 'Cliente actualizado.');
+    }
+    modalCli.hide();
+    recargarClientes('search');
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible guardar');
   }
-}
+});
 
-function validarEditar(){
-  const cta = $('#e_cuenta').value.trim();
-  const em  = $('#e_email').value.trim();
-  if (!cta || cta.length>20) return false;
-  if (!em || em.length>150 || !em.includes('@')) return false;
-  return true;
-}
+// ===== Confirmaciones: desactivar / reactivar / eliminar =====
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
 
-async function abrirEditar(id){
-  try{
-    const row = (await clientsAPI.getOne(id))?.data || null;
-    if (!row) throw new Error('No encontrado');
-    $('#e_cliente_id').value = row.cliente_id;
-    $('#e_cuenta').value = row.cuenta;
-    $('#e_email').value = row.email;
-    $('#formEditar').classList.remove('was-validated');
-    modalEditar.show();
-  }catch(err){
-    console.error('abrirEditar',err);
-    showAlert('danger', `No se pudo cargar: ${err.message}`);
-  }
-}
+function abrirConfirm(accion, cliente_id, cuenta = '') {
+  $('#confirmAccion').value = accion;
+  $('#confirmId').value = cliente_id;
 
-async function guardar(ev){
-  ev.preventDefault();
-  if (!validarEditar()) { $('#formEditar').classList.add('was-validated'); return; }
-  const payload = {
-    cliente_id: $('#e_cliente_id').value.trim(),
-    cuenta: $('#e_cuenta').value.trim(),
-    email:  $('#e_email').value.trim()
-  };
-  try{
-    await clientsAPI.update(payload); // requiere sesión CLIENTE
-    showAlert('success','Actualizado correctamente');
-    modalEditar.hide();
-    const term = $('#filtroTerm').value.trim();
-    if (term) await buscar(); else await cargarTodos();
-  }catch(err){
-    console.error('guardar',err);
-    showAlert('danger', `No se pudo actualizar: ${err.message}`);
-  }
-}
+  let titulo = 'Confirmar';
+  let msg = '¿Seguro que deseas continuar?';
+  if (accion === 'desactivar') { titulo = 'Desactivar cliente'; msg = `¿Desactivar a "${cuenta}" (${cliente_id})?`; }
+  if (accion === 'reactivar')  { titulo = 'Reactivar cliente';  msg = `¿Reactivar a "${cuenta}" (${cliente_id})?`; }
+  if (accion === 'eliminar')   { titulo = 'Eliminar cliente';   msg = `¿Eliminar definitivamente a "${cuenta}" (${cliente_id})? Esta acción no se puede deshacer.`; }
 
-function prepararConfirm(type, id){
-  accionConfirm = { type, id };
-  const msg = type==='soft' ? `¿Desactivar cliente #<strong>${id}</strong>?` :
-              type==='reactivar' ? `¿Reactivar cliente #<strong>${id}</strong>?` :
-              type==='hard' ? `¿Eliminar definitivamente al cliente #<strong>${id}</strong>?` :
-              `¿Registrar último acceso para #<strong>${id}</strong>?`;
-  $('#confirmMsg').innerHTML = msg;
+  $('#confirmTitulo').textContent = titulo;
+  $('#confirmMsg').textContent = msg;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm(){
-  if (!accionConfirm) return;
-  const { type, id } = accionConfirm;
-  try{
-    if (type==='soft') await clientsAPI.softDelete(id);      // requiere ADMIN
-    else if (type==='reactivar') await clientsAPI.reactivate(id); // requiere ADMIN
-    else if (type==='hard') await clientsAPI.remove(id);     // requiere ADMIN
-    else if (type==='login') await clientsAPI.registrarLogin(id);
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const id = $('#confirmId').value;
+  try {
+    if (accion === 'desactivar') await clientsAPI.softDelete(id);
+    else if (accion === 'reactivar') await clientsAPI.reactivate(id);
+    else if (accion === 'eliminar') await clientsAPI.remove(id);
 
     modalConfirm.hide();
-    accionConfirm = null;
-    const term = $('#filtroTerm').value.trim();
-    if (term) await buscar(); else await cargarTodos();
-    showAlert('success','Acción ejecutada');
-  }catch(err){
-    console.error('ejecutarConfirm',err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
+    showAlert('success', 'Operación realizada.');
+    recargarClientes('search');
+  } catch (err) {
+    modalConfirm.hide();
+    showAlert('danger', err.message || 'No fue posible completar la acción');
   }
-}
+});
 
-async function init(){
-  modalCrear   = new bootstrap.Modal('#modalCrear');
-  modalEditar  = new bootstrap.Modal('#modalEditar');
-  modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-  configurarTabla();
-  await cargarTodos();
-
-  // Filtros/acciones
-  $('#btnBuscar').addEventListener('click', buscar);
-  $('#soloActivos').addEventListener('change', buscar);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiar);
-  $('#btnListar').addEventListener('click', cargarTodos);
-  $('#btnNuevo').addEventListener('click', ()=>{ $('#formCrear').reset(); $('#formCrear').classList.remove('was-validated'); modalCrear.show(); });
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Formularios
-  $('#formCrear').addEventListener('submit', crear);
-  $('#formEditar').addEventListener('submit', guardar);
-}
-
-window.addEventListener('DOMContentLoaded', init);
+// ===== Boot =====
+(async function boot() {
+  try {
+    initTabla();
+    // primera carga: vacía o mostrando activos (según backend, search '' lista todo)
+    await recargarClientes('search');
+  } catch (err) {
+    showAlert('danger', err.message || 'Error inicializando el panel');
+  }
+})();

@@ -1,276 +1,222 @@
-// scripts/forms/pedidos.js
-// UI de administración para Pedidos (DataTable + modales + crear/confirmar/cancelar + ver detalles)
-// Requiere: pedidosAPI (pedidosManager.js)
+// UI del Panel de Pedidos
+import { pedidosAPI, confirmarConVerificacion } from '/admin-resources/scripts/apis/pedidosManager.js';
+import { controlPedidosAPI } from '/admin-resources/scripts/apis/controlPedidosManager.js';
 
-import { pedidosAPI } from '/admin-resources/scripts/apis/pedidosManager.js';
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-// Utilidades UI
-const $ = (sel, ctx = document) => ctx.querySelector(sel);
-const money = (n) => (Number(n) || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
-const badgeEstado = (estado) => {
-  const e = String(estado || '').toLowerCase();
-  const map = { 'por confirmar': 'bg-warning text-dark', 'confirmado': 'bg-success', 'cancelado': 'bg-secondary' };
-  return `<span class="badge ${map[e] || 'bg-light text-dark'}">${estado || '—'}</span>`;
-};
-
-function showAlert(kind, msg) {
-  const box = $('#alertBox');
-  box.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-info', 'alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = msg;
-  setTimeout(() => box.classList.add('d-none'), 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(response) {
-  if (!response) return [];
-  if (Array.isArray(response)) return response;
-  if (typeof response === 'object' && Array.isArray(response.data)) return response.data;
-  return [];
-}
+const ensurePrefix = (v, prefix) => {
+  const s = String(v ?? '').trim();
+  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+};
+const ped = (id) => ensurePrefix(id, 'ped-');
+const cli = (id) => ensurePrefix(id, 'cl-');
 
-let tabla; // DataTable
-let modalView, modalCreate, modalConfirm; // bootstrap modals
-let accionConfirm = null; // { type:'confirmar'|'cancelar', id }
-
-// Índices de columnas para ordenar
-const COL_INDEX = {
-  pedido_id: 0,
-  cliente_id: 1,
-  fecha_pedido: 2,
-  estado_pedido: 3,
-  total_pedido: 4,
-  metodo_pago: 5
+const fmtMoney = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v || 0));
+const fmtDate  = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
 };
 
-function configurarTabla() {
-  if (tabla) {
-    tabla.destroy();
-    $('#tablaPedidos tbody').innerHTML = '';
-  }
-  tabla = new DataTable('#tablaPedidos', {
-    paging: true,
-    pageLength: 10,
-    lengthChange: false,
-    ordering: true,
-    order: [[COL_INDEX.fecha_pedido, 'desc']],
-    searching: true,
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
+let dt; // DataTable
+
+function initTabla() {
+  dt = $('#tablaPedidos').DataTable({
+    data: [],
     columns: [
-      { data: 'pedido_id' },
-      { data: 'cliente_id' },
-      { data: 'fecha_pedido', render: (v) => v ? new Date(v).toLocaleString('es-MX') : '' },
-      { data: 'estado_pedido', render: (v) => badgeEstado(v) },
-      { data: 'total_pedido', render: (v) => money(v) },
-      { data: 'metodo_pago', defaultContent: '' },
+      { data: 'pedido_id', render: (v) => v || '—' },
+      { data: 'cliente_id', render: (v) => v || '—' },
+      { data: 'estado_pedido', render: (v) => v || '—' },
+      { data: 'fecha_pedido', render: (v) => fmtDate(v) },
+      { data: 'total_pedido', render: (v) => (v == null ? '—' : fmtMoney(v)) },
       {
         data: null,
         orderable: false,
         searchable: false,
         className: 'text-end',
-        render: (_v, _t, row) => {
+        render: (row) => {
           const id = row.pedido_id;
-          const estado = String(row.estado_pedido || '').toLowerCase();
-          const btnConfirm = estado === 'por confirmar'
-            ? `<button class="btn btn-sm btn-outline-success me-1" data-action="confirmar" data-id="${id}"><i class="bi bi-check2-circle"></i> Confirmar</button>`
-            : '';
-          const btnCancelar = estado !== 'cancelado'
-            ? `<button class="btn btn-sm btn-outline-warning me-1" data-action="cancelar" data-id="${id}"><i class="bi bi-x-circle"></i> Cancelar</button>`
-            : '';
-          return `
-            <button class="btn btn-sm btn-primary me-1" data-action="ver" data-id="${id}"><i class="bi bi-eye"></i> Ver</button>
-            ${btnConfirm}
-            ${btnCancelar}
-          `;
+          const estado = (row.estado_pedido || '').toLowerCase();
+          const btnDet = `<button class="btn btn-outline-secondary btn-sm me-2 btn-detalles" data-id="${id}">
+                            <i class="fa-solid fa-list"></i>
+                          </button>`;
+          const btnConf = estado === 'por confirmar'
+            ? `<button class="btn btn-primary btn-sm me-2 btn-confirmar" data-id="${id}">
+                 <i class="fa-solid fa-check"></i>
+               </button>` : '';
+          const btnCanc = estado !== 'cancelado'
+            ? `<button class="btn btn-outline-danger btn-sm btn-cancelar" data-id="${id}">
+                 <i class="fa-solid fa-xmark"></i>
+               </button>` : '';
+          return `<div class="btn-group" role="group">${btnDet}${btnConf}${btnCanc}</div>`;
         }
       }
-    ]
+    ],
+    order: [[3, 'desc']],
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  // Acciones por fila
+  // Delegación
   $('#tablaPedidos tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button[data-action]');
+    const btn = ev.target.closest('button');
     if (!btn) return;
-    const id = btn.getAttribute('data-id');
-    const action = btn.getAttribute('data-action');
-
-    if (action === 'ver') return abrirVer(id);
-    if (action === 'confirmar') return prepararConfirm('confirmar', id);
-    if (action === 'cancelar') return prepararConfirm('cancelar', id);
+    const id = btn.dataset.id;
+    if (btn.classList.contains('btn-detalles')) abrirDetalles(id);
+    else if (btn.classList.contains('btn-confirmar')) abrirConfirm('confirmar', id);
+    else if (btn.classList.contains('btn-cancelar')) abrirConfirm('cancelar', id);
   });
 }
 
-async function cargarPorCliente() {
-  const raw = $('#filtroCliente').value.trim();
-  if (!raw) return showAlert('warning', 'Escribe un ID de cliente (cl-1 o 1).');
+async function recargarPedidos() {
   try {
-    const rows = unpack(await pedidosAPI.getByCliente(raw));
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Pedidos del cliente <strong>${raw}</strong> cargados.`);
+    const pid = $('#filtroPedidoId').value.trim();
+    const cid = $('#filtroClienteId').value.trim();
+    const est = $('#filtroEstado').value;
+
+    let data;
+    if (pid) {
+      data = await pedidosAPI.getOne(ped(pid));
+      const row = data?.data ? [data.data] : (Array.isArray(data) ? data : []);
+      dt.clear().rows.add(row).draw();
+      showAlert('success', row.length ? '1 pedido encontrado.' : 'Sin resultados.');
+      return;
+    }
+    if (cid) {
+      data = await pedidosAPI.getByCliente(cli(cid));
+    } else if (est) {
+      data = await pedidosAPI.getByEstado(est);
+    } else {
+      // por defecto mostrar "Por confirmar"
+      data = await pedidosAPI.getByEstado('Por confirmar');
+      $('#filtroEstado').value = 'Por confirmar';
+    }
+
+    const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    dt.clear().rows.add(rows).draw();
+    showAlert('success', `Se cargaron ${rows.length} pedido(s).`);
   } catch (err) {
-    console.error('cargarPorCliente error:', err);
-    showAlert('danger', `Error al buscar pedidos del cliente: ${err.message}`);
+    showAlert('danger', err.message || 'No se pudieron cargar los pedidos');
   }
 }
 
-async function cargarPorEstado(estado) {
-  if (!estado) return limpiar();
+// Filtros
+$('#btnAplicarFiltros').addEventListener('click', recargarPedidos);
+$('#btnLimpiarFiltros').addEventListener('click', () => {
+  $('#filtroPedidoId').value = '';
+  $('#filtroClienteId').value = '';
+  $('#filtroEstado').value = 'Por confirmar';
+  recargarPedidos();
+});
+
+// Nuevo pedido
+const modalNuevo = new bootstrap.Modal('#modalNuevoPedido');
+$('#btnNuevoPedido').addEventListener('click', () => {
+  $('#npClienteId').value = '';
+  $('#npMetodoPago').value = '';
+  $$('#formNuevoPedido .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  modalNuevo.show();
+});
+$('#formNuevoPedido').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const cid = $('#npClienteId').value.trim();
+  const mp  = $('#npMetodoPago').value.trim() || null;
+  if (!cid) { $('#npClienteId').classList.add('is-invalid'); return; }
   try {
-    const rows = unpack(await pedidosAPI.getByEstado(estado));
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    showAlert('info', `Pedidos con estado <strong>${estado}</strong> cargados.`);
+    const out = await pedidosAPI.insert({ cliente_id: cli(cid), metodo_pago: mp });
+    modalNuevo.hide();
+    const pedId = out?.data?.pedido_id || out?.pedido_id;
+    showAlert('success', `Pedido creado${pedId ? ' (' + pedId + ')' : ''}.`);
+    recargarPedidos();
   } catch (err) {
-    console.error('cargarPorEstado error:', err);
-    showAlert('danger', `Error al filtrar por estado: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible crear el pedido');
   }
-}
+});
 
-async function cargarPorConfirmar() {
+// Detalles
+const modalDet = new bootstrap.Modal('#modalDetalles');
+async function abrirDetalles(pedido_id) {
+  $('#detPedidoId').textContent = ped(pedido_id);
+  const tbody = $('#detTbody'); tbody.innerHTML = '';
   try {
-    const rows = unpack(await pedidosAPI.getPorConfirmar());
-    tabla.clear();
-    tabla.rows.add(rows).draw();
-    $('#filtroEstado').value = 'Por confirmar';
-    showAlert('info', 'Pedidos "Por confirmar" cargados.');
-  } catch (err) {
-    console.error('cargarPorConfirmar error:', err);
-    showAlert('danger', `Error al cargar por confirmar: ${err.message}`);
-  }
-}
-
-function ordenarTabla() {
-  const value = $('#ordenarPor').value;
-  const idx = COL_INDEX[value] ?? COL_INDEX.fecha_pedido;
-  tabla.order([idx, value === 'fecha_pedido' ? 'desc' : 'asc']).draw();
-}
-
-function limpiar() {
-  $('#filtroCliente').value = '';
-  $('#filtroEstado').value = '';
-  $('#ordenarPor').value = 'fecha_pedido';
-  tabla.clear().draw();
-}
-
-async function abrirVer(pedido_id) {
-  try {
-    const header = (await pedidosAPI.getOne(pedido_id))?.data || null;
-    const detalles = unpack(await pedidosAPI.getDetalles(pedido_id));
-
-    // Header
-    $('#v_pedido_id').textContent = header?.pedido_id ?? '—';
-    $('#v_cliente_id').textContent = header?.cliente_id ?? '—';
-    $('#v_fecha_pedido').textContent = header?.fecha_pedido ? new Date(header.fecha_pedido).toLocaleString('es-MX') : '—';
-    $('#v_estado_pedido').textContent = header?.estado_pedido ?? '—';
-    $('#v_estado_pedido').className = 'badge ' + (String(header?.estado_pedido || '').toLowerCase() === 'confirmado' ? 'bg-success' : (String(header?.estado_pedido || '').toLowerCase() === 'por confirmar' ? 'bg-warning text-dark' : 'bg-secondary'));
-    $('#v_total_pedido').textContent = money(header?.total_pedido ?? 0);
-    $('#v_metodo_pago').textContent = header?.metodo_pago ?? '—';
-
-    // Detalles
-    const tbody = $('#v_detalles');
-    tbody.innerHTML = '';
-    detalles.forEach((d, i) => {
+    const out = await pedidosAPI.getDetalles(pedido_id);
+    const rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    rows.forEach(r => {
       const tr = document.createElement('tr');
+      const importe = Number(r.cantidad || 0) * Number(r.precio_unitario || 0);
       tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${d.producto_id}</td>
-        <td>${d.nombre_producto ?? ''}</td>
-        <td>${d.cantidad}</td>
-        <td>${money(d.precio_unitario)}</td>
-        <td>${money(d.subtotal)}</td>
-      `;
+        <td>${r.producto_id ?? '—'}</td>
+        <td>${r.nombre_producto ?? '—'}</td>
+        <td>${r.cantidad ?? '—'}</td>
+        <td>${r.precio_unitario != null ? fmtMoney(r.precio_unitario) : '—'}</td>
+        <td>${fmtMoney(importe)}</td>`;
       tbody.appendChild(tr);
     });
-
-    modalView.show();
+    modalDet.show();
   } catch (err) {
-    console.error('abrirVer error:', err);
-    showAlert('danger', `No se pudo obtener el pedido: ${err.message}`);
+    showAlert('danger', err.message || 'No fue posible cargar los detalles');
   }
 }
 
-function prepararConfirm(type, id) {
-  accionConfirm = { type, id };
-  const msg = type === 'confirmar'
-    ? `¿Confirmar el pedido <strong>${id}</strong>? (Debe tener artículos y total > 0)`
-    : `¿Cancelar el pedido <strong>${id}</strong>?`;
-  $('#confirmMsg').innerHTML = msg;
+// Confirmar / Cancelar
+const modalConfirm = new bootstrap.Modal('#modalConfirm');
+function abrirConfirm(accion, pedido_id) {
+  $('#confirmAccion').value = accion;
+  $('#confirmPedidoId').value = pedido_id;
+  $('#confirmTitulo').textContent = accion === 'confirmar' ? 'Confirmar pedido' : 'Cancelar pedido';
+  $('#confirmMsg').textContent = accion === 'confirmar'
+    ? `¿Confirmar el pedido ${ped(pedido_id)}?`
+    : `¿Cancelar el pedido ${ped(pedido_id)}?`;
   modalConfirm.show();
 }
 
-async function ejecutarConfirm() {
-  if (!accionConfirm) return;
-  const { type, id } = accionConfirm;
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const pedido_id = $('#confirmPedidoId').value;
   try {
-    if (type === 'confirmar') await pedidosAPI.confirmar(id);
-    else if (type === 'cancelar') await pedidosAPI.cancelar(id);
-
+    if (accion === 'confirmar') {
+      await confirmarConVerificacion(pedido_id, pedidosAPI, controlPedidosAPI);
+      showAlert('success', 'Pedido confirmado.');
+    } else {
+      await pedidosAPI.cancelar(pedido_id);
+      showAlert('success', 'Pedido cancelado.');
+    }
     modalConfirm.hide();
-    accionConfirm = null;
-
-    // Refresca según filtro activo
-    const est = $('#filtroEstado').value;
-    const cli = $('#filtroCliente').value.trim();
-    if (cli) await cargarPorCliente();
-    else if (est) await cargarPorEstado(est);
-    else await cargarPorConfirmar();
+    recargarPedidos();
   } catch (err) {
-    console.error('ejecutarConfirm error:', err);
-    showAlert('danger', `Acción fallida: ${err.message}`);
+    modalConfirm.hide();
+    // si vino de confirmar y hay faltantes de stock, mostramos modal específico
+    if (accion === 'confirmar' && Array.isArray(err?.faltantes) && err.faltantes.length) {
+      const tbody = $('#faltTbody'); tbody.innerHTML = '';
+      err.faltantes.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${f.producto_id ?? '—'}</td>
+          <td>${f.nombre_producto ?? '—'}</td>
+          <td>${f.requerido ?? '—'}</td>
+          <td>${f.disponible ?? '—'}</td>`;
+        tbody.appendChild(tr);
+      });
+      new bootstrap.Modal('#modalFaltantes').show();
+    } else {
+      showAlert('danger', err.message || 'No fue posible completar la acción');
+    }
   }
-}
+});
 
-function validarCrear() {
-  const input = $('#cliente_id');
-  const cli = input.value.trim();
-  if (!cli) { input.classList.add('is-invalid'); return false; }
-  input.classList.remove('is-invalid');
-  return true;
-}
-
-async function crearPedido(ev) {
-  ev.preventDefault();
-  if (!validarCrear()) return;
-  const cliente_id = $('#cliente_id').value.trim();
-  const metodo_pago = $('#metodo_pago').value.trim() || null;
+// Boot
+(async function boot() {
   try {
-    const res = await pedidosAPI.insert({ cliente_id, metodo_pago });
-    modalCreate.hide();
-    showAlert('success', 'Pedido creado correctamente.');
-    // tras crear, muestro pedidos del cliente para verlo en la tabla
-    $('#filtroCliente').value = cliente_id;
-    await cargarPorCliente();
-    // y abro el modal de vista si nos devolvieron id
-    const id = res?.data?.pedido_id ?? null;
-    if (id) abrirVer(id);
+    initTabla();
+    await recargarPedidos();
   } catch (err) {
-    console.error('crearPedido error:', err);
-    showAlert('danger', `No se pudo crear el pedido: ${err.message}`);
+    showAlert('danger', err.message || 'Error inicializando el panel');
   }
-}
-
-async function init() {
-  // Modales
-  modalView   = new bootstrap.Modal('#modalPedidoView');
-  modalCreate = new bootstrap.Modal('#modalPedidoCreate');
-  modalConfirm= new bootstrap.Modal('#modalConfirm');
-
-  configurarTabla();
-  await cargarPorConfirmar(); // vista inicial útil para admin
-
-  // Filtros/acciones
-  $('#btnBuscarCliente').addEventListener('click', cargarPorCliente);
-  $('#filtroEstado').addEventListener('change', (e) => cargarPorEstado(e.target.value));
-  $('#btnPorConfirmar').addEventListener('click', cargarPorConfirmar);
-  $('#ordenarPor').addEventListener('change', ordenarTabla);
-  $('#btnLimpiar').addEventListener('click', limpiar);
-  $('#btnNuevo').addEventListener('click', () => { $('#formPedido').reset(); modalCreate.show(); });
-
-  // Confirmar/cancelar
-  $('#btnConfirmarAccion').addEventListener('click', ejecutarConfirm);
-
-  // Crear
-  $('#formPedido').addEventListener('submit', crearPedido);
-}
-
-window.addEventListener('DOMContentLoaded', init);
+})();

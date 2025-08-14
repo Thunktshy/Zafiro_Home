@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zafiro Home — Panel Admin · Control de pedidos</title>
+
+  <!-- Estilos generales (opcionales) -->
+  <link rel="stylesheet" href="/admin-resources/css/styles/index.css" />
+  <link rel="stylesheet" href="/admin-resources/css/forms/forms.css" />
+
+  <!-- Bootstrap + DataTables -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
+</head>
+<body class="admin-body">
+  <!-- Header conservando título del comercio -->
+  <header class="py-3 mb-4 border-bottom bg-light">
+    <div class="container-xl d-flex align-items-center justify-content-between">
+      <h1 class="h3 m-0">Zafiro Home — Panel Admin</h1>
+      <nav>
+        <a class="btn btn-outline-secondary btn-sm" href="/admin-resources/pages/admin.html">
+          ← Regresar al panel principal
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container-xl my-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="h4 m-0">Control de pedidos</h2>
+      <div class="d-flex gap-2">
+        <button id="btnVerificar" class="btn btn-outline-primary">
+          <i class="fa-solid fa-clipboard-check me-2"></i>Verificar stock
+        </button>
+        <button id="btnConfirmar" class="btn btn-primary">
+          <i class="fa-solid fa-check me-2"></i>Confirmar pedido
+        </button>
+        <button id="btnCancelar" class="btn btn-outline-danger">
+          <i class="fa-solid fa-xmark me-2"></i>Cancelar pedido
+        </button>
+      </div>
+    </div>
+
+    <!-- Alertas (feedback) -->
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <!-- Selector de pedido + acciones -->
+    <section class="card mb-4 shadow-sm">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-4">
+            <label for="pedidoId" class="form-label">Pedido</label>
+            <div class="input-group">
+              <input id="pedidoId" type="text" class="form-control" placeholder="ped-123 o 123" />
+              <button id="btnCargar" class="btn btn-secondary">Cargar</button>
+            </div>
+            <div class="form-text">Se normaliza a <code>ped-</code> automáticamente.</div>
+          </div>
+          <div class="col-12 col-md-8">
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label for="prodId" class="form-label">Producto</label>
+                <input id="prodId" type="text" class="form-control" placeholder="prd-456 o 456" />
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="cantidad" class="form-label">Cantidad</label>
+                <input id="cantidad" type="number" class="form-control" min="1" step="1" value="1" />
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="precioUnit" class="form-label">Precio (opcional)</label>
+                <input id="precioUnit" type="number" class="form-control" step="0.01" min="0" />
+              </div>
+              <div class="col-12 col-md-2 d-grid">
+                <button id="btnAgregar" class="btn btn-success">
+                  <i class="fa-solid fa-plus me-1"></i>Agregar
+                </button>
+              </div>
+            </div>
+            <div class="form-text">Usa “Agregar” para sumar líneas o incrementar cantidades.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabla de líneas del pedido -->
+    <section class="card shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table id="tablaLineas" class="table table-striped table-hover align-middle" style="width:100%">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Nombre</th>
+                <th>Cantidad</th>
+                <th>Precio</th>
+                <th>Importe</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <th colspan="4" class="text-end">Total</th>
+                <th id="totalPedido">$0.00</th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal confirmaciones genéricas -->
+  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmTitulo">Confirmar</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMsg" class="m-0">¿Seguro que deseas continuar?</p>
+          <input type="hidden" id="confirmAccion" />
+          <input type="hidden" id="confirmProductoId" />
+          <input type="hidden" id="confirmCantidad" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btnConfirmarAccion" type="button" class="btn btn-primary">Sí, continuar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal faltantes -->
+  <div class="modal fade" id="modalFaltantes" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Faltantes de stock</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Nombre</th>
+                  <th>Requerido</th>
+                  <th>Disponible</th>
+                </tr>
+              </thead>
+              <tbody id="faltTbody"></tbody>
+            </table>
+          </div>
+          <p class="text-muted m-0">Ajusta stock o modifica el pedido y vuelve a confirmar.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="container-xl mt-5 py-4 border-top text-center text-muted">
+    <small>© 2025 Zafiro Home</small>
+  </footer>
+
+  <!-- Librerías -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://kit.fontawesome.com/a2e0e6ad5b.js" crossorigin="anonymous"></script>
+
+  <!-- Capa API + UI -->
+  <script type="module" src="/admin-resources/scripts/apis/controlPedidosManager.js"></script>
+  <script type="module" src="/admin-resources/scripts/apis/pedidosManager.js"></script>
+  <script type="module" src="/admin-resources/scripts/forms/control-pedidos.js"></script>
+</body>
+</html>

@@ -1,236 +1,261 @@
-// scripts/forms/control_pedidos.js
-// Panel de Control de Pedidos: agregar/quitar ítems, verificar stock y cambiar estado.
-// Requiere: controlPedidosAPI y pedidosAPI
-
+// UI del Panel de Control de Pedidos
 import { controlPedidosAPI } from '/admin-resources/scripts/apis/controlPedidosManager.js';
 import { pedidosAPI } from '/admin-resources/scripts/apis/pedidosManager.js';
 
-// Utils
-const $ = (sel, ctx = document) => ctx.querySelector(sel);
-const money = (n) => (Number(n) || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
-const ensureStr = (v) => String(v ?? '').trim();
-const qs = (name) => new URL(location.href).searchParams.get(name);
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+const alertBox = $('#alertBox');
 
-function showAlert(kind, msg) {
-  const box = $('#alertBox');
-  box.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-info', 'alert-warning');
-  box.classList.add(`alert-${kind}`);
-  box.innerHTML = msg;
-  setTimeout(() => box.classList.add('d-none'), 4000);
+function showAlert(type, msg, autoHideMs = 4000) {
+  alertBox.className = `alert alert-${type}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove('d-none');
+  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
 }
 
-function unpack(response) {
-  if (!response) return [];
-  if (Array.isArray(response)) return response;
-  if (typeof response === 'object' && Array.isArray(response.data)) return response.data;
-  return [];
-}
+const ensurePrefix = (v, prefix) => {
+  const s = String(v ?? '').trim();
+  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
+};
+const ped = (id) => ensurePrefix(id, 'ped-');
+const prd = (id) => ensurePrefix(id, 'prd-');
 
-let tabla; // DataTable
-let modalStock; // Modal bootstrap
-let currentPedidoId = null;
-let currentHeader = null;
+const fmtMoney = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v || 0));
 
-const COL_INDEX = { producto_id: 0, nombre_producto: 1, cantidad: 2, precio_unitario: 3, subtotal: 4 };
-
-function badgeEstado(estado) {
-  const e = String(estado || '').toLowerCase();
-  const map = { 'por confirmar': 'bg-warning text-dark', 'confirmado': 'bg-success', 'cancelado': 'bg-secondary' };
-  return `<span class="badge ${map[e] || 'bg-light text-dark'}">${estado || '—'}</span>`;
-}
-
-function setButtonsEnabled(canEdit) {
-  $('#btnAgregar').disabled = !canEdit;
-  $('#btnVerificar').disabled = !currentPedidoId;
-  $('#btnSetPorConfirmar').disabled = !currentPedidoId || (currentHeader?.estado_pedido === 'Por confirmar');
-  $('#btnConfirmar').disabled = !currentPedidoId || !canEdit; // Confirmar solo si está por confirmar
-  $('#btnCancelar').disabled = !currentPedidoId || (currentHeader?.estado_pedido === 'Cancelado');
-}
-
-function configurarTabla() {
-  if (tabla) {
-    tabla.destroy();
-    $('#tablaDetalle tbody').innerHTML = '';
-  }
-  tabla = new DataTable('#tablaDetalle', {
-    paging: true,
-    pageLength: 10,
-    lengthChange: false,
-    ordering: true,
-    order: [[COL_INDEX.producto_id, 'asc']],
-    searching: true,
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
+// ===== DataTable =====
+let dt;
+function initTabla() {
+  dt = $('#tablaLineas').DataTable({
+    data: [],
     columns: [
       { data: 'producto_id' },
       { data: 'nombre_producto', defaultContent: '' },
       { data: 'cantidad' },
-      { data: 'precio_unitario', render: (v) => money(v) },
-      { data: 'subtotal', render: (v) => money(v) },
+      { data: 'precio_unitario', render: (v) => (v == null ? '—' : fmtMoney(v)) },
+      { data: null, render: (r) => fmtMoney((Number(r.cantidad)||0) * (Number(r.precio_unitario)||0)) },
       {
-        data: null,
-        orderable: false,
-        searchable: false,
-        className: 'text-end',
-        render: (_v, _t, row) => `
-          <div class="btn-group btn-group-sm" role="group">
-            <button class="btn btn-outline-secondary" data-action="dec" data-id="${row.producto_id}"><i class="bi bi-dash"></i></button>
-            <button class="btn btn-outline-secondary" data-action="inc" data-id="${row.producto_id}"><i class="bi bi-plus"></i></button>
-            <button class="btn btn-outline-danger" data-action="del" data-id="${row.producto_id}"><i class="bi bi-trash"></i></button>
-          </div>`
+        data: null, orderable: false, searchable: false, className: 'text-end',
+        render: (row) => {
+          const id = row.producto_id;
+          return `
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-primary btn-more" data-id="${id}" title="+1">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+              <button class="btn btn-outline-warning btn-less" data-id="${id}" title="-1">
+                <i class="fa-solid fa-minus"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-del" data-id="${id}" title="Quitar línea">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>`;
+        }
       }
-    ]
+    ],
+    order: [[1, 'asc']],
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
   });
 
-  // Delegación de eventos
-  $('#tablaDetalle tbody').addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-action]');
+  $('#tablaLineas tbody').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
     if (!btn) return;
-    const pid = btn.getAttribute('data-id');
-    const action = btn.getAttribute('data-action');
-    if (!currentPedidoId) return;
+    const pid = $('#pedidoId').value.trim();
+    const prod = btn.dataset.id;
+    if (!pid || !prod) return;
 
-    try {
-      if (action === 'inc') {
-        await controlPedidosAPI.addItem({ pedido_id: currentPedidoId, producto_id: pid, cantidad: 1 });
-      } else if (action === 'dec') {
-        await controlPedidosAPI.removeItem({ pedido_id: currentPedidoId, producto_id: pid, cantidad: 1 });
-      } else if (action === 'del') {
-        await controlPedidosAPI.removeItem({ pedido_id: currentPedidoId, producto_id: pid, cantidad: null });
-      }
-      await refrescarDetalles();
-      showAlert('success', 'Pedido actualizado.');
-    } catch (err) {
-      console.error('detalle acción error:', err);
-      showAlert('danger', err.message || 'No se pudo actualizar el detalle');
-    }
+    if (btn.classList.contains('btn-more')) return incLinea(pid, prod, 1);
+    if (btn.classList.contains('btn-less')) return decLinea(pid, prod, 1);
+    if (btn.classList.contains('btn-del'))  return confirmarEliminarLinea(pid, prod);
   });
 }
 
-function renderHeader() {
-  $('#h_pedido_id').textContent = currentHeader?.pedido_id ?? '—';
-  $('#h_cliente_id').textContent = currentHeader?.cliente_id ?? '—';
-  $('#h_fecha_pedido').textContent = currentHeader?.fecha_pedido ? new Date(currentHeader.fecha_pedido).toLocaleString('es-MX') : '—';
-  $('#h_estado').outerHTML = badgeEstado(currentHeader?.estado_pedido ?? '—');
-  $('#h_total').textContent = money(currentHeader?.total_pedido ?? 0);
-  $('#h_metodo_pago').textContent = currentHeader?.metodo_pago ?? '—';
-
-  const canEdit = (currentHeader?.estado_pedido === 'Por confirmar');
-  setButtonsEnabled(canEdit);
+function pintarTotal(rows) {
+  const total = rows.reduce((acc, r) => acc + (Number(r.cantidad)||0) * (Number(r.precio_unitario)||0), 0);
+  $('#totalPedido').textContent = fmtMoney(total);
 }
 
-async function refrescarDetalles() {
-  if (!currentPedidoId) return;
-  // detalles con join para obtener nombre_producto
-  const detalles = unpack(await pedidosAPI.getDetalles(currentPedidoId));
-  // Normaliza subtotal si no viene
-  detalles.forEach(d => d.subtotal = d.subtotal ?? (Number(d.cantidad) * Number(d.precio_unitario)));
-  tabla.clear();
-  tabla.rows.add(detalles).draw();
-}
-
-async function cargarPedido(id) {
+// ===== Cargar líneas del pedido =====
+async function cargarPedidoDetalles(pedido_id) {
   try {
-    currentPedidoId = ensureStr(id);
-    if (!currentPedidoId) throw new Error('Proporciona un ID de pedido');
-
-    // Header normalizado
-    currentHeader = (await pedidosAPI.getOne(currentPedidoId))?.data || null;
-    if (!currentHeader) throw new Error('No se encontró el pedido');
-
-    renderHeader();
-    await refrescarDetalles();
-    showAlert('success', `Pedido <strong>${currentPedidoId}</strong> cargado.`);
+    const out = await pedidosAPI.getDetalles(pedido_id);
+    const rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    dt.clear().rows.add(rows).draw();
+    pintarTotal(rows);
+    showAlert('success', `Se cargaron ${rows.length} línea(s) del pedido ${ped(pedido_id)}.`);
   } catch (err) {
-    console.error('cargarPedido error:', err);
-    showAlert('danger', err.message || 'No se pudo cargar el pedido');
+    dt.clear().draw();
+    pintarTotal([]);
+    showAlert('danger', err.message || 'No se pudieron cargar los detalles');
   }
 }
 
-async function verificarStock() {
-  if (!currentPedidoId) return;
+// ===== Acciones de líneas =====
+async function incLinea(pedido_id, producto_id, cantidad = 1, precio_unitario = null) {
   try {
-    const rows = unpack(await controlPedidosAPI.verificarProductos(currentPedidoId));
-    const body = $('#stockBody');
-    body.innerHTML = '';
-    if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="4" class="text-center text-success">Todos los artículos tienen stock suficiente.</td></tr>';
-      $('#stockMsg').textContent = 'Puedes confirmar el pedido con seguridad.';
+    await controlPedidosAPI.addItem({ pedido_id, producto_id, cantidad, ...(precio_unitario!=null?{precio_unitario}: {}) });
+    await cargarPedidoDetalles(pedido_id);
+  } catch (err) {
+    // si es stock insuficiente, muestra faltantes
+    if (Array.isArray(err?.faltantes) && err.faltantes.length) {
+      renderFaltantes(err.faltantes);
+      new bootstrap.Modal('#modalFaltantes').show();
     } else {
-      rows.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.producto_id}</td>
-          <td>${r.requerido}</td>
-          <td>${r.stock_disponible}</td>
-          <td class="text-danger fw-semibold">${r.deficit}</td>
-        `;
-        body.appendChild(tr);
-      });
-      $('#stockMsg').textContent = 'Resuelve los déficits antes de confirmar el pedido.';
+      showAlert('danger', err.message || 'No fue posible agregar');
     }
-    modalStock.show();
-  } catch (err) {
-    console.error('verificarStock error:', err);
-    showAlert('danger', err.message || 'No se pudo verificar stock');
   }
 }
 
-async function setEstado(nuevoEstado) {
-  if (!currentPedidoId) return;
+async function decLinea(pedido_id, producto_id, cantidad = 1) {
   try {
-    const res = await controlPedidosAPI.setEstado({ pedido_id: currentPedidoId, estado: nuevoEstado });
-    // Devuelve { pedido, detalles[] }
-    currentHeader = res?.data?.pedido || currentHeader;
-    renderHeader();
-    await refrescarDetalles();
-    showAlert('success', `Estado actualizado a <strong>${nuevoEstado}</strong>.`);
+    await controlPedidosAPI.removeItem({ pedido_id, producto_id, cantidad });
+    await cargarPedidoDetalles(pedido_id);
   } catch (err) {
-    console.error('setEstado error:', err);
-    showAlert('danger', err.message || 'No se pudo actualizar el estado');
+    showAlert('danger', err.message || 'No fue posible decrementar');
   }
 }
 
-async function agregarItem() {
-  const producto_id = ensureStr($('#producto_id').value);
-  const cantidad = Number($('#cantidad').value || 1);
-  const precio_unitario_raw = $('#precio_unitario').value;
-  const precio_unitario = precio_unitario_raw === '' ? undefined : Number(precio_unitario_raw);
+function confirmarEliminarLinea(pedido_id, producto_id) {
+  $('#confirmAccion').value = 'del_linea';
+  $('#confirmProductoId').value = producto_id;
+  $('#confirmCantidad').value = ''; // null → quitar toda la línea
+  $('#confirmTitulo').textContent = 'Quitar línea';
+  $('#confirmMsg').textContent = `¿Quitar por completo el producto ${producto_id} del pedido ${ped(pedido_id)}?`;
+  new bootstrap.Modal('#modalConfirm').show();
+}
 
-  if (!currentPedidoId) return showAlert('warning', 'Primero carga un pedido.');
-  if (!producto_id) return showAlert('warning', 'Escribe un ID de producto.');
-  if (!Number.isInteger(cantidad) || cantidad <= 0) return showAlert('warning', 'Cantidad inválida.');
+$('#btnConfirmarAccion').addEventListener('click', async () => {
+  const accion = $('#confirmAccion').value;
+  const producto_id = $('#confirmProductoId').value;
+  const cantidad = $('#confirmCantidad').value;
+  const pedido_id = $('#pedidoId').value.trim();
+  const modal = bootstrap.Modal.getInstance($('#modalConfirm'));
 
   try {
-    await controlPedidosAPI.addItem({ pedido_id: currentPedidoId, producto_id, cantidad, precio_unitario });
-    $('#producto_id').value = '';
-    $('#cantidad').value = '1';
-    $('#precio_unitario').value = '';
-    await refrescarDetalles();
-    showAlert('success', 'Artículo agregado.');
+    if (accion === 'del_linea') {
+      await controlPedidosAPI.removeItem({ pedido_id, producto_id /* sin cantidad → borra línea */ });
+    }
+    modal.hide();
+    await cargarPedidoDetalles(pedido_id);
   } catch (err) {
-    console.error('agregarItem error:', err);
-    showAlert('danger', err.message || 'No se pudo agregar el artículo');
+    modal.hide();
+    showAlert('danger', err.message || 'No fue posible completar la acción');
+  }
+});
+
+// ===== Verificar stock =====
+function renderFaltantes(list) {
+  const tbody = $('#modalFaltantes #faltTbody');
+  tbody.innerHTML = '';
+  list.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${f.producto_id ?? '—'}</td>
+      <td>${f.nombre_producto ?? '—'}</td>
+      <td>${f.requerido ?? f.requerido_total ?? '—'}</td>
+      <td>${f.disponible ?? f.stock_disponible ?? '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function verificarStock(pedido_id) {
+  try {
+    const out = await controlPedidosAPI.verificarProductos(pedido_id);
+    const list = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+    if (!list.length) {
+      showAlert('success', 'Todo en orden: no hay faltantes.');
+      return;
+    }
+    renderFaltantes(list);
+    new bootstrap.Modal('#modalFaltantes').show();
+  } catch (err) {
+    showAlert('danger', err.message || 'No fue posible verificar el stock');
   }
 }
 
-function init() {
-  modalStock = new bootstrap.Modal('#modalStock');
-  configurarTabla();
-
-  // Botones
-  $('#btnCargar').addEventListener('click', () => cargarPedido($('#pedido_id').value.trim()));
-  $('#btnAgregar').addEventListener('click', agregarItem);
-  $('#btnVerificar').addEventListener('click', verificarStock);
-  $('#btnSetPorConfirmar').addEventListener('click', () => setEstado('Por confirmar'));
-  $('#btnConfirmar').addEventListener('click', () => setEstado('Confirmado'));
-  $('#btnCancelar').addEventListener('click', () => setEstado('Cancelado'));
-
-  // Auto-carga por query string
-  const pid = qs('pid') || qs('id');
-  if (pid) {
-    $('#pedido_id').value = pid;
-    cargarPedido(pid);
+// ===== Confirmar / Cancelar pedido =====
+async function setEstado(pedido_id, estado) {
+  try {
+    const out = await controlPedidosAPI.setEstado({ pedido_id, estado });
+    showAlert('success', `Estado actualizado a "${estado}".`);
+    // refrescar detalle porque puede cambiar totales en trigger
+    await cargarPedidoDetalles(pedido_id);
+  } catch (err) {
+    // si el backend valida stock insuficiente al confirmar:
+    if (estado === 'Confirmado' && Array.isArray(err?.faltantes) && err.faltantes.length) {
+      renderFaltantes(err.faltantes);
+      new bootstrap.Modal('#modalFaltantes').show();
+    } else {
+      showAlert('danger', err.message || 'No fue posible actualizar el estado');
+    }
   }
 }
 
-window.addEventListener('DOMContentLoaded', init);
+// ===== Wire de UI =====
+$('#btnCargar').addEventListener('click', () => {
+  const pid = $('#pedidoId').value.trim();
+  if (!pid) return showAlert('warning', 'Indica un pedido.');
+  cargarPedidoDetalles(pid);
+});
+
+$('#btnAgregar').addEventListener('click', async () => {
+  const pid = $('#pedidoId').value.trim();
+  const prod = $('#prodId').value.trim();
+  const cant = Number($('#cantidad').value);
+  const pvu  = $('#precioUnit').value.trim();
+
+  if (!pid) return showAlert('warning', 'Indica un pedido.');
+  if (!prod) return showAlert('warning', 'Indica un producto.');
+  if (!Number.isInteger(cant) || cant < 1) return showAlert('warning', 'Cantidad inválida.');
+
+  await incLinea(pid, prod, cant, pvu === '' ? null : Number(pvu));
+});
+
+$('#btnVerificar').addEventListener('click', () => {
+  const pid = $('#pedidoId').value.trim();
+  if (!pid) return showAlert('warning', 'Indica un pedido.');
+  verificarStock(pid);
+});
+
+$('#btnConfirmar').addEventListener('click', () => {
+  const pid = $('#pedidoId').value.trim();
+  if (!pid) return showAlert('warning', 'Indica un pedido.');
+  $('#confirmAccion').value = 'estado';
+  $('#confirmProductoId').value = '';
+  $('#confirmCantidad').value = '';
+  $('#confirmTitulo').textContent = 'Confirmar pedido';
+  $('#confirmMsg').textContent = `¿Confirmar el pedido ${ped(pid)}?`;
+  const modal = new bootstrap.Modal('#modalConfirm');
+  modal.show();
+  $('#btnConfirmarAccion').onclick = async () => { // rewire para esta acción
+    modal.hide();
+    await setEstado(pid, 'Confirmado');
+  };
+});
+
+$('#btnCancelar').addEventListener('click', () => {
+  const pid = $('#pedidoId').value.trim();
+  if (!pid) return showAlert('warning', 'Indica un pedido.');
+  $('#confirmAccion').value = 'estado';
+  $('#confirmProductoId').value = '';
+  $('#confirmCantidad').value = '';
+  $('#confirmTitulo').textContent = 'Cancelar pedido';
+  $('#confirmMsg').textContent = `¿Cancelar el pedido ${ped(pid)}?`;
+  const modal = new bootstrap.Modal('#modalConfirm');
+  modal.show();
+  $('#btnConfirmarAccion').onclick = async () => {
+    modal.hide();
+    await setEstado(pid, 'Cancelado');
+  };
+});
+
+// ===== Boot =====
+(function boot() {
+  initTabla();
+  // si llegas con ?ped=... en la URL, auto-carga
+  const url = new URL(location.href);
+  const q = url.searchParams.get('ped');
+  if (q && q.trim()) {
+    $('#pedidoId').value = q.trim();
+    $('#btnCargar').click();
+  }
+})();
