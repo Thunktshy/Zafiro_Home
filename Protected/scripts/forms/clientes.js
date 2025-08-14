@@ -1,245 +1,386 @@
-// UI del Panel de Clientes
-import { clientsAPI } from '/admin-resources/scripts/apis/clientesManager.js';
+// /admin-resources/scripts/forms/clientes.js
+// UI de administración de Clientes (Bootstrap + DataTables)
+// Estructura de respuesta esperada: { success, message, data }
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
-const alertBox = $('#alertBox');
+import { clientsAPI } from "/admin-resources/scripts/apis/clientesManager.js";
 
-function showAlert(type, msg, autoHideMs = 4000) {
-  alertBox.className = `alert alert-${type}`;
-  alertBox.textContent = msg;
-  alertBox.classList.remove('d-none');
-  if (autoHideMs) setTimeout(() => alertBox.classList.add('d-none'), autoHideMs);
+/* =========================
+   Helpers de logging (formato solicitado)
+   ========================= */
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
 }
 
-// helpers
-const ensurePrefix = (v, prefix) => {
-  const s = String(v ?? '').trim();
-  return s && !s.startsWith(prefix) ? `${prefix}${s}` : s;
-};
-const cli = (id) => ensurePrefix(id, 'cl-');
-const fmtDate = (v) => {
-  const d = v ? new Date(v) : null;
-  return d && !isNaN(d) ? d.toLocaleString('es-MX') : (v || '—');
-};
+/* =========================
+   Normalización de respuestas y filas
+   ========================= */
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
+  }
+  return resp;
+}
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+function ensureCl(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return s;
+  return s.startsWith("cl-") ? s : `cl-${s}`;
+}
+function dtString(x) {
+  if (!x) return "";
+  const d = typeof x === "string" || typeof x === "number" ? new Date(x) : x;
+  return isNaN(d.getTime()) ? "" : d.toLocaleString("es-MX");
+}
+function normalizeCliente(row) {
+  if (!row || typeof row !== "object") return null;
+  const cliente_id     = row.cliente_id ?? row.id ?? "";
+  const cuenta         = row.cuenta ?? row.username ?? "";
+  const email          = row.email ?? row.correo ?? "";
+  const estadoVal      = row.estado ?? row.activo ?? row.enabled ?? 1; // 1|0
+  const ultimoAcceso   = row.ultimo_acceso ?? row.last_login ?? row.ultimo_login ?? null;
+  const fechaCreacion  = row.fecha_creacion ?? row.created_at ?? row.fecha ?? null;
 
-// ===== DataTable =====
-let dt;
-function initTabla() {
-  dt = $('#tablaClientes').DataTable({
-    data: [],
+  return {
+    cliente_id: String(cliente_id),
+    cuenta: String(cuenta),
+    email: String(email),
+    estado_num: Number(estadoVal) ? 1 : 0,
+    estado_texto: Number(estadoVal) ? "Activo" : "Inactivo",
+    ultimo_acceso: dtString(ultimoAcceso),
+    fecha_creacion: dtString(fechaCreacion)
+  };
+}
+
+/* =========================
+   DOM refs
+   ========================= */
+const alertBox        = document.getElementById("alertBox");
+
+const filtroTerm      = document.getElementById("filtroTerm");
+const soloActivos     = document.getElementById("soloActivos");
+const filtroId        = document.getElementById("filtroId");
+
+const btnBuscar       = document.getElementById("btnBuscar");
+const btnBuscarId     = document.getElementById("btnBuscarId");
+const btnLimpiar      = document.getElementById("btnLimpiar");
+const btnNuevo        = document.getElementById("btnNuevo");
+
+// Modal crear/editar
+const modalClienteEl  = document.getElementById("modalCliente");
+const formCliente     = document.getElementById("formCliente");
+const modalTitulo     = document.getElementById("modalClienteTitulo");
+const f_id            = document.getElementById("cliente_id");
+const f_cuenta        = document.getElementById("cuenta");
+const f_email         = document.getElementById("email");
+const f_contra        = document.getElementById("contrasena");
+const grupoContra     = document.getElementById("grupoContrasena");
+
+// Modal confirmación
+const modalConfirmEl  = document.getElementById("modalConfirm");
+const confirmTitulo   = document.getElementById("confirmTitulo");
+const confirmMsg      = document.getElementById("confirmMsg");
+const confirmAccion   = document.getElementById("confirmAccion");
+const confirmId       = document.getElementById("confirmId");
+
+// Bootstrap helpers
+const bsModalCliente  = () => bootstrap.Modal.getOrCreateInstance(modalClienteEl);
+const bsModalConfirm  = () => bootstrap.Modal.getOrCreateInstance(modalConfirmEl);
+
+/* =========================
+   UI helpers
+   ========================= */
+function showAlert(kind, msg) {
+  if (!alertBox) return;
+  alertBox.className = `alert alert-${kind}`;
+  alertBox.textContent = msg;
+  alertBox.classList.remove("d-none");
+  setTimeout(() => alertBox.classList.add("d-none"), 2600);
+}
+
+/* =========================
+   DataTable
+   ========================= */
+let dt = null;
+function initOrUpdateTable(rows) {
+  const data = (rows || []).map(normalizeCliente).filter(Boolean);
+  if (dt) {
+    dt.clear().rows.add(data).draw();
+    return dt;
+  }
+  dt = $("#tablaClientes").DataTable({
+    data,
     columns: [
-      { data: 'cliente_id', render: v => v ?? '—' },
-      { data: 'cuenta', render: v => v ?? '—' },
-      { data: 'email', render: v => v ?? '—' },
-      { data: 'estado', render: v => (v == null ? '—' : (Number(v) ? 'activo' : 'inactivo')) },
-      { data: 'ultimo_acceso', render: v => fmtDate(v) },
-      { data: 'fecha_creacion', render: v => fmtDate(v) },
+      { data: "cliente_id", title: "ID" },
+      { data: "cuenta", title: "Cuenta" },
+      { data: "email", title: "Email" },
       {
-        data: null, orderable: false, searchable: false, className: 'text-end',
-        render: (row) => {
-          const id = row.cliente_id;
-          const activo = Number(row.estado) === 1;
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-outline-primary btn-editar" data-id="${id}" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              ${activo
-                ? `<button class="btn btn-outline-warning btn-desactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Desactivar">
+        data: "estado_texto",
+        title: "Estado",
+        render: (v, _t, row) =>
+          row.estado_num
+            ? `<span class="badge bg-success">Activo</span>`
+            : `<span class="badge bg-secondary">Inactivo</span>`
+      },
+      { data: "ultimo_acceso", title: "Último acceso" },
+      { data: "fecha_creacion", title: "Creado" },
+      {
+        data: null,
+        title: "Acciones",
+        className: "text-end",
+        orderable: false,
+        render: (row) => `
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-primary btn-editar" data-id="${row.cliente_id}">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            ${
+              row.estado_num
+                ? `<button class="btn btn-outline-warning btn-desactivar" data-id="${row.cliente_id}" data-name="${row.cuenta}">
                      <i class="fa-solid fa-user-slash"></i>
                    </button>`
-                : `<button class="btn btn-outline-success btn-reactivar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Reactivar">
+                : `<button class="btn btn-outline-success btn-reactivar" data-id="${row.cliente_id}" data-name="${row.cuenta}">
                      <i class="fa-solid fa-user-check"></i>
                    </button>`
-              }
-              <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" data-cuenta="${row.cuenta||''}" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>`;
-        }
+            }
+            <button class="btn btn-outline-danger btn-eliminar" data-id="${row.cliente_id}" data-name="${row.cuenta}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>`
       }
     ],
-    order: [[5, 'desc']], // por fecha_creacion
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+    pageLength: 10,
+    order: [[0, "desc"]],
+    responsive: true
   });
-
-  // delegación de eventos
-  $('#tablaClientes tbody').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button');
-    if (!btn) return;
-    const id = btn.dataset.id;
-    if (btn.classList.contains('btn-editar')) abrirModalEditar(id);
-    else if (btn.classList.contains('btn-desactivar')) abrirConfirm('desactivar', id, btn.dataset.cuenta);
-    else if (btn.classList.contains('btn-reactivar')) abrirConfirm('reactivar', id, btn.dataset.cuenta);
-    else if (btn.classList.contains('btn-eliminar')) abrirConfirm('eliminar', id, btn.dataset.cuenta);
-  });
+  return dt;
 }
 
-// ===== Carga de datos =====
-async function recargarClientes(origen='search') {
+/* =========================
+   Cargas / filtros
+   ========================= */
+async function cargarListadoInicial() {
   try {
-    let rows = [];
-    if (origen === 'byId') {
-      const id = $('#filtroId').value.trim();
-      if (!id) return showAlert('warning', 'Indica un ID.');
-      const out = await clientsAPI.getOne(cli(id));
-      const r = out?.data ?? out; // según backend
-      rows = r ? [r] : [];
+    // Estrategia: search con term vacío devuelve listado (solo_activos checked)
+    const boton = "(auto) cargar";
+    const api   = `/search?term=&solo_activos=${soloActivos.checked ? 1 : 0}`;
+    const resp  = assertOk(await clientsAPI.search({ term: "", solo_activos: soloActivos.checked ? 1 : 0 }));
+    initOrUpdateTable(toArrayData(resp));
+    logPaso(boton, api, resp);
+  } catch (err) {
+    initOrUpdateTable([]);
+    logError("(auto) cargar", "/search", err);
+  }
+}
+
+async function buscarPorTerm() {
+  const term = String(filtroTerm.value || "").trim();
+  const only = soloActivos.checked ? 1 : 0;
+  try {
+    const boton = "Buscar";
+    const api   = `/search?term=${encodeURIComponent(term)}&solo_activos=${only}`;
+    const resp  = assertOk(await clientsAPI.search({ term, solo_activos: only }));
+    initOrUpdateTable(toArrayData(resp));
+    logPaso(boton, api, resp);
+    showAlert("info", `Se cargaron ${toArrayData(resp).length} clientes`);
+  } catch (err) {
+    initOrUpdateTable([]);
+    logError("Buscar", `/search?term=${term}&solo_activos=${only}`, err);
+    showAlert("danger", err?.message || "Error de búsqueda");
+  }
+}
+
+async function buscarPorId() {
+  const id = filtroId.value.trim();
+  if (!id) return;
+  try {
+    const boton = "Buscar por ID";
+    const api   = `/por_id/${encodeURIComponent(id)}`;
+    const resp  = assertOk(await clientsAPI.getOne(id));
+    initOrUpdateTable(toArrayData(resp));
+    logPaso(boton, api, resp);
+  } catch (err) {
+    initOrUpdateTable([]);
+    logError("Buscar por ID", `/por_id/${id}`, err);
+    showAlert("danger", err?.message || "Cliente no encontrado");
+  }
+}
+
+btnBuscar?.addEventListener("click", buscarPorTerm);
+btnBuscarId?.addEventListener("click", buscarPorId);
+btnLimpiar?.addEventListener("click", async () => {
+  filtroTerm.value = "";
+  filtroId.value   = "";
+  soloActivos.checked = true;
+  await cargarListadoInicial();
+});
+
+/* =========================
+   Nuevo / Editar
+   ========================= */
+btnNuevo?.addEventListener("click", () => {
+  modalTitulo.textContent = "Nuevo cliente";
+  f_id.value = "";
+  formCliente.reset();
+  // En alta, contraseña visible/obligatoria
+  grupoContra.classList.remove("d-none");
+  f_contra.required = true;
+  bsModalCliente().show();
+  logPaso("Nuevo cliente", "(abrir modal)", { ok: true });
+});
+
+// Delegación: editar
+$("#tablaClientes tbody").on("click", "button.btn-editar", async function () {
+  const id = this.dataset.id;
+  try {
+    const boton = "Editar (cargar)";
+    const api   = `/por_id/${id}`;
+    const resp  = assertOk(await clientsAPI.getOne(id));
+    const c     = toArrayData(resp)[0] || resp?.data || resp;
+    const n     = normalizeCliente(c);
+
+    modalTitulo.textContent = "Editar cliente";
+    f_id.value    = n.cliente_id || id;
+    f_cuenta.value= n.cuenta || "";
+    f_email.value = n.email || "";
+
+    // En edición, contraseña opcional/oculta
+    grupoContra.classList.add("d-none");
+    f_contra.required = false;
+    f_contra.value = "";
+
+    bsModalCliente().show();
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Editar (cargar)", `/por_id/${id}`, err);
+    showAlert("danger", err?.message || "No se pudo cargar el cliente");
+  }
+});
+
+// Guardar (insert/update)
+formCliente?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formCliente.classList.add("was-validated");
+  if (!formCliente.checkValidity()) return;
+
+  const id  = f_id.value.trim();
+  const cue = f_cuenta.value.trim();
+  const em  = f_email.value.trim();
+
+  try {
+    if (id) {
+      const boton = "Guardar edición";
+      const api   = "/update";
+      const resp  = assertOk(await clientsAPI.update({ cliente_id: id, cuenta: cue, email: em }));
+      logPaso(boton, api, resp);
+      bsModalCliente().hide();
+      await buscarPorTerm();
+      showAlert("success", "Cliente actualizado.");
     } else {
-      const term = $('#filtroTerm').value.trim();
-      const solo_activos = $('#soloActivos').checked ? 1 : 0;
-      const out = await clientsAPI.search({ term, solo_activos });
-      rows = Array.isArray(out?.data) ? out.data : (Array.isArray(out) ? out : []);
+      // Insert requiere contraseña
+      const pw = f_contra.value.trim();
+      if (!pw) {
+        f_contra.focus();
+        return;
+      }
+      const boton = "Guardar nuevo";
+      const api   = "/insert";
+      const resp  = assertOk(await clientsAPI.insert({ cuenta: cue, contrasena: pw, email: em }));
+      logPaso(boton, api, resp);
+      bsModalCliente().hide();
+      await buscarPorTerm();
+      showAlert("success", "Cliente creado.");
     }
-
-    dt.clear().rows.add(rows).draw();
-    showAlert('success', `Se cargaron ${rows.length} cliente(s).`);
   } catch (err) {
-    showAlert('danger', err.message || 'No se pudieron cargar los clientes');
+    logError(id ? "Guardar edición" : "Guardar nuevo", id ? "/update" : "/insert", err);
+    showAlert("danger", err?.message || "No se pudo guardar");
   }
-}
-
-// ===== Filtros =====
-$('#btnBuscar').addEventListener('click', () => recargarClientes('search'));
-$('#btnBuscarId').addEventListener('click', () => recargarClientes('byId'));
-$('#btnLimpiar').addEventListener('click', () => {
-  $('#filtroTerm').value = '';
-  $('#filtroId').value = '';
-  $('#soloActivos').checked = true;
-  recargarClientes('search');
 });
 
-// ===== Modal Crear/Editar =====
-const modalCli = new bootstrap.Modal('#modalCliente');
-
-function limpiarForm() {
-  $('#cliente_id').value = '';
-  $('#cuenta').value = '';
-  $('#email').value = '';
-  $('#contrasena').value = '';
-  $$('#formCliente .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+/* =========================
+   Acciones: desactivar / reactivar / eliminar
+   ========================= */
+function abrirConfirm(accion, id, name) {
+  confirmAccion.value = accion;
+  confirmId.value = id;
+  confirmTitulo.textContent =
+    accion === "soft_delete" ? "Desactivar cliente" :
+    accion === "reactivar"   ? "Reactivar cliente" :
+    "Eliminar cliente";
+  confirmMsg.textContent =
+    accion === "soft_delete" ? `¿Deseas desactivar ${name} (${id})?` :
+    accion === "reactivar"   ? `¿Deseas reactivar ${name} (${id})?` :
+    `¿Eliminar definitivamente ${name} (${id})?`;
+  bsModalConfirm().show();
 }
 
-$('#btnNuevo').addEventListener('click', () => {
-  limpiarForm();
-  $('#modalClienteTitulo').textContent = 'Nuevo cliente';
-  $('#grupoContrasena').classList.remove('d-none'); // en alta se pide contraseña
-  $('#contrasena').required = true;
-  $('#btnGuardar').textContent = 'Guardar';
-  modalCli.show();
-  setTimeout(() => $('#cuenta')?.focus(), 200);
+$("#tablaClientes tbody").on("click", "button.btn-desactivar", function () {
+  abrirConfirm("soft_delete", this.dataset.id, this.dataset.name || this.dataset.id);
+  logPaso("Desactivar (abrir confirmación)", "(modal)", { id: this.dataset.id });
+});
+$("#tablaClientes tbody").on("click", "button.btn-reactivar", function () {
+  abrirConfirm("reactivar", this.dataset.id, this.dataset.name || this.dataset.id);
+  logPaso("Reactivar (abrir confirmación)", "(modal)", { id: this.dataset.id });
+});
+$("#tablaClientes tbody").on("click", "button.btn-eliminar", function () {
+  abrirConfirm("delete", this.dataset.id, this.dataset.name || this.dataset.id);
+  logPaso("Eliminar (abrir confirmación)", "(modal)", { id: this.dataset.id });
 });
 
-async function abrirModalEditar(cliente_id) {
-  limpiarForm();
-  $('#modalClienteTitulo').textContent = 'Editar cliente';
-  $('#btnGuardar').textContent = 'Actualizar';
-  $('#grupoContrasena').classList.add('d-none'); // no se cambia aquí
-  $('#contrasena').required = false;
-
+document.getElementById("btnConfirmarAccion")?.addEventListener("click", async () => {
+  const accion = confirmAccion.value;
+  const id     = confirmId.value;
   try {
-    // si el backend no expone getOne con todo, también vale tomar de la tabla:
-    const tableRow = dt.rows().data().toArray().find(r => String(r.cliente_id) === String(cliente_id));
-    const row = tableRow ?? (await clientsAPI.getOne(cliente_id))?.data;
-    if (!row) throw new Error('No se pudo cargar el cliente');
-
-    $('#cliente_id').value = row.cliente_id || '';
-    $('#cuenta').value = row.cuenta || '';
-    $('#email').value = row.email || '';
-
-    modalCli.show();
-    setTimeout(() => $('#cuenta')?.focus(), 200);
-  } catch (err) {
-    showAlert('danger', err.message || 'No fue posible abrir el formulario');
-  }
-}
-
-function validarForm(esAlta) {
-  let ok = true;
-  const cuenta = $('#cuenta');
-  const email = $('#email');
-  const pass = $('#contrasena');
-  [cuenta, email, pass].forEach(el => el.classList.remove('is-invalid'));
-
-  if (!cuenta.value.trim() || cuenta.value.trim().length > 20) { cuenta.classList.add('is-invalid'); ok = false; }
-  const emailVal = email.value.trim();
-  if (!emailVal || emailVal.length > 150 || !/\S+@\S+\.\S+/.test(emailVal)) { email.classList.add('is-invalid'); ok = false; }
-  if (esAlta && !pass.value.trim()) { pass.classList.add('is-invalid'); ok = false; }
-
-  return ok;
-}
-
-$('#formCliente').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const esAlta = !$('#cliente_id').value.trim();
-  if (!validarForm(esAlta)) return;
-
-  try {
-    if (esAlta) {
-      await clientsAPI.insert({
-        cuenta: $('#cuenta').value.trim(),
-        email: $('#email').value.trim(),
-        contrasena: $('#contrasena').value.trim()
-      });
-      showAlert('success', 'Cliente creado correctamente.');
-    } else {
-      await clientsAPI.update({
-        cliente_id: $('#cliente_id').value.trim(),
-        cuenta: $('#cuenta').value.trim(),
-        email: $('#email').value.trim()
-      });
-      showAlert('success', 'Cliente actualizado.');
+    if (accion === "soft_delete") {
+      const boton = "Desactivar cliente", api = "/soft_delete";
+      const resp  = assertOk(await clientsAPI.softDelete(id));
+      logPaso(boton, api, resp);
+      showAlert("success", "Cliente desactivado.");
+    } else if (accion === "reactivar") {
+      const boton = "Reactivar cliente", api = "/reactivar";
+      const resp  = assertOk(await clientsAPI.reactivate(id));
+      logPaso(boton, api, resp);
+      showAlert("success", "Cliente reactivado.");
+    } else if (accion === "delete") {
+      const boton = "Eliminar cliente", api = "/delete";
+      const resp  = assertOk(await clientsAPI.remove(id));
+      logPaso(boton, api, resp);
+      showAlert("success", "Cliente eliminado.");
     }
-    modalCli.hide();
-    recargarClientes('search');
+    bsModalConfirm().hide();
+    await buscarPorTerm();
   } catch (err) {
-    showAlert('danger', err.message || 'No fue posible guardar');
+    logError("Acción cliente", accion, err);
+    showAlert("danger", err?.message || "No se pudo completar la acción");
   }
 });
 
-// ===== Confirmaciones: desactivar / reactivar / eliminar =====
-const modalConfirm = new bootstrap.Modal('#modalConfirm');
-
-function abrirConfirm(accion, cliente_id, cuenta = '') {
-  $('#confirmAccion').value = accion;
-  $('#confirmId').value = cliente_id;
-
-  let titulo = 'Confirmar';
-  let msg = '¿Seguro que deseas continuar?';
-  if (accion === 'desactivar') { titulo = 'Desactivar cliente'; msg = `¿Desactivar a "${cuenta}" (${cliente_id})?`; }
-  if (accion === 'reactivar')  { titulo = 'Reactivar cliente';  msg = `¿Reactivar a "${cuenta}" (${cliente_id})?`; }
-  if (accion === 'eliminar')   { titulo = 'Eliminar cliente';   msg = `¿Eliminar definitivamente a "${cuenta}" (${cliente_id})? Esta acción no se puede deshacer.`; }
-
-  $('#confirmTitulo').textContent = titulo;
-  $('#confirmMsg').textContent = msg;
-  modalConfirm.show();
-}
-
-$('#btnConfirmarAccion').addEventListener('click', async () => {
-  const accion = $('#confirmAccion').value;
-  const id = $('#confirmId').value;
-  try {
-    if (accion === 'desactivar') await clientsAPI.softDelete(id);
-    else if (accion === 'reactivar') await clientsAPI.reactivate(id);
-    else if (accion === 'eliminar') await clientsAPI.remove(id);
-
-    modalConfirm.hide();
-    showAlert('success', 'Operación realizada.');
-    recargarClientes('search');
-  } catch (err) {
-    modalConfirm.hide();
-    showAlert('danger', err.message || 'No fue posible completar la acción');
+/* =========================
+   Búsqueda rápida por Enter
+   ========================= */
+filtroTerm?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorTerm();
+  }
+});
+filtroId?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorId();
   }
 });
 
-// ===== Boot =====
-(async function boot() {
-  try {
-    initTabla();
-    // primera carga: vacía o mostrando activos (según backend, search '' lista todo)
-    await recargarClientes('search');
-  } catch (err) {
-    showAlert('danger', err.message || 'Error inicializando el panel');
-  }
-})();
+/* =========================
+   Boot
+   ========================= */
+document.addEventListener("DOMContentLoaded", cargarListadoInicial);
