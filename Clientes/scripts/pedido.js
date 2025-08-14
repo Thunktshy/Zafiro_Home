@@ -1,205 +1,329 @@
 // /client-resources/scripts/pedido.js
-// Crea/confirmar pedido leyendo el carrito y mostrando un modal de envío/pago.
+// Flujo de compra (0→6): modal → crear pedido → leer carrito + stock/precio → calcular → confirmar → agregar líneas → confirmar pedido.
 
-let pedidosAPI, confirmarConVerificacion;
-let controlPedidosAPI, addItemConVerificacion;
-let clientsAPI, datosPersonalesAPI, datosFacturacionAPI, metodosPagoAPI;
-let productosAPI;
+let pedidosAPI, confirmarConVerificacion;       // pedidosManager
+let controlPedidosAPI, addItemConVerificacion;  // controlPedidosManager
+let productosAPI;                               // productosManager
 
+// Import robusto con rutas fallback
+async function importFirst(paths) {
+  let lastErr;
+  for (const p of paths) {
+    try { return await import(p); } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+let _apisLoaded = false;
 async function loadApis() {
-  try {
-    ({ pedidosAPI, confirmarConVerificacion } = await import('/client-resources/scripts/apis/pedidosManager.js'));
-  } catch { ({ pedidosAPI, confirmarConVerificacion } = await import('/scripts/apis/pedidosManager.js')); }
+  if (_apisLoaded) return;
 
-  try {
-    ({ controlPedidosAPI, addItemConVerificacion } = await import('/client-resources/scripts/apis/controlPedidosManager.js'));
-  } catch { ({ controlPedidosAPI, addItemConVerificacion } = await import('/scripts/apis/controlPedidosManager.js')); }
+  // pedidos
+  {
+    const mod = await importFirst([
+      '/client-resources/scripts/apis/pedidosManager.js',
+      '/client-resources/apis/pedidosManager.js',
+      '/scripts/apis/pedidosManager.js',
+      '/apis/pedidosManager.js'
+    ]);
+    ({ pedidosAPI, confirmarConVerificacion } = mod);
+  }
 
-  try {
-    ({ clientsAPI } = await import('/client-resources/scripts/apis/clientesManager.js'));
-  } catch { ({ clientsAPI } = await import('/scripts/apis/clientesManager.js')); }
+  // control de pedidos (add/remove/verificar)
+  {
+    const mod = await importFirst([
+      '/client-resources/scripts/apis/controlPedidosManager.js',
+      '/client-resources/apis/controlPedidosManager.js',
+      '/scripts/apis/controlPedidosManager.js',
+      '/apis/controlPedidosManager.js'
+    ]);
+    ({ controlPedidosAPI, addItemConVerificacion } = mod);
+  }
 
-  try {
-    ({ datosPersonalesAPI } = await import('/client-resources/scripts/apis/datosPersonalesManager.js'));
-  } catch { ({ datosPersonalesAPI } = await import('/scripts/apis/datosPersonalesManager.js')); }
+  // productos (para precio y stock)
+  {
+    const mod = await importFirst([
+      '/client-resources/scripts/apis/productosManager.js',
+      '/client-resources/apis/productosManager.js',
+      '/scripts/apis/productosManager.js',
+      '/apis/productosManager.js'
+    ]);
+    ({ productosAPI } = mod);
+  }
 
-  try {
-    ({ datosFacturacionAPI } = await import('/client-resources/scripts/apis/datosFacturacionManager.js'));
-  } catch { ({ datosFacturacionAPI } = await import('/scripts/apis/datosFacturacionManager.js')); }
+  _apisLoaded = true;
+}
 
-  try {
-    ({ metodosPagoAPI } = await import('/client-resources/scripts/apis/metodosPagoManager.js'));
-  } catch { ({ metodosPagoAPI } = await import('/scripts/apis/metodosPagoManager.js')); }
+/////////////////////////////
+// Utilidades de interfaz //
+/////////////////////////////
 
-  try {
-    ({ productosAPI } = await import('/client-resources/scripts/apis/productosManager.js'));
-  } catch {
-    ({ productosAPI } = await import('/scripts/apis/productosManager.js'));
+const money = (n) => (Number(n)||0).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function showMsg(kind, text) {
+  const box = $('#pedidoAlert');
+  if (!box) return;
+  box.className = `alert alert-${kind}`;
+  box.textContent = text;
+  box.classList.remove('d-none');
+  // Oculta después de unos segundos
+  window.clearTimeout(box._t);
+  box._t = setTimeout(() => box.classList.add('d-none'), 4000);
+}
+
+function showModal() {
+  const modalEl = document.getElementById('modalPedido');
+  if (!modalEl) return;
+  if (window.bootstrap?.Modal) {
+    const m = bootstrap.Modal.getOrCreateInstance(modalEl);
+    m.show();
+  } else {
+    console.warn('Bootstrap JS no encontrado. Usando fallback simple para el modal.');
+    modalEl.classList.add('show');
+    modalEl.style.display = 'block';
+    modalEl.removeAttribute('aria-hidden');
+    document.body.classList.add('modal-open');
+
+    // Cierre básico
+    const hide = () => {
+      modalEl.classList.remove('show');
+      modalEl.style.display = 'none';
+      modalEl.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    };
+    modalEl.querySelectorAll('[data-bs-dismiss="modal"], .btn-close')
+      .forEach(btn => btn.addEventListener('click', hide, { once: true }));
   }
 }
 
-// ====== Utils ======
-const money = (n) => (Number(n)||0).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel)=> Array.from(document.querySelectorAll(sel));
-const byText = (el, sel) => (el && el.querySelector(sel)) ? el.querySelector(sel).textContent.trim() : '';
-function showMsg(kind, text) {
-  const box = $('#pedidoAlert'); if (!box) return;
-  box.className = `alert alert-${kind}`; box.textContent = text; box.classList.remove('d-none');
-  setTimeout(() => box.classList.add('d-none'), 3500);
+function byText(el, sel) {
+  const t = el?.querySelector(sel)?.textContent ?? '';
+  return String(t).trim();
 }
-function logPaso(btn, api, resp) { console.log(`se preciono el boton "${btn}" y se llamo a la api "${api}"`); if (resp) console.log('respuesta :', resp); }
-function logError(btn, api, e) { console.log(`se preciono el boton "${btn}" y se llamo a la api "${api}"`); console.error('respuesta :', e?.message || e); }
 
-// Lee ids del carrito y cantidades actuales desde la UI de micarrito
+function logPaso(etq, api, data) {
+  console.log(`se presiono el boton "${etq}" y se llamo a la api "${api}"`);
+  if (data !== undefined) console.log('respuesta :', data);
+}
+function logError(etq, api, e) {
+  console.log(`se presiono el boton "${etq}" y se llamo a la api "${api}"`);
+  console.error('respuesta :', e?.message || e);
+}
+
+///////////////////////////////////////////////
+// 2) Leer carrito, obtener stock y precio  //
+///////////////////////////////////////////////
+
+/**
+ * Lee cantidades e ids desde la página del carrito (micarrito.html).
+ * Espera filas .cart-item con input.js-qty y algún indicio de producto_id:
+ * - Badge de texto que contenga "prd-#" en la misma fila
+ * - O el orden de localStorage.tmpCartIds como respaldo
+ */
 function collectCartFromUI() {
-  const ids = JSON.parse(localStorage.getItem('tmpCartIds') || '[]');
+  const idsFromLS = (() => {
+    try { return JSON.parse(localStorage.getItem('tmpCartIds') || '[]'); }
+    catch { return []; }
+  })();
+
   const rows = $$('#cartList .cart-item');
   const items = [];
+  rows.forEach((row, idx) => {
+    // Ignorar filas "no encontrado"
+    const desc = byText(row, '.cart-desc').toLowerCase();
+    if (desc.includes('no encontrado')) return;
 
-  rows.forEach((row, i) => {
-    const desc = byText(row, '.cart-desc');
-    if (desc.toLowerCase().includes('no encontrado')) return; // ignora no encontrados
     const qtyEl = row.querySelector('.js-qty');
     const qty = qtyEl ? Number(qtyEl.value || 0) : 0;
     if (!qty) return;
 
-    // intenta leer id visible (badge con 'prd-#'), si no, cae al orden de ids
-    const rawId = (row.textContent.match(/prd-\w+/i) || [])[0] || ids[i] || '';
-    if (!rawId) return;
+    // producto_id por badge de texto (patrón prd-xxx) o por respaldo del LS
+    const text = row.textContent || '';
+    const match = text.match(/prd-[\w-]+/i);
+    const producto_id = match ? match[0] : (idsFromLS[idx] || '');
 
-    items.push({ producto_id: rawId, cantidad: qty });
+    if (!producto_id) return;
+    items.push({ producto_id, cantidad: qty });
   });
+
   return items;
 }
 
-// Prefill de datos del cliente
-async function prefillCliente(uid) {
-  try {
-    const cli = await clientsAPI.getOne(uid).catch(()=>null); // :contentReference[oaicite:13]{index=13}
-    const per = await datosPersonalesAPI.getByCliente(uid).catch(()=>({ data:[] })); // :contentReference[oaicite:14]{index=14}
-    const fis = await datosFacturacionAPI.getByCliente(uid).catch(()=>({ data:[] })); // :contentReference[oaicite:15]{index=15}
-    const met = await metodosPagoAPI.getByCliente(uid).catch(()=>({ data:[] })); // :contentReference[oaicite:16]{index=16}
-
-    const p = Array.isArray(per?.data) ? per.data[0] : per?.data || null;
-
-    $('#shipNombre').value    = p?.nombre || '';
-    $('#shipApellidos').value = p?.apellidos || '';
-    $('#shipTelefono').value  = p?.telefono || '';
-    $('#shipDireccion').value = p?.direccion || '';
-    $('#shipCiudad').value    = p?.ciudad || '';
-    $('#shipCP').value        = p?.codigo_postal || '';
-    $('#shipPais').value      = p?.pais || 'México';
-
-    const sel = $('#selPago');
-    const list = Array.isArray(met?.data) ? met.data : [];
-    sel.innerHTML = `<option value="">Selecciona…</option>` + (
-      list.map(m => `<option value="${String(m.tipo||'Otro')}">${String(m.tipo||'Otro')} ${m.es_principal? '(principal)':''}</option>`).join('')
-      || `<option value="Tarjeta (demo)">Tarjeta (demo)</option>
-          <option value="Transferencia (demo)">Transferencia (demo)</option>
-          <option value="Efectivo (demo)">Efectivo (demo)</option>`
-    );
-
-    return { cli, per: p, fis, met: list };
-  } catch (e) {
-    console.warn('prefillCliente error', e);
-    return {};
+/**
+ * Consulta API de productos para enriquecer con stock y precio actual.
+ * @param {{producto_id: string, cantidad: number}[]} items
+ * @returns {Promise<Array<{producto_id, nombre, cantidad, stock, price}>>}
+ */
+async function enrichWithStockPrice(items) {
+  const out = [];
+  for (const it of items) {
+    try {
+      const r = await productosAPI.getOne(it.producto_id);
+      const row = Array.isArray(r?.data) ? r.data[0] : (r?.data || r);
+      out.push({
+        producto_id: it.producto_id,
+        nombre: row?.nombre_producto || '(Sin nombre)',
+        cantidad: Number(it.cantidad || 0),
+        stock: Number(row?.stock || 0),
+        price: Number(row?.precio_unitario || 0)
+      });
+    } catch {
+      out.push({
+        producto_id: it.producto_id,
+        nombre: '(No disponible)',
+        cantidad: 0,
+        stock: 0,
+        price: 0
+      });
+    }
   }
+  return out;
 }
+
+//////////////////////////////////////
+// 3) Calcular y pintar el resumen  //
+//////////////////////////////////////
 
 function resumenHTML(items) {
-  const total = items.reduce((acc, it) => acc + (Number(it.price||0) * Number(it.cantidad||0)), 0);
-  const lines = items.map(it => `<li>${it.producto_id} × ${it.cantidad}</li>`).join('');
-  return `<div><strong>Artículos:</strong><ul>${lines}</ul><div><strong>Total estimado:</strong> ${money(total)}</div></div>`;
+  const rows = items.map(it => {
+    const ok = it.cantidad > 0 && it.cantidad <= it.stock;
+    const line = Number(it.cantidad || 0) * Number(it.price || 0);
+    return `
+      <li class="mb-1">
+        <strong>${it.producto_id}</strong> — ${it.nombre}
+        &times; ${it.cantidad} @ ${money(it.price)} =
+        <strong>${money(line)}</strong>
+        ${ok ? '' : '<span class="text-danger"> (ajustar cantidad/stock)</span>'}
+      </li>`;
+  }).join('');
+  const total = items.reduce((acc, it) => acc + (Number(it.cantidad||0) * Number(it.price||0)), 0);
+  return `
+    <div>
+      <strong>Artículos:</strong>
+      <ul class="mt-2">${rows}</ul>
+      <div class="mt-2"><strong>Total estimado:</strong> ${money(total)}</div>
+    </div>`;
 }
 
-// ====== Flujo principal ======
+/////////////////////////////////////////////
+// 0→6  Abrir modal y ejecutar todo el flujo
+/////////////////////////////////////////////
+
 export async function openPedidoModal() {
   await loadApis();
 
   const uid = sessionStorage.getItem('uid') || '';
-  if (!uid) { showMsg('warning','No se encontró sesión de cliente.'); return; }
+  if (!uid) { showMsg('warning', 'Inicia sesión para completar tu compra.'); return; }
 
-  const items = collectCartFromUI();
-  if (!items.length) { showMsg('warning','No hay artículos disponibles para comprar.'); return; }
+  // 0) Abrir modal
+  showModal();
 
-  // Prefill y resumen
-  await prefillCliente(uid);
-  $('#pedidoResumen').innerHTML = resumenHTML(items);
-
-  // Mostrar modal
-  const m = bootstrap.Modal.getOrCreateInstance('#modalPedido');
-  m.show();
-
-  // Enviar pedido
+  // Elementos de UI del modal
   const form = $('#formPedido');
-  const btn  = $('#btnCrearPedido');
-  const onSubmit = async (ev) => {
+  const btnConfirm = $('#btnCrearPedido');
+  const resumenBox = $('#pedidoResumen');
+  const metodoPagoSel = $('#selPago');
+
+  if (!form || !btnConfirm || !resumenBox) {
+    console.warn('Modal pedido: faltan elementos #formPedido, #btnCrearPedido o #pedidoResumen.');
+  }
+
+  // 1) Crear pedido (encabezado)
+  let pedido_id = '';
+  try {
+    const metodo_pago = metodoPagoSel?.value || 'NA';
+    logPaso('Crear pedido', '/pedidos/insert');
+    const ins = await pedidosAPI.insert({ cliente_id: uid, metodo_pago });
+    logPaso('Crear pedido', '/pedidos/insert', ins);
+    pedido_id = ins?.data?.pedido_id || ins?.pedido_id || '';
+    if (!pedido_id) throw new Error('No se pudo crear el pedido');
+  } catch (e) {
+    logError('Crear pedido', '/pedidos/insert', e);
+    showMsg('danger', e?.message || 'No se pudo crear el pedido.');
+    return;
+  }
+
+  // 2) Leer cantidades/ids productos + 3) obtener stock y precio, calcular y renderizar
+  let enriched = [];
+  try {
+    const rawItems = collectCartFromUI();
+    if (!rawItems.length) {
+      showMsg('warning', 'No hay artículos disponibles para comprar.');
+      return;
+    }
+    enriched = await enrichWithStockPrice(rawItems);
+    resumenBox.innerHTML = resumenHTML(enriched);
+  } catch {
+    showMsg('danger', 'No se pudieron obtener precios/stock.');
+    return;
+  }
+
+  // 4→6 en submit del formulario (cliente presiona confirmar)
+  const submitHandler = async (ev) => {
     ev.preventDefault();
-    btn.disabled = true;
+    btnConfirm.disabled = true;
 
-    const metodo_pago = $('#selPago').value || 'demo';
     try {
-      // 1) Insertar pedido
-      logPaso('Finalizar compra', '/pedidos/insert');
-      const ins = await pedidosAPI.insert({ cliente_id: uid, metodo_pago }); // crea encabezado
-      logPaso('Finalizar compra', '/pedidos/insert', ins);
-      const pedido_id = ins?.data?.pedido_id || ins?.pedido_id || '';
+      // Releer cantidades por si el usuario cambió algo en el carrito abierto detrás
+      const latest = collectCartFromUI();
+      const merged = await enrichWithStockPrice(latest);
 
-      if (!pedido_id) throw new Error('No se pudo crear el pedido');
+      // Validación rápida de stock y cantidades
+      const invalid = merged.filter(x => !(x.cantidad > 0 && x.cantidad <= x.stock));
+      if (invalid.length) {
+        showMsg('warning', 'Ajusta las cantidades según stock antes de confirmar.');
+        btnConfirm.disabled = false;
+        return;
+      }
 
-      // 2) Agregar cada línea con cantidad + precio_unitario
-      for (const it of items) {
-        // it: { producto_id, cantidad } recolectado del DOM
-        // Obtenemos precio_unitario confiable desde la API de productos
-        let precio_unitario = 0;
-        try {
-          const p = await productosAPI.getOne(it.producto_id);
-          const row = Array.isArray(p?.data) ? p.data[0] : p?.data || p;
-          precio_unitario = Number(row?.precio_unitario || 0);
-        } catch {}
-
+      // 5) Agregar productos al pedido (cantidad + precio_unitario)
+      for (const it of merged) {
         const payload = {
           pedido_id,
           producto_id: it.producto_id,
           cantidad: Number(it.cantidad || 0),
-          precio_unitario
+          precio_unitario: Number(it.price || 0)
         };
-
         logPaso('Agregar item', '/pedidos/add_item', payload);
         await addItemConVerificacion(payload, controlPedidosAPI);
       }
 
-      // 3) Confirmar (intentará y reportará faltantes si hay)
+      // 6) Intentar confirmar “Confirmado”
       try {
         logPaso('Confirmar pedido', '/pedidos/confirmar', { pedido_id });
         const conf = await confirmarConVerificacion(pedido_id, pedidosAPI, controlPedidosAPI);
         logPaso('Confirmar pedido', '/pedidos/confirmar', conf);
+        showMsg('success', '¡Pedido confirmado!');
       } catch (e) {
         if (e?.faltantes?.length) {
-          const falt = e.faltantes.map(f => `${f.producto_id} (req: ${f.requerido}, disp: ${f.stock_disponible})`).join('; ');
-          showMsg('warning', `Pedido creado pero con faltantes: ${falt}. Nuestro equipo te contactará.`);
+          const falt = e.faltantes.map(f =>
+            `${f.producto_id} (req: ${f.requerido}, disp: ${f.stock_disponible})`).join('; ');
+          showMsg('warning', `Pedido creado pero con faltantes: ${falt}.`);
         } else {
-          showMsg('warning', e?.message || 'No se pudo confirmar. Quedó Por confirmar.');
+          showMsg('warning', e?.message || 'No se pudo confirmar. El pedido quedó "Por confirmar".');
         }
       }
 
-      // 4) Éxito total
-      showMsg('success','¡Tu pedido fue creado!');
-      // Limpia carrito y cierra modal
-      localStorage.setItem('tmpCartIds', '[]');
+      // Limpieza de carrito local + log legacy
       localStorage.removeItem('tmpCartIds');
       localStorage.removeItem('temProdIds');
       console.log('local storage tem prodIds = []');
-      setTimeout(() => location.href = `/client-resources/pages/miCuenta.html?uid=${encodeURIComponent(uid)}`, 1200);
+
+      // Redirección ligera post-éxito
+      setTimeout(() => {
+        location.href = `/client-resources/pages/miCuenta.html?uid=${encodeURIComponent(uid)}`;
+      }, 1200);
+
     } catch (e) {
       logError('Finalizar compra', '/pedidos', e);
       showMsg('danger', e?.message || 'No se pudo realizar el pedido.');
     } finally {
-      btn.disabled = false;
-      form.removeEventListener('submit', onSubmit);
+      btnConfirm.disabled = false;
+      form.removeEventListener('submit', submitHandler);
     }
   };
 
-  form.addEventListener('submit', onSubmit, { once: true });
+  form?.addEventListener('submit', submitHandler, { once: true });
 }
