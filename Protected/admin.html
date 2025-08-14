@@ -5,515 +5,233 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Zafiro Home - Panel Administrador</title>
   <!-- Font Awesome -->
-  <link 
-    rel="stylesheet" 
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-  >
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
 
   <style>
-    :root {
-      --color-text-light: rgb(255, 255, 255);
-      --color-primary: rgb(45,71,120); 
-      --color-secondary: rgb(100,140,188);
-      --max-width-container: 1200px;
-      --spacing-standard: 1rem;
-      --borderradius: 20px;
-      --font-heading: 'Poppins', sans-serif;
-      --font-body:    'Open Sans', sans-serif;
-      --color-bg:         #f9f9f9;
-      --color-text:       #333333;
-      --color-primary:    rgb(45,71,120);
-      --color-secondary:  rgb(100,140,188);
-      --color-accent:     #f08a5d;
-      --color-light-bg:   #ffffff;
-      --border-radius:    12px;
-      --spacing:          1rem;
-      --transition-fast:  0.3s ease;
+    :root{
+      --color-text-light:#fff; --color-primary:rgb(45,71,120); --color-secondary:rgb(100,140,188);
+      --max-width-container:1200px; --spacing-standard:1rem;
+      --font-heading:'Poppins',sans-serif; --font-body:'Open Sans',sans-serif;
+      --color-bg:#f9f9f9; --color-text:#333; --color-accent:#f08a5d; --color-light-bg:#fff;
+      --border-radius:12px; --spacing:1rem; --transition-fast:.3s ease;
     }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);line-height:1.6}
+    h1,h2,h3,h4,h5{font-family:var(--font-heading);color:var(--color-primary);margin-bottom:1rem}
+    a{color:var(--color-primary);text-decoration:none;transition:color var(--transition-fast)}
+    a:hover{color:var(--color-secondary)}
+    .btn{display:inline-block;padding:.75rem 1.5rem;border:none;border-radius:var(--border-radius);
+      background:var(--color-primary);color:var(--color-text-light);font-weight:600;text-transform:uppercase;
+      cursor:pointer;transition:background var(--transition-fast),transform var(--transition-fast)}
+    .btn:hover{background:var(--color-secondary);transform:translateY(-2px)}
+    input,textarea,select{width:100%;padding:.5rem;border:1px solid #ccc;border-radius:var(--border-radius);
+      transition:border-color var(--transition-fast),box-shadow var(--transition-fast);font-family:inherit}
+    input:focus,textarea:focus{outline:none;border-color:var(--color-accent);box-shadow:0 0 0 3px rgba(240,138,93,.25)}
 
-    *, *::before, *::after {
-      margin: 0; padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: var(--font-body);
-      background: var(--color-bg);
-      color: var(--color-text);
-      line-height: 1.6;
-    }
-    h1,h2,h3,h4,h5 {
-      font-family: var(--font-heading);
-      color: var(--color-primary);
-      margin-bottom: 1rem;
-    }
+    /* Navbar */
+    .navbar{width:100%}
+    .navbarcontainer{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;
+      background:var(--color-primary);color:var(--color-text-light);min-height:80px;gap:var(--spacing-standard)}
+    .navbar-store-title{display:flex;align-items:center;gap:var(--spacing-standard);color:#fff !important;font-size:2rem}
+    .navbar-logo{margin-right:.5rem}
 
-    a {
-      color: var(--color-primary);
-      text-decoration: none;
-      transition: color var(--transition-fast);
-    }
-    a:hover {
-      color: var(--color-secondary);
-    }
+    /* Header admin */
+    .admin-header{text-align:center;margin-top:2.5rem;padding-bottom:.7rem;border-bottom:3px solid var(--color-accent)}
+    .admin-title{font-size:2.8rem;color:var(--color-primary);letter-spacing:-.04em;text-transform:uppercase;margin-bottom:1.5rem}
 
-    .btn {
-      display: inline-block;
-      padding: .75rem 1.5rem;
-      border: none;
-      border-radius: var(--border-radius);
-      background: var(--color-primary);
-      color: var(--color-text-light);
-      font-weight: 600;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background var(--transition-fast), transform var(--transition-fast);
-    }
-    .btn:hover {
-      background: var(--color-secondary);
-      transform: translateY(-2px);
-    }
+    /* Grid de módulos */
+    .categories-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:2.6rem;margin-top:3rem}
+    @media (max-width:767px){.categories-grid{gap:.95rem}}
+    .category-card{background:var(--color-light-bg);border-radius:var(--border-radius);
+      box-shadow:0 4px 18px rgba(0,0,0,.08);overflow:hidden;width:320px;max-width:97vw;
+      transition:transform .25s,box-shadow .26s}
+    @media (max-width:767px){.category-card{width:auto;min-width:280px}}
+    .category-card:hover{box-shadow:0 10px 34px rgba(165,35,12,.2);transform:translateY(-7px) scale(1.03)}
+    .category-header{padding:.8rem;background:#a5230c;color:#fff;border-bottom:3px solid var(--color-accent);text-align:center}
+    .category-title{font-size:1.4rem;margin:0;font-weight:700}
+    .category-body{padding:2.1rem 1.4rem 2rem;text-align:center}
+    .category-body i{font-size:3rem;color:#a5230c;margin-bottom:.85rem;display:block}
+    .toggle-btn{background:var(--color-primary);border:none;padding:.7rem 1.95rem;color:#fff;font-weight:700;
+      border-radius:var(--border-radius);text-transform:uppercase;letter-spacing:.04em;cursor:pointer;
+      transition:background .25s,transform .18s}
+    .toggle-btn:hover{background:#f08a5d;transform:scale(1.07) translateY(-3px)}
 
-    input, textarea, select {
-      width: 100%;
-      padding: .5rem;
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-      font-family: inherit;
-    }
+    /* Bloque reportes destacado */
+    .report-card-container{display:flex;flex-direction:column;align-items:center;margin-top:2rem}
+    .report-icon{font-size:3.15rem;color:#04bfbf;margin-bottom:1.2rem;animation:bounce 2s infinite}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-.76rem)}}
 
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(240,138,93,0.25);
-    }
-
-    /* ========================
-       Navbar
-    ========================== */
-    .navbar {
-      width: 100%;
-    }
-    .navbarcontainer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.5rem 1rem;
-      background-color: var(--color-primary);
-      color: var(--color-text-light);
-
-      min-height: 80px;
-      gap: var(--spacing-standard);
-    }
-
-    .navbar-store-title {
-      display: flex;
-      align-items: center;
-      text-decoration: none;
-      gap: var(--spacing-standard);
-      color: var(--color-text-light) !important;
-      font-family: "Arial", sans-serif;
-      font-size: 2rem;
-    }
-    .navbar-logo {
-      margin-right: 0.5rem;
-    }
-
-    /* ========================
-       Sub-Navbar (Dropdowns)
-    ========================== */
-    .subnavbar {
-      background-color: #a5230c;
-      padding: 0.7rem 0;
-    }
-    .subnav-menu {
-      display: flex;
-      list-style: none;
-      justify-content: center;
-      gap: var(--spacing-standard);
-      max-width: var(--max-width-container);
-      margin: 0 auto;
-      font-size: 1.05rem;
-    }
-
-    .subnav-item {
-      position: relative;
-    }
-    .subnav-item > a {
-      display: block;
-      padding: 0.75rem 1.25rem;
-      color: var(--color-text-light);
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .subnav-item > a:hover {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-
-    /* the dropdown itself */
-    .dropdown-menu {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      background: var(--color-light-bg);
-      list-style: none;
-      padding: 0.5rem 0;
-      margin: 0;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-      border-radius: var(--border-radius);
-      min-width: 200px;
-      z-index: 10;
-    }
-    .subnav-item:hover .dropdown-menu {
-      display: block;
-    }
-    .dropdown-menu li a {
-      display: block;
-      padding: 0.5rem 1rem;
-      color: var(--color-text);
-      font-size: 0.95rem;
-      text-decoration: none;
-      transition: background var(--transition-fast);
-    }
-    .dropdown-menu li a:hover {
-      background: #f6f6f6;
-    }
-
-    /* ==============================
-       Admin Main
-    ============================== */
-    .admin-header {
-      text-align:center;
-      margin-top:2.5rem;
-      padding-bottom:.7rem;
-      border-bottom:3px solid var(--color-accent);
-    }
-    .admin-title {
-      font-size: 2.8rem;
-      color:var(--color-primary);
-      letter-spacing:-0.04em;
-      text-transform:uppercase;
-      margin-bottom:1.5rem;
-    }
-
-    /* Cards */
-    .categories-grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 2.6rem;
-      margin-top: 3rem;
-    }
-    @media (max-width:767px) {
-      .categories-grid {gap:.95rem;}
-    }
-
-    .category-card {
-      background: var(--color-light-bg);
-      border-radius:var(--border-radius);
-      box-shadow: 0 4px 18px rgba(0,0,0,.08);
-      overflow:hidden;
-      width:320px;
-      max-width:97vw;
-      transition: transform .25s,box-shadow .26s;
-    }
-    @media (max-width:767px) {
-      .category-card {width:auto;min-width:280px;}
-    }
-    .category-card:hover {
-      box-shadow: 0 10px 34px rgba(165,35,12,.2);
-      transform: translateY(-7px) scale(1.03);
-    }
-
-    /* Header dentro del card */
-    .category-header {
-      padding:.8rem;
-      background:#a5230c;
-      color:#fff;
-      border-bottom:3px solid var(--color-accent);
-      text-align:center;
-      letter-spacing:-0.03em;
-    }
-    .category-title {
-      font-size:1.6rem;
-      margin:0;
-      font-weight:bold;
-      display:inline-block;
-    }
-
-    /* Cuerpo del card */
-    .category-body {
-      padding:2.7rem 1.4rem 2.5rem;
-      text-align:center;
-      position:relative;
-    }
-    .category-body i {
-      font-size:3rem;
-      color:#a5230c;margin-bottom:.85rem;display:block;
-    }
-
-    /* Botón ENTRAR */
-    .toggle-btn {
-      background-color:var(--color-primary);
-      border:none;
-      padding:.7rem 1.95rem;
-      color:white;font-weight:bold;border-radius:var(--border-radius);
-      text-transform:uppercase;letter-spacing:.04em;cursor:pointer;
-      transition:background .25s,transform .18s;
-    }
-    .toggle-btn:hover {
-      background-color:#f08a5d;color:white;
-      transform:scale(1.07) translateY(-3px);
-    }
-
-    /* ========================
-       Reportes Module
-    =========================== */
-    .report-card-container {
-      display:flex;flex-direction:column;align-items:center;
-      margin-top:2rem;
-    }
-    @media (max-width:767px){
-      .report-card-container {margin-bottom:.5rem;}
-    }
-
-    /* Animated Icon */
-    .report-icon {
-      font-size:3.15rem;color:#04bfbf;margin-bottom:1.5rem;animation:bounce 2s infinite;
-    }
-    @keyframes bounce{
-      0%, 100% {transform:translateY(0);}
-      50% {transform:translateY(-.76rem);}
-    }
-
-    /* ========================
-       Footer
-    =========================== */
-    footer {
-      background-color: var(--color-primary);
-      color: var(--color-text-light);
-      padding: 2rem var(--spacing-standard);
-      text-align: center;
-      margin-top:4rem;
-    }
-    .footer-links a {
-      color: var(--color-text-light);
-      margin: 0 1.5rem;
-      text-decoration: none;
-    }
-    .social-media a {
-      margin: 0 0.6rem;
-      font-size: 1.5rem;
-      color: var(--color-text-light);
-      transition: color var(--transition-fast);
-    }
-
+    /* Footer */
+    footer{background:var(--color-primary);color:#fff;padding:2rem var(--spacing);text-align:center;margin-top:4rem}
   </style>
 </head>
 <body class="page-body">
 
-  <!-- =========================
-       Header / Navbar
-       ============================== -->
+  <!-- Navbar -->
   <nav class="navbar">
     <div class="navbarcontainer">
-      <!-- Logo y marca -->
-      <a class="navbar-store-title" href="#">
+      <a class="navbar-store-title" href="/admin-resources/pages/admin.html">
         <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
-          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+             alt="Zafiro Home" height="40" class="navbar-logo me-2">
         <span>Zafiro Home</span>
       </a>
-
-      <!-- Iconos carrito y login -->
-      <ul class="navbarshopingicon">
-        <li class="nav-item">
-          <a class="nav-cart-icon" href="/cart" aria-label="Carrito de Compras">
-            <i class="fa-solid fa-basket-shopping fa-lg"></i>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-iniciar-sesion" data-bs-toggle="modal" data-bs-target="#loginmodal">Iniciar sesión</a>
-        </li>
-
-      </ul>
+      <a class="btn" href="/">Ir a la tienda</a>
     </div>
   </nav>
 
-  <!-- =========================
-       Sub-Navbar con dropdowns
-       ============================== -->
-  <nav class="subnavbar">
-    <ul class="subnav-menu">
-      <li class="subnav-item">
-        <a href="#">Categorías <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Electrónica</a></li>
-          <li><a href="#">Moda</a></li>
-          <li><a href="#">Hogar</a></li>
-          <li><a href="#">Jardín</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Servicios <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Instalaciones</a></li>
-          <li><a href="#">Asesoramiento en Línea</a></li>
-          <li><a href="#">Soporte Técnico</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Negocios <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Mayoristas</a></li>
-          <li><a href="#">Distribuidores</a></li>
-          <li><a href="#">Fletería</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Programa de Lealtad <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Cómo funciona</a></li>
-          <li><a href="#">Beneficios</a></li>
-          <li><a href="#">Puntos Acumulados</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Impresiones <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Impresión Digital</a></li>
-          <li><a href="#">Offset</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Facturación <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Consulta CFDI</a></li>
-          <li><a href="#">Preguntas Frecuentes</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Outlet <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="#">Electrónica</a></li>
-          <li><a href="#">Hogar</a></li>
-        </ul>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Tiendas</a>
-      </li>
-      <li class="subnav-item">
-        <a href="#">Ayuda <i class="fa fa-angle-down"></i></a>
-        <ul class="dropdown-menu">
-          <li><a href="/ayuda">Contacto</a></li>
-          <li><a href="#">Preguntas Frecuentes</a></li>
-        </ul>
-      </li>
-    </ul>
-  </nav>
-
-  <!-- ==============================
-     Admin Panel
-     ============================== -->
+  <!-- Encabezado -->
   <section class="admin-panel">
     <div class="admin-header">
       <h2 class="admin-title">Panel de Administración</h2>
-      <p style="max-width:600px; margin:auto;color:#575f7a;font-size:1.08rem;">
-        Bienvenido/a al panel administrativo de Zafiro Home.<br>
-        Aquí puedes gestionar todos los aspectos críticos de tu negocio.
+      <p style="max-width:680px;margin:auto;color:#575f7a;font-size:1.08rem">
+        Administra categorías, productos, pedidos, usuarios, métodos de pago y reportes — todo desde un solo lugar.
       </p>
     </div>
 
-    <!-- ==============================
-         Reportes
-         ============================== -->
-    <div class="report-card-container">
-      <div class="category-header" style="background:#04bfbf;">
+    <!-- Reportes destacado -->
+    <div class="report-card-container" style="margin-top:2.2rem">
+      <div class="category-header" style="background:#04bfbf">
         <h3 class="category-title">REPORTES</h3>
       </div>
-      <div class="category-body" style="margin-top:1.7rem; text-align:center;">
+      <div class="category-body" style="margin-top:1.2rem;text-align:center">
         <i class="fas fa-file-chart-pie report-icon"></i>
-        <button class="toggle-btn"
-          onclick="location.href='/admin-resources/paneles-administracion/panel-reportes.html'">
-          VER REPORTES
+        <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-reportes.html'">
+          Ver reportes
         </button>
       </div>
     </div>
 
-    <!-- ==============================
-         CATEGORÍAS DESTACADAS (Admin)
-         ============================== -->
+    <!-- Módulos -->
     <section class="featured-categories">
-      <h2 class="section-title" style="margin-top:3.7rem;">Módulos Administrativos</h2>
+      <h2 class="section-title" style="margin-top:3.2rem;text-align:center">Módulos Administrativos</h2>
       <div class="categories-grid">
 
-        <!-- USUARIOS -->
+        <!-- Categorías -->
         <div class="category-card">
-          <div class="category-header">
-            <h3 class="category-title">USUARIOS</h3>
-          </div>
+          <div class="category-header"><h3 class="category-title">Categorías</h3></div>
           <div class="category-body">
-            <i class="fa fa-users" aria-hidden="true"></i>
-            <button class="toggle-btn"
-              onclick="location.href='/admin-resources/paneles-administracion/panel-usuarios.html'">
-              ENTRAR
-            </button>
+            <i class="fa-solid fa-list-ul"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-categorias.html'">Entrar</button>
           </div>
         </div>
 
-        <!-- ALMACÉN -->
+        <!-- Productos -->
         <div class="category-card">
-          <div class="category-header">
-            <h3 class="category-title">ALMACÉN</h3>
-          </div>
+          <div class="category-header"><h3 class="category-title">Productos</h3></div>
           <div class="category-body">
-            <i class="fa fa-home" aria-hidden="true"></i>
-            <button class="toggle-btn"
-              onclick="location.href='/admin-resources/pages/paneles-administracion/panel-almacen.html'">
-              ENTRAR
-            </button>
+            <i class="fa-solid fa-box-open"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-productos.html'">Entrar</button>
           </div>
         </div>
 
-        <!-- PRODUCTOS -->
+        <!-- Stock & Alertas -->
         <div class="category-card">
-          <div class="category-header">
-            <h3 class="category-title">PRODUCTOS</h3>
-          </div>
+          <div class="category-header"><h3 class="category-title">Stock & Alertas</h3></div>
           <div class="category-body">
-            <i class="fa fa-cube" aria-hidden="true"></i> <!-- changed for better icon -->
-            <button class="toggle-btn"
-              onclick="location.href='/admin-resources/pages/paneles-administracion/panel-productos.html'">
-              ENTRAR
-            </button>
+            <i class="fa-solid fa-bell"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-stock-alertas.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Pedidos -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Pedidos</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-truck-fast"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-pedidos.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Control de pedidos -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Control de pedidos</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-sliders"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-control-pedidos.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Clientes -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Clientes</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-user"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-clientes.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Empleados -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Empleados</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-id-badge"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-empleados.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Datos personales -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Datos personales</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-address-card"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-datos-personales.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Datos de facturación -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Datos de facturación</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-datos-facturacion.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Métodos de pago -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Métodos de pago</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-credit-card"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-metodos-pago.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Promociones -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Promociones</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-bullhorn"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-promociones.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Almacén (landing) -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Almacén</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-warehouse"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-almacen.html'">Entrar</button>
+          </div>
+        </div>
+
+        <!-- Usuarios (landing) -->
+        <div class="category-card">
+          <div class="category-header"><h3 class="category-title">Usuarios</h3></div>
+          <div class="category-body">
+            <i class="fa-solid fa-users"></i>
+            <button class="toggle-btn" onclick="location.href='/admin-resources/pages/paneles-administracion/panel-usuarios.html'">Entrar</button>
           </div>
         </div>
 
       </div>
     </section>
-
   </section>
 
-  <!-- ========================
-       Footer
-    =========================== -->
+  <!-- Footer -->
   <footer>
-    <div class="footer-links">
-      <a href="/ayuda">Ayuda</a>
-      <a href="/terminos">Términos y Condiciones</a>
-      <a href="/privacidad">Política de Privacidad</a>
-    </div>
-    <div class="social-media">
-      <a href="#"><i class="fab fa-facebook"></i></a>
-      <a href="#"><i class="fab fa-instagram"></i></a>
-      <a href="#"><i class="fab fa-twitter"></i></a>
-    </div>
     <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
   </footer>
-
 </body>
 </html>
-
-
