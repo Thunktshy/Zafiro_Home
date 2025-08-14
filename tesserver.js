@@ -152,6 +152,10 @@ app.use('/reportes', ReportesRoutes);
 const PromocionesRouter = require('./Server/routes/promocionesRoute.js')
 app.use('/promociones', PromocionesRouter);
 
+// Server/server.js o tesserver.js
+const ImagenesRoutes = require('./Server/routes/imagenesRoute.js');
+app.use('/imagenes', ImagenesRoutes);
+
 
 // Iniciar el servidor
 const port = process.env.PORT || 3000;
