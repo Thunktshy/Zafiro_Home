@@ -67,7 +67,7 @@ router.post('/login', [
 
     await saveSession(req);
 
-    const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
+    //const redirect = req.session.isAdmin ? ADMIN_HOME : CLIENT_HOME;
 
     return res.json({
       success: true,
@@ -76,8 +76,8 @@ router.post('/login', [
       isClient: req.session.isClient === true,
       userID:   req.session.userID || null,
       username: req.session.username || 'Bienvenido',
-      userType: normTipo,
-      redirect
+      userType: normTipo
+      //redirect
     });
 
   } catch (err) {
