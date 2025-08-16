@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Zafiro Home - Panel de Administración</title>
+  <!-- Tailwind CDN para utilidades (no usado, solo como alternativa) -->
+  <!-- Font Awesome y Google Fonts como en el sitio principal -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+  
+  <!-- Reutilizando estilos de index.txt (como index.css) -->
+  <style>
+    /* Aquí se copian todos los contenidos de index.txt */
+:root {
+  --color-text-light: rgb(255, 255, 255);
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --max-width-container: 1200px;
+  --spacing-standard: 1rem;
+  --borderradius: 20px;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --color-bg: #f9f9f9;
+  --color-text: #333333;
+  --color-primary: rgb(45,71,120);
+  --color-secondary: rgb(100,140,188);
+  --color-accent: #f08a5d;
+  --color-light-bg: #ffffff;
+  --border-radius: 12px;
+  --spacing: 1rem;
+  --transition-fast: 0.3s ease;
+}
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+}
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-heading);
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+a:hover {
+  color: var(--color-secondary);
+}
+.btn {
+  display: inline-block;
+  padding: .75rem 1.5rem;
+  border: none;
+  border-radius: var(--border-radius);
+  background: var(--color-primary);
+  color: var(--color-light-bg);
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.btn:hover {
+  background: var(--color-secondary);
+  transform: translateY(-2px);
+}
+input, textarea, select {
+  width: 100%;
+  padding: .5rem;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  font-family: inherit;
+}
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(240,138,93,0.25);
+}
+
+/* Banner superior */
+.top-banner {
+  background-color: #a5230c;
+  color: var(--color-text-light);
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+  padding: 0.75rem 0;
+}
+/* Navbar principal */
+.navbar {
+  width: 100%;
+}
+.navbarcontainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+  min-height: 80px;
+  gap: var(--spacing-standard);
+}
+.navbar-store-title {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  gap: var(--spacing-standard);
+  color: var(--color-text-light) !important;
+  font-family: "Arial", sans-serif;
+  font-size: 2rem;
+}
+.navbar-logo { margin-right: 0.5rem; }
+/* Sub-Navbar */
+.subnavbar {
+  background-color: #a5230c;
+  padding: 0.5rem 0;
+}
+.subnav-menu {
+  display: flex;
+  list-style: none;
+  justify-content: center;
+  gap: var(--spacing-standard);
+  max-width: var(--max-width-container);
+  margin: 0 auto;
+  font-size: 1.05rem;
+}
+.subnav-item { position: relative; }
+.subnav-item > a {
+  display: block;
+  padding: 0.75rem 1.25rem;
+  color: var(--color-text-light);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.subnav-item > a:hover { background-color: rgba(0,0,0,0.1); }
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--color-light-bg);
+  list-style: none;
+  padding: 0.5rem 0;
+  margin: 0;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  border-radius: var(--border-radius);
+  min-width: 200px;
+  z-index: 10;
+}
+.subnav-item:hover .dropdown-menu { display: block; }
+.dropdown-menu li a {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+.dropdown-menu li a:hover { background: #f6f6f6; }
+/* Contenido principal */
+.main-content {
+  max-width: var(--max-width-container);
+  margin: 2.3rem auto;
+  padding: 0 var(--spacing-standard);
+}
+/* Tarjetas (formularios, tablas) */
+.card {
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+/* Scroll reveal */
+.scroll-reveal { opacity: 0; transform: translateY(40px); transition: all .7s cubic-bezier(.38,.69,.55,1) }
+.scroll-reveal.active { opacity: 1; transform: none; }
+
+/* Footer (reutilizado) */
+footer {
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+  padding: 2rem var(--spacing-standard);
+  text-align: center;
+}
+.footer-links a {
+  color: var(--color-text-light);
+  margin: 0 1.5rem;
+  text-decoration: none;
+}
+footer .social-media a { 
+  margin: 0 0.6rem; font-size: 1.5rem; color: #fff;
+  transition: color .2s;
+}
+footer .social-media a:hover {
+  color: var(--color-accent);
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: rgba(0,0,0,0.65);
+  justify-content: center;
+  align-items: center;
+  z-index: 1060;
+}
+.modal.show { display: flex; }
+.modal-dialog {
+  width: 97vw;
+  max-width: 430px;
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: 0 12px 68px rgba(0,0,0,.25);
+}
+.modal-header { padding: 1.3rem 1.4rem; border-bottom:none; display:flex;align-items:center;justify-content:space-between;}
+.modal-title { font-size: 1.35rem; font-weight: bold; color:#a5230c;}
+.btn-close {
+  background:none; border:none; color:#a5230c; font-size:1.6rem; cursor:pointer;
+}
+.modal-body { padding:1.4rem 1.8rem;}
+.form-label { font-weight:600; color:var(--color-primary);}
+.btn-primary {
+  background-color: var(--color-primary);
+  color:white;
+  font-weight:bold; border:none; padding:.75rem 1.25rem;
+  border-radius:var(--border-radius); transition:.2s; width:100%;
+}
+.btn-primary:hover { 
+  background:#a5230c; transform:scale(1.04) translateY(-1px);
+}
+
+/* DataTables sobreescritura */
+.dataTables_filter {
+  float:none;
+  text-align:right;
+  margin-bottom: 8px !important;
+}
+.dataTables_length,
+.dataTables_paginate {
+  float:none;
+  text-align:left;
+  margin-top: 12px !important;
+}
+  </style>
+  
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.bootstrap5.min.css">
+</head>
+<body class="page-body">
+
+  <!-- Banner superior (reutilizado)-->
+  <div class="top-banner">Panel de Administración - Categorías Zafiro Home</div>
+
+  <!-- Navbar principal (logo y navegación, sin dropdowns innecesarios) -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <a class="navbar-store-title" href="#">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
+          alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+      <!-- No incluimos la búsqueda ni el carrito en el panel admin -->
+    </div>
+  </nav>
+
+  <!-- ============================== 
+       Panel de Categorías: Formularios y Tabla
+       =============================== -->
+  <main class="main-content">
+  
+    <!-- HEADER / Título del módulo -->
+    <section class="card scroll-reveal" id="admin-header">
+      <h1>
+        Gestión de Categorías
+        <span style="margin-left:1.2rem;">
+          <button id="btnAgregarCategoria" class="btn btn-primary">Nueva categoría</button>
+        </span>
+      </h1>
+      <p>Administra y mantén las categorías de tu tienda Zafiro Home.</p>
+    </section>
+    
+    <!-- MODAL: Agregar/Editar Categoría -->
+    <div class="modal" id="categoriaModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="modalCategoriaTitle">Nueva Categoría</h4>
+            <button type="button" class="btn-close" id="closeModalBtn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form id="categoriaForm">
+              <!-- Campos ocultos para editar -->
+              <input type="hidden" name="categoria_id" id="categoria_id">
+              <label class="form-label">Nombre de Categoría</label>
+              <input type="text" required maxlength="50"
+                id="nombre_categoria" name="nombre_categoria"
+                class="mb-2 form-control" placeholder="Ej: Electrodomésticos">
+
+              <label class="form-label mt-1">Descripción (opcional)</label>
+              <textarea rows="3" maxlength="255" 
+                name="descripcion" id="descripcion"
+                class="form-control mb-2"
+                placeholder="Detalles sobre la categoría..."></textarea>
+
+              <div class="text-center">
+                <button type="submit" class="btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary ml-2" id="cancelModalBtn">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATATABLE: Listado de Categorías -->
+    <section class="card scroll-reveal">
+      <h2>Listado de Categorías</h2>
+      <table id="categoriasTable" class="display w-100 table-striped dataTable no-footer">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Fecha Creación</th>
+            <th>Opciones</th>
+          </tr>
+        </thead>
+      </table>
+    </section>
+
+  </main>
+
+  <!-- ============================== 
+       Footer (reutilizado)
+       =============================== -->
+  <footer>
+    <div class="footer-links">
+      <a href="/ayuda">Ayuda</a>
+      <a href="/terminos">Términos y Condiciones</a>
+      <a href="/privacidad">Política de Privacidad</a>
+    </div>
+    <div class="social-media">
+      <a href="#"><i class="fab fa-facebook" aria-label="fa-facebook"></i></a>
+      <a href="#"><i class="fab fa-instagram" aria-label="fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-twitter" aria-label="fa-twitter"></i></a>
+    </div>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- ============================== 
+       Scripts: apiFetch, DataTables y interacciones
+       =============================== -->
+
+  <!-- jQuery (necesario para DataTables) -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <!-- DataTables JS -->
+  <script src="https://cdn.datatables.net/2.3.2/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/2.3.2/js/dataTables.bootstrap5.min.js"></script>
+
+  <!-- API de categorías (copiada de categoriasManager.js) -->
+  <script>
+    // '/admin-resources/scripts/apis/categoriasManager.js'
+    const BASE = '/categorias';
+    function extractErrorMessage(data, res) {
+      if (data && typeof data === 'object') {
+        return data.message || data.error || `Error ${res.status}`;
+      }
+      return typeof data === 'string' && data.trim() ? data : `Error ${res.status}`;
+    }
+    async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
+      const opts = {
+        method,
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      };
+      if (body != null) {
+        if (!bodyType || bodyType === 'json') {
+          opts.headers['Content-Type'] = 'application/json';
+          opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+        } else {
+          opts.body = body;
+        }
+      }
+      const res = await fetch(`${BASE}${path}`, opts);
+      const ct = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const msg = extractErrorMessage(data, res);
+        throw new Error(msg);
+      }
+      return data;
+    }
+    export const categoriasAPI = {
+      getAll: () => apiFetch('/get_all'),
+      getList: () => apiFetch('/get_list'),
+      getOne: (id) => apiFetch(`/by_id/${encodeURIComponent(id)}`),
+      insert: ({ nombre_categoria, descripcion }) =>
+        apiFetch('/insert', { method:'POST', body:{nombre_categoria,descripcion:descripcion||null} }),
+      update: ({ categoria_id, nombre_categoria, descripcion }) =>
+        apiFetch('/update', { method:'POST', body:{categoria_id,nombre_categoria,descripcion:descripcion||null} }),
+      remove: (categoria_id) =>
+        apiFetch('/delete', { method:'POST', body:{categoria_id} })
+    };
+  </script>
+
+  <!-- Scroll Reveal Animations -->
+  <script>
+    function revealOnScroll() {
+      document.querySelectorAll('.scroll-reveal').forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= window.innerHeight - 80) { 
+          el.classList.add('active');
+        }
+      });
+    }
+    window.addEventListener('DOMContentLoaded', () => setTimeout(revealOnScroll,24));
+    window.addEventListener('scroll', revealOnScroll);
+  </script>
+
+  <!-- DataTables y interacciones -->
+  <script>
+    // Usar los estilos del sitio
+    document.body.style.backgroundColor = 'var(--color-bg)';
+    document.querySelectorAll('h1,h2').forEach(e => e.style.fontFamily='var(--font-heading)');
+    
+    let categoriaTable;
+    const modal = document.getElementById("categoriaModal");
+    function showModal(title, data={}) {
+      document.getElementById("modalCategoriaTitle").textContent=title;
+      document.getElementById("categoria_id").value=data.categoria_id||'';
+      document.getElementById("nombre_categoria").value=data.nombre_categoria||'';
+      document.getElementById("descripcion").value=data.descripcion||'';
+      modal.classList.add('show');
+    }
+    function closeModal() {
+      modal.classList.remove('show');
+    }
+
+    // Cargar categorías con DataTables
+    async function loadCategorias() {
+      if (categoriaTable) categoriaTable.destroy();
+      try {
+        const cats = await categoriasAPI.getAll();
+        categoriaTable = $('#categoriasTable').DataTable({
+          language: { url:'https://cdn.datatables.net/plug-ins/1.13.4/i18n/Spanish.json' },
+          data:cats,
+          columns:[
+            {title:"ID",data:"categoria_id"},
+            {title:"Nombre",data:"nombre_categoria",
+              render:(v,t,r)=>
+                `<span title="Haz clic para editar" class='editar-categoria cursor-pointer text-primary'>${v}</span>`
+            },
+            {title:"Descripción",data:"descripcion",
+              render:v=>(v||(document.createElement('em').innerText='- Sin descripción -')).slice(0,65)
+            },
+            {title:"Fecha Creación",data:"fecha_creacion",
+              render:ts=>{
+                const d=new Date(ts);
+                return isNaN(d.getTime())?'-':d.toLocaleString();
+              }
+            },
+            {
+              title:'Opciones',
+              data:null,
+              orderable:false,
+              searchable:false,
+              render:(v,t,r)=>
+`<button class="btn-edit btn-secondary mr-2" title="Editar"><i class='fa fa-pencil-alt'></i></button><button class="btn-delete btn-danger" title="Borrar">&times;</button>`
+            }
+          ],
+          dom:"<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"+
+               "<'row'<'col-sm-12'tr>>"+
+               "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+          pagingType:"simple_numbers", lengthMenu:[8,14,20],
+        });
+      }
+      catch(e){
+        alert('Error al cargar categorías: '+e.message);
+      }
+    }
+
+    // Eventos para agregar/editar
+    document.getElementById("btnAgregarCategoria").onclick = () => showModal("Nueva Categoría", {});
+    $(document).on('click', '.editar-categoria, .btn-edit', function(){
+      const row = categoriaTable.row($(this).closest("tr")).data();
+      if (!row) return;
+      showModal("Editar Categoría", row);
+    });
+
+    // Evento para guardar categoría
+    document.getElementById('categoriaForm').onsubmit=async function(e){
+      e.preventDefault();
+      try {
+        const fd=new FormData(this);
+        let res;
+        if (fd.get('categoria_id')) {
+          res = await categoriasAPI.update({
+            categoria_id: parseInt(fd.get("categoria_id")),
+            nombre_categoria: fd.get("nombre_categoria"),
+            descripcion: fd.get("descripcion")
+          });
+        } else {
+          res=await categoriasAPI.insert({
+            nombre_categoria: fd.get("nombre_categoria"),
+            descripcion: fd.get("descripcion")
+          });
+        }
+        closeModal();
+        loadCategorias();
+      } catch(err) {
+        alert('Error al guardar/actualizar categoría:\n'+err.message);
+      }
+    };
+
+    // Evento para borrar
+    $(document).on('click','.btn-delete', async function(){
+      const row = categoriaTable.row($(this).closest("tr")).data();
+      if (!row || !confirm(`¿Realmente quieres eliminar la categoría "${row.nombre_categoria}"? Esta acción no se puede deshacer.`)) return;
+      try {
+        await categoriasAPI.remove(row.categoria_id);
+        loadCategorias();
+      } catch(e){
+        alert('No se pudo eliminar: '+e.message);
+      }
+    });
+
+    // Botones de cierre modal
+    document.getElementById("closeModalBtn").onclick=closeModal;
+    document.getElementById("cancelModalBtn").onclick=closeModal;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadCategorias();
+    });
+  </script>
+</body>
+</html>
