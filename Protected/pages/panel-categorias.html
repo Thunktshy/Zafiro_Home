@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zafiro Home - Panel de Administración</title>
+
+  <!-- Iconos y fuentes -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet" />
+
+  <!-- DataTables -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.bootstrap5.min.css" />
+
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="../../css/admin.css" />
+</head>
+<body class="page-body">
+
+  <!-- Banner superior -->
+  <div class="top-banner">Panel de Administración - Categorías</div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbarcontainer">
+      <a class="navbar-store-title" href="#">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=60&h=60&q=80"
+             alt="Zafiro Home" height="40" class="navbar-logo me-2">
+        <span>Zafiro Home</span>
+      </a>
+      <a class="btn" href="/admin-resources/pages/admin.html">Regresar al panel principal</a>
+    </div>
+  </nav>
+
+  <!-- Contenido -->
+  <main class="main-content">
+    <section class="card scroll-reveal" id="admin-header">
+      <h1 class="admin-title">Panel: Categorías</h1>
+      <p class="admin-subtitle">Pruebas rápidas de la API de categorías con DataTables.</p>
+    </section>
+
+    <!-- Barra de acciones -->
+    <section class="card p-3 mb-4 shadow-sm scroll-reveal">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-8">
+          <div class="actions">
+            <button id="btnProbarDropdown" class="btn btn-ghost">
+              <i class="fa-solid fa-list me-1"></i> Probar Dropbox
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dropdown de categorías -->
+      <div class="row g-2 mt-3">
+        <div class="col-12 col-md-6">
+          <label for="selectCategorias" class="form-label mb-1">Dropbox de Categorías</label>
+          <select id="selectCategorias" class="form-select">
+            <option value="" selected>— sin datos —</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabla 1 -->
+    <section class="card p-3 mb-4 shadow-sm scroll-reveal">
+      <div class="card-head">
+        <h2 class="mb-3">Listado simple (get_all)</h2>
+        <button id="btnCargarTodas" class="btn btn-outline">
+          <i class="fa-solid fa-table-list me-1"></i> Cargar Todas
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table id="tablaCategorias" class="display table w-100">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tabla 2 -->
+    <section class="card p-3 mb-4 shadow-sm scroll-reveal">
+      <h2 class="mb-3">Resultado de búsqueda por ID (/by_id/:id)</h2>
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-8 col-md-3">
+          <label for="buscarId" class="form-label mb-1">Buscar por ID</label>
+          <input id="buscarId" type="number" class="form-control" placeholder="ID de categoría" />
+        </div>
+        <div class="col-4 col-md-2 d-grid">
+          <label class="form-label invisible">.</label>
+          <button id="btnBuscar" class="btn btn-primary" aria-label="Buscar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table id="tablaBusqueda" class="display table table-bordered w-100">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tabla 3 CRUD -->
+    <section class="card p-3 mb-5 shadow-sm scroll-reveal">
+      <div class="card-head">
+        <h2 class="mb-3">CRUD (get_all + columna “Eliminar”)</h2>
+        <div class="actions">
+          <button id="btnRefrescarCrud" class="btn btn-outline-info">
+            <i class="fa-solid fa-rotate me-1"></i> Refrescar CRUD
+          </button>
+          <button id="btnAbrirAgregar" class="btn btn-success">
+            <i class="fa-solid fa-plus me-1"></i> Agregar categoría
+          </button>
+          <button id="btnAbrirEditar" class="btn btn-warning">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Modificar categoría
+          </button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table id="tablaCRUD" class="display table table-hover w-100">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Eliminar</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <small class="text-muted">Tip: haz clic en el nombre para editar rápidamente.</small>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Modal reutilizable -->
+  <div class="modal" id="modalCategoria" aria-hidden="true" role="dialog">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalCategoriaTitle">Nueva Categoría</h3>
+        <button class="btn-close" id="closeModalBtn" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="categoriaForm">
+          <input type="hidden" id="categoria_id" name="categoria_id" />
+          <div class="mb-3">
+            <label for="nombre_categoria" class="form-label">Nombre</label>
+            <input type="text" id="nombre_categoria" name="nombre_categoria" class="form-control" required />
+          </div>
+          <div class="mb-4">
+            <label for="descripcion" class="form-label">Descripción (opcional)</label>
+            <textarea id="descripcion" name="descripcion" rows="3" class="form-control"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="cancelModalBtn">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="saveCategoriaBtn">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Libs -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/2.3.2/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/2.3.2/js/dataTables.bootstrap5.min.js"></script>
+
+  <!-- App -->
+  <script type="module" src="../../scripts/apis/categorias-service.js"></script>
+</body>
+</html>
