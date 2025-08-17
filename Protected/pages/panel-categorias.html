@@ -2,25 +2,21 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zafiro Home - Panel de Administración</title>
 
   <!-- Iconos y fuentes -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet" />
 
-  <!-- DataTables -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.bootstrap5.min.css" />
+  <!-- DataTables (jQuery base) — evita plugin bootstrap para no romper -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
 
   <!-- Estilos propios -->
   <link rel="stylesheet" href="/admin-resources/css/styles/admin.css" />
 </head>
 <body class="page-body">
-
-  <!-- Banner superior -->
   <div class="top-banner">Panel de Administración - Categorías</div>
-
-  <!-- Navbar -->
   <nav class="navbar">
     <div class="navbarcontainer">
       <a class="navbar-store-title" href="#">
@@ -32,14 +28,12 @@
     </div>
   </nav>
 
-  <!-- Contenido -->
   <main class="main-content">
     <section class="card scroll-reveal" id="admin-header">
       <h1 class="admin-title">Panel: Categorías</h1>
       <p class="admin-subtitle">Pruebas rápidas de la API de categorías con DataTables.</p>
     </section>
 
-    <!-- Barra de acciones -->
     <section class="card p-3 mb-4 shadow-sm scroll-reveal">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-8">
@@ -50,8 +44,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Dropdown de categorías -->
       <div class="row g-2 mt-3">
         <div class="col-12 col-md-6">
           <label for="selectCategorias" class="form-label mb-1">Dropbox de Categorías</label>
@@ -62,7 +54,7 @@
       </div>
     </section>
 
-    <!-- Tabla 1 -->
+    <!-- Tabla 1: Listado simple -->
     <section class="card p-3 mb-4 shadow-sm scroll-reveal">
       <div class="card-head">
         <h2 class="mb-3">Listado simple (get_all)</h2>
@@ -79,12 +71,14 @@
               <th>Descripción</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr><td colspan="3" class="text-muted">Las categorías se cargarán aquí…</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
 
-    <!-- Tabla 2 -->
+    <!-- Tabla 2: Búsqueda por ID -->
     <section class="card p-3 mb-4 shadow-sm scroll-reveal">
       <h2 class="mb-3">Resultado de búsqueda por ID (/by_id/:id)</h2>
       <div class="row g-2 align-items-end mb-2">
@@ -108,12 +102,14 @@
               <th>Descripción</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr><td colspan="3" class="text-muted">Escribe un ID y presiona buscar…</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
 
-    <!-- Tabla 3 CRUD -->
+    <!-- Tabla 3: CRUD -->
     <section class="card p-3 mb-5 shadow-sm scroll-reveal">
       <div class="card-head">
         <h2 class="mb-3">CRUD (get_all + columna “Eliminar”)</h2>
@@ -139,21 +135,22 @@
               <th>Eliminar</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr><td colspan="4" class="text-muted">El CRUD se cargará aquí…</td></tr>
+          </tbody>
         </table>
       </div>
       <small class="text-muted">Tip: haz clic en el nombre para editar rápidamente.</small>
     </section>
   </main>
 
-  <!-- Footer -->
   <footer>
     <p>© 2025 Zafiro Home. Todos los derechos reservados.</p>
   </footer>
 
   <!-- Modal reutilizable -->
   <div class="modal" id="modalCategoria" aria-hidden="true" role="dialog">
-    <div class="modal-dialog">
+    <div class="modal-dialog" role="document">
       <div class="modal-header">
         <h3 class="modal-title" id="modalCategoriaTitle">Nueva Categoría</h3>
         <button class="btn-close" id="closeModalBtn" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
@@ -178,12 +175,11 @@
     </div>
   </div>
 
-  <!-- Libs -->
-  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-  <script src="https://cdn.datatables.net/2.3.2/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/2.3.2/js/dataTables.bootstrap5.min.js"></script>
+  <!-- jQuery + DataTables base -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js" defer></script>
 
-  <!-- App -->
+  <!-- App (módulos) -->
   <script type="module" src="/admin-resources/scripts/apis/categorias-service.js"></script>
   <script type="module" src="/admin-resources/scripts/forms/categorias-panel.js"></script>
 </body>

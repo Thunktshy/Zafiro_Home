@@ -1,4 +1,7 @@
-// scripts\apis\categorias-service.js
+// categorias-service.js
+
+// Exporta: categoriasAPI
+
 const BASE = '/categorias';
 
 function extractErrorMessage(data, res) {
@@ -19,16 +22,13 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     } else {
-      opts.body = body; // FormData u otros
+      opts.body = body; // FormData / raw
     }
   }
   const res = await fetch(`${BASE}${path}`, opts);
   const ct = res.headers.get('content-type') || '';
   const data = ct.includes('application/json') ? await res.json() : await res.text();
-  if (!res.ok) {
-    const msg = extractErrorMessage(data, res);
-    throw new Error(msg);
-  }
+  if (!res.ok) throw new Error(extractErrorMessage(data, res));
   return data;
 }
 
@@ -41,5 +41,7 @@ export const categoriasAPI = {
   update: ({ categoria_id, nombre_categoria, descripcion }) =>
     apiFetch('/update', { method: 'POST', body: { categoria_id, nombre_categoria, descripcion: descripcion || null } }),
   remove: (categoria_id) =>
-    apiFetch('/delete', { method: 'POST', body: { categoria_id } }),
+    apiFetch('/delete', { method: 'POST', body: { categoria_id } })
 };
+
+export default categoriasAPI;
