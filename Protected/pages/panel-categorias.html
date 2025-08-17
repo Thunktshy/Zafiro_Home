@@ -31,33 +31,15 @@
   <main class="main-content">
     <section class="card scroll-reveal" id="admin-header">
       <h1 class="admin-title">Panel: Categorías</h1>
-      <p class="admin-subtitle">Pruebas rápidas de la API de categorías con DataTables.</p>
+      <p class="admin-subtitle">Modulo de Administración de Categorías.</p>
     </section>
 
-    <section class="card p-3 mb-4 shadow-sm scroll-reveal">
-      <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-8">
-          <div class="actions">
-            <button id="btnProbarDropdown" class="btn btn-ghost">
-              <i class="fa-solid fa-list me-1"></i> Probar Dropbox
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="row g-2 mt-3">
-        <div class="col-12 col-md-6">
-          <label for="selectCategorias" class="form-label mb-1">Dropbox de Categorías</label>
-          <select id="selectCategorias" class="form-select">
-            <option value="" selected>— sin datos —</option>
-          </select>
-        </div>
-      </div>
-    </section>
+    
 
     <!-- Tabla 1: Listado simple -->
     <section class="card p-3 mb-4 shadow-sm scroll-reveal">
       <div class="card-head">
-        <h2 class="mb-3">Listado simple (get_all)</h2>
+        <h2 class="mb-3">Listado de todas las categorías</h2>
         <button id="btnCargarTodas" class="btn btn-outline">
           <i class="fa-solid fa-table-list me-1"></i> Cargar Todas
         </button>
@@ -112,17 +94,15 @@
     <!-- Tabla 3: CRUD -->
     <section class="card p-3 mb-5 shadow-sm scroll-reveal">
       <div class="card-head">
-        <h2 class="mb-3">CRUD (get_all + columna “Eliminar”)</h2>
+        <h2 class="mb-3">Agregar / Eliminar</h2>
         <div class="actions">
           <button id="btnRefrescarCrud" class="btn btn-outline-info">
-            <i class="fa-solid fa-rotate me-1"></i> Refrescar CRUD
+            <i class="fa-solid fa-rotate me-1"></i> Refrescar
           </button>
           <button id="btnAbrirAgregar" class="btn btn-success">
             <i class="fa-solid fa-plus me-1"></i> Agregar categoría
           </button>
-          <button id="btnAbrirEditar" class="btn btn-warning">
-            <i class="fa-solid fa-pen-to-square me-1"></i> Modificar categoría
-          </button>
+          
         </div>
       </div>
       <div class="table-responsive">
@@ -142,6 +122,31 @@
       </div>
       <small class="text-muted">Tip: haz clic en el nombre para editar rápidamente.</small>
     </section>
+
+    <section class="card p-3 mb-4 shadow-sm scroll-reveal">
+      <h2 class="mb-3">Modificar Categoria</h2>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-8">
+          <div class="actions">
+            <button id="btnProbarDropdown" class="btn btn-ghost">
+              <i class="fa-solid fa-list me-1"></i> Refrescar
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="row g-2 mt-3">
+        <div class="col-12 col-md-6">
+          <label for="selectCategorias" class="form-label mb-1">Selecciona la Categoría</label>
+          <select id="selectCategorias" class="form-select">
+            <option value="" selected>— sin datos —</option>
+          </select>
+          <button id="btnAbrirEditar" class="btn btn-warning">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Modificar categoría
+          </button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <footer>
