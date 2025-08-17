@@ -3,7 +3,7 @@
 
 import { categoriasAPI } from '/admin-resources/scripts/apis/categorias-service.js';
 
-// Idioma DataTables 
+// Idioma DataTables en-línea (evita CORS y 404 de CDN)
 const DT_LANG = {
   decimal: ",",
   thousands: ".",
@@ -240,4 +240,4 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 });
 
 // Debug global opcional
-window.AdminCategorias = { cargarListado, cargarCRUD, buscarPorId }
+window.AdminCategorias = { cargarListado, cargarCRUD, buscarPorId };
