@@ -3,6 +3,25 @@
 
 import { categoriasAPI } from '/admin-resources/scripts/apis/categorias-service.js';
 
+// Idioma DataTables 
+const DT_LANG = {
+  decimal: ",",
+  thousands: ".",
+  processing: "Procesando...",
+  search: "Buscar:",
+  lengthMenu: "Mostrar _MENU_ registros",
+  info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+  infoEmpty: "Mostrando 0 a 0 de 0 registros",
+  infoFiltered: "(filtrado de _MAX_ registros totales)",
+  infoPostFix: "",
+  loadingRecords: "Cargando...",
+  zeroRecords: "No se encontraron resultados",
+  emptyTable: "No hay datos disponibles en la tabla",
+  paginate: { first: "Primero", previous: "Anterior", next: "Siguiente", last: "Último" },
+  aria: { sortAscending: ": activar para ordenar la columna ascendente", sortDescending: ": activar para ordenar la columna descendente" }
+};
+
+
 // Helpers DOM
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
@@ -27,7 +46,7 @@ function ensureDataTable(tableSel, columns, opts={}){
     columns,
     pagingType: 'simple_numbers',
     lengthMenu: [8,14,20],
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' },
+    language: DT_LANG,
     order: [[0,'asc']]
   }, opts));
 }
@@ -221,4 +240,4 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 });
 
 // Debug global opcional
-window.AdminCategorias = { cargarListado, cargarCRUD, buscarPorId };
+window.AdminCategorias = { cargarListado, cargarCRUD, buscarPorId }
