@@ -1,388 +1,363 @@
-// /admin-resources/scripts/forms/categorias-panel.js
-// Control de UI del panel de categorías + DataTables + modal accesible
+// Panel de administración: Categorías (layout 2025)
+// Controla: dropdown, 3 tablas (simple, búsqueda, CRUD) y modal reutilizable (agregar/editar)
+// Requiere: jQuery, DataTables base, FontAwesome, y categoriasAPI
 
-import { categoriasAPI } from '/admin-resources/scripts/apis/categorias-service.js';
+import { categoriasAPI } from "/admin-resources/scripts/apis/categoriasManager.js";
 
-/* ------------------------------ Utilidades ------------------------------ */
-
-const $ = window.jQuery; // aseguramos jQuery global
-const q  = (sel) => document.querySelector(sel);
-
-const DT_LANG_ES = {
-  decimal: ",",
-  thousands: ".",
-  emptyTable: "Sin datos disponibles",
-  info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-  infoEmpty: "Mostrando 0 a 0 de 0 registros",
-  infoFiltered: "(filtrado de _MAX_ registros)",
-  lengthMenu: "Mostrar _MENU_ registros",
-  loadingRecords: "Cargando...",
-  processing: "Procesando...",
-  search: "Buscar:",
-  zeroRecords: "No se encontraron resultados",
-  paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
-};
-
-// Convierte cualquier forma de respuesta del backend a un array de objetos
-function toArray(res) {
-  if (res == null) return [];
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.data)) return res.data;
-  if (Array.isArray(res.rows)) return res.rows;
-  if (Array.isArray(res.results)) return res.results;
-  if (Array.isArray(res.result)) return res.result;
-  if (Array.isArray(res.recordset)) return res.recordset;
-  if (Array.isArray(res.categorias)) return res.categorias;
-  if (Array.isArray(res.items)) return res.items;
-  if (typeof res === 'object') return [res]; // objeto único
-  return [];
-}
-
-// Normaliza cualquier forma de objeto categoría que venga del backend
-function normalizeCat(row = {}) {
-  const id  = row.categoria_id ?? row.id ?? row.ID ?? row.Id ?? null;
-  const nom = row.nombre_categoria ?? row.nombre ?? row.Nombre ?? '';
-  const des = row.descripcion ?? row.Descripcion ?? '';
-  return { id, nombre: nom, descripcion: des };
-}
-
-function setBusy(el, busy = true) {
-  if (!el) return;
-  el.toggleAttribute?.('aria-busy', !!busy);
-  el.disabled = !!busy;
-}
-
-function toastError(err, fallback = 'Ocurrió un error') {
-  console.error(err);
-  alert(err?.message || fallback);
-}
-
-/* --------------------------- Referencias de UI --------------------------- */
-
-const els = {
-  btnProbarDropdown : q('#btnProbarDropdown'),
-  selectCategorias  : q('#selectCategorias'),
-  btnCargarTodas    : q('#btnCargarTodas'),
-  tablaCategorias   : q('#tablaCategorias'),
-  buscarId          : q('#buscarId'),
-  btnBuscar         : q('#btnBuscar'),
-  tablaBusqueda     : q('#tablaBusqueda'),
-  btnRefrescarCrud  : q('#btnRefrescarCrud'),
-  btnAbrirAgregar   : q('#btnAbrirAgregar'),
-  btnAbrirEditar    : q('#btnAbrirEditar'),
-  tablaCRUD         : q('#tablaCRUD'),
-
-  // Modal
-  modal             : q('#modalCategoria'),
-  modalDialog       : q('#modalCategoria .modal-dialog'),
-  modalTitle        : q('#modalCategoriaTitle'),
-  closeModalBtn     : q('#closeModalBtn'),
-  cancelModalBtn    : q('#cancelModalBtn'),
-  form              : q('#categoriaForm'),
-  inputId           : q('#categoria_id'),
-  inputNombre       : q('#nombre_categoria'),
-  inputDesc         : q('#descripcion'),
-  saveBtn           : q('#saveCategoriaBtn')
-};
-
-const state = {
-  dt: { categorias: null, busqueda: null, crud: null },
-  lastFocus: null,
-  modalMode: 'add' // 'add' | 'edit'
-};
-
-/* ---------------------- DataTables: helpers/seguridad -------------------- */
-
-function ensureHeader(tableEl, columns) {
-  if (!tableEl) return;
-  let thead = tableEl.querySelector('thead');
-  if (!thead) thead = tableEl.createTHead();
-  let tr = thead.querySelector('tr');
-  const need = columns.length;
-  const have = tr ? tr.children.length : 0;
-  if (!tr || have !== need) {
-    thead.innerHTML = '<tr>' + columns.map(c => `<th>${c.title ?? ''}</th>`).join('') + '</tr>';
+/* =========================
+   Utilidades de datos y logs
+   ========================= */
+function assertOk(resp) {
+  if (resp && typeof resp === "object" && "success" in resp) {
+    if (!resp.success) throw new Error(resp.message || "Operación no exitosa");
   }
-  if (!tableEl.tBodies.length) tableEl.appendChild(document.createElement('tbody'));
+  return resp;
 }
 
-function ensureTable(tableEl, data, columns, key, opts = {}) {
-  ensureHeader(tableEl, columns);
-  if (state.dt[key]) {
-    state.dt[key].clear();
-    state.dt[key].rows.add(data);
-    state.dt[key].draw(false);
-    return state.dt[key];
+function toArrayData(resp) {
+  const r = resp && typeof resp === "object" && "data" in resp ? resp.data : resp;
+  if (Array.isArray(r)) return r;
+  if (!r) return [];
+  return [r];
+}
+
+function normalizeCategoria(row) {
+  if (!row || typeof row !== "object") return null;
+  const id  = row.categoria_id ?? row.id ?? row.categoriaId ?? row.CategoriaID;
+  const nom = row.nombre_categoria ?? row.nombre ?? row.name ?? row.Nombre;
+  const des = row.descripcion ?? row.desc ?? row.Descripcion ?? "";
+  if (id == null || nom == null) return null;
+  return {
+    categoria_id: Number(id),
+    nombre_categoria: String(nom),
+    descripcion: String(des || "")
+  };
+}
+
+function mapCategorias(listish) {
+  return toArrayData(listish).map(normalizeCategoria).filter(Boolean);
+}
+
+function logPaso(boton, api, respuesta) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  if (respuesta !== undefined) console.log("respuesta :", respuesta);
+}
+function logError(boton, api, error) {
+  console.log(`se preciono el boton "${boton}" y se llamo a la api "${api}"`);
+  console.error("respuesta :", error?.message || error);
+}
+
+/* =========================
+   DataTables (crear o recrear)
+   ========================= */
+function renderDataTable(selector, data, columns) {
+  if ($.fn.DataTable.isDataTable(selector)) {
+    $(selector).DataTable().clear().destroy();
   }
-  state.dt[key] = $(tableEl).DataTable({
+  return $(selector).DataTable({
     data,
     columns,
-    language: DT_LANG_ES,   // inline para evitar CORS del i18n externo
     pageLength: 10,
-    lengthMenu: [5, 10, 25, 50, 100],
-    ordering: true,
-    searching: true,
-    autoWidth: false,
-    deferRender: true,
-    ...opts
-  });
-  return state.dt[key];
-}
-
-function colsSimple() {
-  return [
-    { data: 'id',         title: 'ID' },
-    { data: 'nombre',     title: 'Nombre' },
-    { data: 'descripcion',title: 'Descripción', defaultContent: '' }
-  ];
-}
-
-function colsCRUD() {
-  return [
-    { data: 'id',         title: 'ID' },
-    { data: 'nombre',     title: 'Nombre',
-      createdCell: (td, val, row) => {
-        td.classList.add('link-like');
-        td.tabIndex = 0;
-        td.setAttribute('role','button');
-        td.setAttribute('aria-label', `Editar categoría ${val}`);
-      }
-    },
-    { data: 'descripcion',title: 'Descripción', defaultContent: '' },
-    {
-      data: null, title: 'Eliminar', orderable: false, searchable: false,
-      defaultContent: '',
-      render: (_d, _t, row) =>
-        `<button class="btn btn-danger btn-eliminar" data-id="${row.id}" aria-label="Eliminar ${row.nombre}">
-           <i class="fa-solid fa-trash"></i>
-         </button>`
-    }
-  ];
-}
-
-/* ---------------------------- Carga de datos ----------------------------- */
-
-async function loadDropdown() {
-  try {
-    setBusy(els.btnProbarDropdown, true);
-    let raw = await categoriasAPI.getList().catch(() => null);
-    if (!raw || toArray(raw).length === 0) {
-      raw = await categoriasAPI.getAll();
-    }
-    const list = toArray(raw).map(normalizeCat);
-    els.selectCategorias.innerHTML =
-      `<option value="">— seleccione —</option>` +
-      list.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-  } catch (err) {
-    toastError(err, 'No se pudo cargar el combo de categorías');
-  } finally {
-    setBusy(els.btnProbarDropdown, false);
-  }
-}
-
-async function loadTablaCategorias() {
-  try {
-    setBusy(els.btnCargarTodas, true);
-    const raw  = await categoriasAPI.getAll();
-    const data = toArray(raw).map(normalizeCat);
-    ensureTable(els.tablaCategorias, data, colsSimple(), 'categorias');
-  } catch (err) {
-    toastError(err, 'No se pudo cargar el listado');
-  } finally {
-    setBusy(els.btnCargarTodas, false);
-  }
-}
-
-async function buscarPorId() {
-  const id = parseInt(els.buscarId?.value, 10);
-  if (!id) {
-    alert('Escribe un ID válido');
-    return;
-  }
-  try {
-    setBusy(els.btnBuscar, true);
-    const raw  = await categoriasAPI.getOne(id);
-    const data = toArray(raw).map(normalizeCat);
-    ensureTable(els.tablaBusqueda, data, colsSimple(), 'busqueda');
-  } catch (err) {
-    toastError(err, 'No se encontró la categoría');
-    ensureTable(els.tablaBusqueda, [], colsSimple(), 'busqueda');
-  } finally {
-    setBusy(els.btnBuscar, false);
-  }
-}
-
-async function loadCRUD() {
-  try {
-    setBusy(els.btnRefrescarCrud, true);
-    const raw  = await categoriasAPI.getAll();
-    const data = toArray(raw).map(normalizeCat);
-    const dt   = ensureTable(els.tablaCRUD, data, colsCRUD(), 'crud');
-    if (!els.tablaCRUD.dataset.bound) {
-      bindCrudDelegates(dt);
-      els.tablaCRUD.dataset.bound = '1';
-    }
-  } catch (err) {
-    toastError(err, 'No se pudo cargar el CRUD');
-  } finally {
-    setBusy(els.btnRefrescarCrud, false);
-  }
-}
-
-/* ---------------------------- Delegados CRUD ----------------------------- */
-
-function bindCrudDelegates(dt) {
-  $(els.tablaCRUD).on('click', 'tbody tr', function () {
-    $(this).toggleClass('row-selected').siblings().removeClass('row-selected');
-  });
-
-  $(els.tablaCRUD).on('click keydown', 'tbody td.link-like', function (ev) {
-    if (ev.type === 'keydown' && !['Enter',' '].includes(ev.key)) return;
-    const row = dt.row(this.closest('tr')).data();
-    if (row) openEditModal(row);
-  });
-
-  $(els.tablaCRUD).on('click', 'button.btn-eliminar', async function () {
-    const id = parseInt(this.dataset.id, 10);
-    if (!id) return;
-    const ok = confirm('¿Eliminar esta categoría? Esta acción no se puede deshacer.');
-    if (!ok) return;
-    try {
-      setBusy(this, true);
-      await categoriasAPI.remove(id);
-      await loadCRUD();
-    } catch (err) {
-      toastError(err, 'No se pudo eliminar');
-    } finally {
-      setBusy(this, false);
-    }
+    autoWidth: false
   });
 }
 
-/* --------------------------------- Modal -------------------------------- */
+/* =========================
+   Referencias DOM (nuevo layout 2025)
+   ========================= */
+const btnCargarTodas    = document.getElementById("btnCargarTodas");
+const btnProbarDropdown = document.getElementById("btnProbarDropdown");
+const btnRefrescarCrud  = document.getElementById("btnRefrescarCrud");
+const btnAbrirAgregar   = document.getElementById("btnAbrirAgregar");
+const btnAbrirEditar    = document.getElementById("btnAbrirEditar");
 
-function openModal(mode = 'add', data = null) {
-  state.modalMode = mode;
-  state.lastFocus = document.activeElement;
+const btnBuscar     = document.getElementById("btnBuscar");
+const inputBuscarId = document.getElementById("buscarId");
 
-  if (mode === 'add') {
-    els.modalTitle.textContent = 'Nueva Categoría';
-    els.inputId.value = '';
-    els.form.reset();
-  } else {
-    els.modalTitle.textContent = `Editar Categoría #${data.id}`;
-    els.inputId.value     = data.id ?? '';
-    els.inputNombre.value = data.nombre ?? '';
-    els.inputDesc.value   = data.descripcion ?? '';
+const selectCategorias = document.getElementById("selectCategorias");
+
+const mainEl = document.querySelector("main");
+
+// Modal reutilizable
+const modalEl   = document.getElementById("modalCategoria");
+const modalTit  = document.getElementById("modalCategoriaTitle");
+const formEl    = document.getElementById("categoriaForm");
+const hidId     = document.getElementById("categoria_id");
+const inpNombre = document.getElementById("nombre_categoria");
+const txtDesc   = document.getElementById("descripcion");
+const btnClose  = document.getElementById("closeModalBtn");
+const btnCancel = document.getElementById("cancelModalBtn");
+const btnSave   = document.getElementById("saveCategoriaBtn");
+
+/* =========================
+   Modal accesible (sin Bootstrap)
+   ========================= */
+let currentMode /** @type {"create"|"edit"} */ = "create";
+
+function openModal(mode = "create", data = null) {
+  currentMode = mode;
+  modalTit.textContent = mode === "create" ? "Nueva Categoría" : "Editar Categoría";
+
+  if (mode === "create") {
+    hidId.value = "";
+    formEl.reset();
+  } else if (data) {
+    hidId.value = data.categoria_id ?? "";
+    inpNombre.value = data.nombre_categoria ?? "";
+    txtDesc.value   = data.descripcion ?? "";
   }
 
-  els.modal?.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  els.inputNombre?.focus();
-
-  const onOverlay = (e) => { if (!els.modalDialog.contains(e.target)) closeModal(); };
-  const onEsc = (e) => { if (e.key === 'Escape') closeModal(); };
-
-  els.modal.addEventListener('mousedown', onOverlay, { once: true });
-  els.modal.addEventListener('keydown', onEsc, { once: true });
-
-  els.modal._overlayHandler = onOverlay;
-  els.modal._escHandler = onEsc;
+  modalEl.classList.add("show");
+  modalEl.setAttribute("aria-hidden", "false");
+  mainEl?.setAttribute("inert", "");
+  // Foco inicial
+  setTimeout(() => inpNombre?.focus(), 0);
 }
 
 function closeModal() {
-  els.modal?.classList.remove('open');
-  document.body.style.overflow = '';
-  if (els.modal?._overlayHandler) {
-    els.modal.removeEventListener('mousedown', els.modal._overlayHandler);
-    els.modal._overlayHandler = null;
-  }
-  if (els.modal?._escHandler) {
-    els.modal.removeEventListener('keydown', els.modal._escHandler);
-    els.modal._escHandler = null;
-  }
-  state.lastFocus?.focus?.();
+  modalEl.classList.remove("show");
+  modalEl.setAttribute("aria-hidden", "true");
+  mainEl?.removeAttribute("inert");
 }
 
-async function onSubmitCategoria(ev) {
-  ev.preventDefault();
+modalEl?.addEventListener("click", (e) => {
+  if (e.target === modalEl) closeModal();
+});
+btnClose?.addEventListener("click", closeModal);
+btnCancel?.addEventListener("click", closeModal);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && modalEl.classList.contains("show")) {
+    closeModal();
+  }
+});
+
+/* =========================
+   Columnas para tablas
+   ========================= */
+const colsBase = [
+  { data: "categoria_id", title: "ID" },
+  { data: "nombre_categoria", title: "Nombre",
+    render: (d, t, row) =>
+      `<button class="btn btn-ghost js-edit" data-id="${row.categoria_id}">${d}</button>` },
+  { data: "descripcion", title: "Descripción" }
+];
+
+/* =========================
+   1) Listado simple (get_all)
+   ========================= */
+async function cargarListadoSimple() {
+  try {
+    const boton = "Cargar Todas", api = "/get_all";
+    const resp = assertOk(await categoriasAPI.getAll());
+    const data = mapCategorias(resp);
+    renderDataTable("#tablaCategorias", data, colsBase);
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Cargar Todas", "/get_all", err);
+    renderDataTable("#tablaCategorias", [], colsBase);
+  }
+}
+btnCargarTodas?.addEventListener("click", cargarListadoSimple);
+
+/* =========================
+   2) Dropdown (get_list)
+   ========================= */
+btnProbarDropdown?.addEventListener("click", async () => {
+  try {
+    const boton = "Probar Dropbox", api = "/get_list";
+    const resp  = assertOk(await categoriasAPI.getList());
+    const list  = mapCategorias(resp);
+
+    // Limpia y arma opciones
+    selectCategorias.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = list.length ? "— seleccionar —" : "— sin datos —";
+    selectCategorias.appendChild(placeholder);
+
+    for (const item of list) {
+      const opt = document.createElement("option");
+      opt.value = String(item.categoria_id);
+      opt.textContent = `${item.categoria_id} — ${item.nombre_categoria}`;
+      selectCategorias.appendChild(opt);
+    }
+
+    logPaso(boton, api, resp);
+    console.log(`Dropbox: ${list.length} opciones cargadas`);
+  } catch (err) {
+    logError("Probar Dropbox", "/get_list", err);
+  }
+});
+
+selectCategorias?.addEventListener("change", (e) => {
+  const id = e.currentTarget.value;
+  if (id) console.log(`se selecciono la categoria con id ${id}`);
+});
+
+/* =========================
+   3) Búsqueda por ID (/by_id/:id)
+   ========================= */
+async function buscarPorId() {
+  const id = inputBuscarId.value.trim();
+  if (!id) return;
+  try {
+    const boton = "Buscar", api = `/by_id/${id}`;
+    const resp  = assertOk(await categoriasAPI.getOne(id));
+    const item  = mapCategorias(resp)[0] || null;
+    renderDataTable("#tablaBusqueda", item ? [item] : [], colsBase);
+    logPaso(boton, api, resp);
+  } catch (err) {
+    renderDataTable("#tablaBusqueda", [], colsBase);
+    logError("Buscar", `/by_id/${id}`, err);
+  }
+}
+btnBuscar?.addEventListener("click", buscarPorId);
+inputBuscarId?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorId();
+  }
+});
+
+/* =========================
+   4) CRUD (tabla + eliminar)
+   ========================= */
+async function cargarTablaCRUD() {
+  try {
+    const boton = "Refrescar CRUD", api = "/get_all";
+    const resp = assertOk(await categoriasAPI.getAll());
+    const data = mapCategorias(resp);
+
+    renderDataTable("#tablaCRUD", data, [
+      ...colsBase,
+      {
+        data: null,
+        title: "Eliminar",
+        orderable: false,
+        render: (row) =>
+          `<button class="btn btn-ghost btn-eliminar" data-id="${row.categoria_id}" data-nombre="${row.nombre_categoria}">
+             <i class="fa-solid fa-trash"></i>
+           </button>`
+      }
+    ]);
+
+    logPaso(boton, api, resp);
+  } catch (err) {
+    logError("Refrescar CRUD", "/get_all", err);
+    renderDataTable("#tablaCRUD", [], colsBase);
+  }
+}
+btnRefrescarCrud?.addEventListener("click", cargarTablaCRUD);
+document.addEventListener("DOMContentLoaded", cargarTablaCRUD);
+
+// Delegación: eliminar
+$(document).on("click", "#tablaCRUD tbody .btn-eliminar", async function() {
+  const id = Number(this.dataset.id);
+  const nombre = this.dataset.nombre || "";
+  if (!id) return;
+  const ok = window.confirm(`¿Eliminar categoría "${nombre}" (ID ${id})?`);
+  if (!ok) return;
+  try {
+    const boton = "Confirmar eliminar", api = "/delete";
+    const resp  = assertOk(await categoriasAPI.remove(id));
+    logPaso(boton, api, resp);
+    await cargarTablaCRUD();
+  } catch (err) {
+    logError("Confirmar eliminar", "/delete", err);
+  }
+});
+
+// Delegación: click en nombre para editar (tabla simple y CRUD)
+$(document).on("click", "#tablaCategorias tbody .js-edit, #tablaCRUD tbody .js-edit", async function() {
+  const id = Number(this.dataset.id);
+  if (!id) return;
+  try {
+    const resp = assertOk(await categoriasAPI.getOne(id));
+    const item = mapCategorias(resp)[0] || null;
+    openModal("edit", item);
+  } catch (err) {
+    logError("Editar (click nombre)", `/by_id/${id}` , err);
+  }
+});
+
+/* =========================
+   5) Botones de abrir modal (agregar/editar)
+   ========================= */
+btnAbrirAgregar?.addEventListener("click", () => openModal("create"));
+
+btnAbrirEditar?.addEventListener("click", async () => {
+  // Preferencia: usar selección del dropdown si existe; si no, pedir ID.
+  const fromSelect = selectCategorias?.value?.trim();
+  const id = fromSelect || window.prompt("Ingresa el ID de la categoría a editar:")?.trim();
+  if (!id) return;
+  try {
+    const resp = assertOk(await categoriasAPI.getOne(id));
+    const item = mapCategorias(resp)[0] || null;
+    if (!item) return;
+    openModal("edit", item);
+  } catch (err) {
+    logError("Abrir Editar", `/by_id/${id}`, err);
+  }
+});
+
+/* =========================
+   6) Envío del formulario (crear/editar)
+   ========================= */
+formEl?.addEventListener("submit", async (e) => {
+  e.preventDefault();
   const payload = {
-    categoria_id: els.inputId.value ? parseInt(els.inputId.value, 10) : undefined,
-    nombre_categoria: els.inputNombre.value?.trim(),
-    descripcion: els.inputDesc.value?.trim() || null
+    categoria_id: hidId.value ? Number(hidId.value) : undefined,
+    nombre_categoria: inpNombre.value.trim(),
+    descripcion: (txtDesc.value || "").trim() || null
   };
 
-  if (!payload.nombre_categoria) {
-    alert('El nombre es obligatorio.');
-    els.inputNombre.focus();
-    return;
-  }
-
   try {
-    setBusy(els.saveBtn, true);
-    if (state.modalMode === 'add') {
-      await categoriasAPI.insert(payload);
+    if (currentMode === "edit" && payload.categoria_id) {
+      const boton = "Modificar categoría", api = "/update";
+      const resp  = assertOk(await categoriasAPI.update(payload));
+      logPaso(boton, api, resp);
     } else {
-      await categoriasAPI.update(payload);
+      const boton = "Agregar categoría", api = "/insert";
+      const { categoria_id, ...createData } = payload; // quita id para insert
+      const resp  = assertOk(await categoriasAPI.insert(createData));
+      logPaso(boton, api, resp);
     }
     closeModal();
-    await Promise.allSettled([
-      loadDropdown(),
-      loadTablaCategorias(),
-      buscarPorId(),
-      loadCRUD()
+    formEl.reset();
+    await Promise.all([
+      cargarTablaCRUD(),
+      cargarListadoSimple()
     ]);
   } catch (err) {
-    toastError(err, 'No se pudo guardar la categoría');
-  } finally {
-    setBusy(els.saveBtn, false);
+    logError(currentMode === "edit" ? "Modificar categoría" : "Agregar categoría", currentMode === "edit" ? "/update" : "/insert", err);
   }
-}
+});
 
-function openAddModal()  { openModal('add'); }
-function openEditModal(row) { openModal('edit', row); }
-
-/* ------------------------------- Listeners ------------------------------- */
-
-function bindUI() {
-  els.btnProbarDropdown?.addEventListener('click', loadDropdown);
-  els.btnCargarTodas?.addEventListener('click', loadTablaCategorias);
-  els.btnBuscar?.addEventListener('click', buscarPorId);
-  els.btnRefrescarCrud?.addEventListener('click', loadCRUD);
-
-  els.btnAbrirAgregar?.addEventListener('click', openAddModal);
-  els.btnAbrirEditar?.addEventListener('click', async () => {
-    const dt = state.dt.crud;
-    let rowData = null;
-    if (dt) {
-      const tr = els.tablaCRUD.querySelector('tbody tr.row-selected');
-      if (tr) rowData = dt.row(tr).data();
-    }
-    if (rowData) return openEditModal(rowData);
-
-    const id = parseInt(els.buscarId?.value, 10);
-    if (id) {
-      try {
-        const raw = await categoriasAPI.getOne(id);
-        const arr = toArray(raw).map(normalizeCat);
-        if (arr[0]) return openEditModal(arr[0]);
-      } catch (_) {}
-    }
-    alert('Selecciona una fila en el CRUD o escribe un ID y usa "Buscar" antes de editar.');
-  });
-
-  els.closeModalBtn?.addEventListener('click', closeModal);
-  els.cancelModalBtn?.addEventListener('click', closeModal);
-  els.form?.addEventListener('submit', onSubmitCategoria);
-}
-
-/* ------------------------------ Inicializar ------------------------------ */
-
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!window.jQuery || !$.fn?.DataTable) {
-    console.error('jQuery o DataTables no están cargados aún.');
+/* =========================
+   7) Scroll reveal (coincide con admin.css)
+   ========================= */
+(function initScrollReveal(){
+  const els = document.querySelectorAll('.scroll-reveal');
+  if (!('IntersectionObserver' in window) || !els.length) {
+    els.forEach(el => el.classList.add('active'));
     return;
   }
-  bindUI();
-  await loadDropdown(); // carga inicial ligera
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.add('active');
+        io.unobserve(e.target);
+      }
+    }
+  }, { threshold: 0.15 });
+  els.forEach(el => io.observe(el));
+})();
+
+/* =========================
+   8) Inicialización ligera
+   ========================= */
+document.addEventListener("DOMContentLoaded", () => {
+  // Crea tablas vacías con cabeceras para evitar warnings de DataTables
+  renderDataTable("#tablaCategorias", [], colsBase);
+  renderDataTable("#tablaBusqueda", [], colsBase);
 });
