@@ -30,6 +30,23 @@ const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 let dtListado = null;
 let dtBusqueda = null;
 let dtCRUD = null;
+let tablesInited = false; // evita doble inicialización
+
+// ---- Limpia placeholders de <tbody> que rompen el conteo de columnas ----
+function stripPlaceholders(tableSel){
+  const table = document.querySelector(tableSel);
+  if(!table) return;
+  const theadCols = table.tHead ? table.tHead.rows[0].cells.length : 0;
+  const tbody = table.tBodies && table.tBodies[0];
+  if(!tbody) return;
+  Array.from(tbody.rows).forEach(tr => {
+    const cells = tr.cells;
+    const badColspan = Array.from(cells || []).some(td => td.colSpan !== 1);
+    if (!cells || cells.length !== theadCols || badColspan){
+      tbody.removeChild(tr);
+    }
+  });
+}
 
 // ---- Utilidades UI ----
 const fmtText = (v) => (v == null || String(v).trim() === '')
@@ -37,10 +54,26 @@ const fmtText = (v) => (v == null || String(v).trim() === '')
   : String(v);
 
 function ensureDataTable(tableSel, columns, opts={}){
-  // Crea/retorna una instancia DataTable jQuery base (1.13.x)
+  // Limpia filas de placeholder para que coincidan columnas
+  stripPlaceholders(tableSel);
   const $table = window.jQuery(tableSel);
   if (!$table.length) return null;
-  try { $table.DataTable().destroy(); } catch(_) {}
+  // Si ya está inicializada, destruye de forma segura
+  if (jQuery.fn.DataTable.isDataTable($table[0])) {
+    $table.DataTable().clear().destroy();
+  }
+  return $table.DataTable({
+    data: [],
+    columns,
+    pagingType: 'simple_numbers',
+    lengthMenu: [8,14,20],
+    language: DT_LANG,
+    order: [[0,'asc']],
+    autoWidth: false,
+    deferRender: true,
+    ...opts
+  });
+}
   return $table.DataTable(Object.assign({
     data: [],
     columns,
@@ -227,7 +260,9 @@ function wireEvents(){
 }
 
 // ---- Inicio ----
-window.addEventListener('DOMContentLoaded', async ()=>{
+window.addEventListener('DOMContentLoaded', async () => {
+  if (tablesInited) return; // evita doble inicialización
+  tablesInited = true;
   // Evita errores si DataTables no está listo
   if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable){
     console.error('DataTables (jQuery) no cargó. Verifica el orden de scripts.');
