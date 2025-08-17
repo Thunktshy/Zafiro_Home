@@ -7,7 +7,6 @@ import { categoriasAPI } from '/admin-resources/scripts/apis/categorias-service.
 
 const $ = window.jQuery; // aseguramos jQuery global
 const q  = (sel) => document.querySelector(sel);
-const qa = (sel) => Array.from(document.querySelectorAll(sel));
 
 const DT_LANG_ES = {
   decimal: ",",
@@ -23,6 +22,21 @@ const DT_LANG_ES = {
   zeroRecords: "No se encontraron resultados",
   paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
 };
+
+// Convierte cualquier forma de respuesta del backend a un array de objetos
+function toArray(res) {
+  if (res == null) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.rows)) return res.rows;
+  if (Array.isArray(res.results)) return res.results;
+  if (Array.isArray(res.result)) return res.result;
+  if (Array.isArray(res.recordset)) return res.recordset;
+  if (Array.isArray(res.categorias)) return res.categorias;
+  if (Array.isArray(res.items)) return res.items;
+  if (typeof res === 'object') return [res]; // objeto único
+  return [];
+}
 
 // Normaliza cualquier forma de objeto categoría que venga del backend
 function normalizeCat(row = {}) {
@@ -72,30 +86,38 @@ const els = {
 };
 
 const state = {
-  dt: {
-    categorias: null,
-    busqueda: null,
-    crud: null
-  },
+  dt: { categorias: null, busqueda: null, crud: null },
   lastFocus: null,
   modalMode: 'add' // 'add' | 'edit'
 };
 
-/* -------------------------- Helpers DataTables --------------------------- */
+/* ---------------------- DataTables: helpers/seguridad -------------------- */
 
-function ensureTable(selector, data, columns, key, opts = {}) {
-  // Si ya existe, actualizamos filas. Si no, inicializamos con columnas fijas.
+function ensureHeader(tableEl, columns) {
+  if (!tableEl) return;
+  let thead = tableEl.querySelector('thead');
+  if (!thead) thead = tableEl.createTHead();
+  let tr = thead.querySelector('tr');
+  const need = columns.length;
+  const have = tr ? tr.children.length : 0;
+  if (!tr || have !== need) {
+    thead.innerHTML = '<tr>' + columns.map(c => `<th>${c.title ?? ''}</th>`).join('') + '</tr>';
+  }
+  if (!tableEl.tBodies.length) tableEl.appendChild(document.createElement('tbody'));
+}
+
+function ensureTable(tableEl, data, columns, key, opts = {}) {
+  ensureHeader(tableEl, columns);
   if (state.dt[key]) {
     state.dt[key].clear();
     state.dt[key].rows.add(data);
     state.dt[key].draw(false);
     return state.dt[key];
   }
-
-  state.dt[key] = $(selector).DataTable({
+  state.dt[key] = $(tableEl).DataTable({
     data,
     columns,
-    language: DT_LANG_ES,              // inline para evitar CORS en JSON de i18n
+    language: DT_LANG_ES,   // inline para evitar CORS del i18n externo
     pageLength: 10,
     lengthMenu: [5, 10, 25, 50, 100],
     ordering: true,
@@ -111,8 +133,7 @@ function colsSimple() {
   return [
     { data: 'id',         title: 'ID' },
     { data: 'nombre',     title: 'Nombre' },
-    { data: 'descripcion',title: 'Descripción',
-      defaultContent: '', render: (d) => d ?? '' }
+    { data: 'descripcion',title: 'Descripción', defaultContent: '' }
   ];
 }
 
@@ -121,7 +142,7 @@ function colsCRUD() {
     { data: 'id',         title: 'ID' },
     { data: 'nombre',     title: 'Nombre',
       createdCell: (td, val, row) => {
-        td.classList.add('link-like'); // editable al clic
+        td.classList.add('link-like');
         td.tabIndex = 0;
         td.setAttribute('role','button');
         td.setAttribute('aria-label', `Editar categoría ${val}`);
@@ -144,10 +165,11 @@ function colsCRUD() {
 async function loadDropdown() {
   try {
     setBusy(els.btnProbarDropdown, true);
-    const listRaw =
-      (await categoriasAPI.getList().catch(() => null)) ??
-      (await categoriasAPI.getAll()); // fallback si no hay getList
-    const list = Array.isArray(listRaw) ? listRaw.map(normalizeCat) : [];
+    let raw = await categoriasAPI.getList().catch(() => null);
+    if (!raw || toArray(raw).length === 0) {
+      raw = await categoriasAPI.getAll();
+    }
+    const list = toArray(raw).map(normalizeCat);
     els.selectCategorias.innerHTML =
       `<option value="">— seleccione —</option>` +
       list.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -161,7 +183,8 @@ async function loadDropdown() {
 async function loadTablaCategorias() {
   try {
     setBusy(els.btnCargarTodas, true);
-    const data = (await categoriasAPI.getAll()).map(normalizeCat);
+    const raw  = await categoriasAPI.getAll();
+    const data = toArray(raw).map(normalizeCat);
     ensureTable(els.tablaCategorias, data, colsSimple(), 'categorias');
   } catch (err) {
     toastError(err, 'No se pudo cargar el listado');
@@ -171,16 +194,15 @@ async function loadTablaCategorias() {
 }
 
 async function buscarPorId() {
-  const id = parseInt(els.buscarId.value, 10);
+  const id = parseInt(els.buscarId?.value, 10);
   if (!id) {
     alert('Escribe un ID válido');
     return;
   }
   try {
     setBusy(els.btnBuscar, true);
-    const one = await categoriasAPI.getOne(id);
-    const row = normalizeCat(Array.isArray(one) ? one[0] : one);
-    const data = row?.id ? [row] : [];
+    const raw  = await categoriasAPI.getOne(id);
+    const data = toArray(raw).map(normalizeCat);
     ensureTable(els.tablaBusqueda, data, colsSimple(), 'busqueda');
   } catch (err) {
     toastError(err, 'No se encontró la categoría');
@@ -193,9 +215,9 @@ async function buscarPorId() {
 async function loadCRUD() {
   try {
     setBusy(els.btnRefrescarCrud, true);
-    const data = (await categoriasAPI.getAll()).map(normalizeCat);
-    const dt = ensureTable(els.tablaCRUD, data, colsCRUD(), 'crud');
-    // Delegados (una sola vez)
+    const raw  = await categoriasAPI.getAll();
+    const data = toArray(raw).map(normalizeCat);
+    const dt   = ensureTable(els.tablaCRUD, data, colsCRUD(), 'crud');
     if (!els.tablaCRUD.dataset.bound) {
       bindCrudDelegates(dt);
       els.tablaCRUD.dataset.bound = '1';
@@ -210,19 +232,16 @@ async function loadCRUD() {
 /* ---------------------------- Delegados CRUD ----------------------------- */
 
 function bindCrudDelegates(dt) {
-  // seleccionar fila (para usar con "Modificar" si se desea)
   $(els.tablaCRUD).on('click', 'tbody tr', function () {
     $(this).toggleClass('row-selected').siblings().removeClass('row-selected');
   });
 
-  // clic en nombre -> abrir modal edición
   $(els.tablaCRUD).on('click keydown', 'tbody td.link-like', function (ev) {
     if (ev.type === 'keydown' && !['Enter',' '].includes(ev.key)) return;
     const row = dt.row(this.closest('tr')).data();
     if (row) openEditModal(row);
   });
 
-  // eliminar
   $(els.tablaCRUD).on('click', 'button.btn-eliminar', async function () {
     const id = parseInt(this.dataset.id, 10);
     if (!id) return;
@@ -257,46 +276,33 @@ function openModal(mode = 'add', data = null) {
     els.inputDesc.value   = data.descripcion ?? '';
   }
 
-  els.modal.removeAttribute('aria-hidden');
-  els.modal.classList.add('open');
+  els.modal?.classList.add('open');
   document.body.style.overflow = 'hidden';
-  els.inputNombre.focus();
+  els.inputNombre?.focus();
 
-  // Cerrar por overlay (clic fuera del diálogo)
-  const onOverlay = (e) => {
-    if (!els.modalDialog.contains(e.target)) closeModal();
-  };
+  const onOverlay = (e) => { if (!els.modalDialog.contains(e.target)) closeModal(); };
+  const onEsc = (e) => { if (e.key === 'Escape') closeModal(); };
+
   els.modal.addEventListener('mousedown', onOverlay, { once: true });
-
-  // ESC para cerrar
-  const onEsc = (e) => {
-    if (e.key === 'Escape') closeModal();
-  };
   els.modal.addEventListener('keydown', onEsc, { once: true });
 
-  // Guardar referencias para remover si hiciera falta en el futuro
   els.modal._overlayHandler = onOverlay;
   els.modal._escHandler = onEsc;
 }
 
 function closeModal() {
-  els.modal.setAttribute('aria-hidden', 'true');
-  els.modal.classList.remove('open');
+  els.modal?.classList.remove('open');
   document.body.style.overflow = '';
-  // limpiar handlers
-  if (els.modal._overlayHandler) {
+  if (els.modal?._overlayHandler) {
     els.modal.removeEventListener('mousedown', els.modal._overlayHandler);
     els.modal._overlayHandler = null;
   }
-  if (els.modal._escHandler) {
+  if (els.modal?._escHandler) {
     els.modal.removeEventListener('keydown', els.modal._escHandler);
     els.modal._escHandler = null;
   }
-  // restaurar foco
   state.lastFocus?.focus?.();
 }
-
-/* ----------------------------- Eventos modal ----------------------------- */
 
 async function onSubmitCategoria(ev) {
   ev.preventDefault();
@@ -320,11 +326,10 @@ async function onSubmitCategoria(ev) {
       await categoriasAPI.update(payload);
     }
     closeModal();
-    // refrescos
     await Promise.allSettled([
       loadDropdown(),
       loadTablaCategorias(),
-      buscarPorId(),  // si hay un ID escrito lo volverá a mostrar
+      buscarPorId(),
       loadCRUD()
     ]);
   } catch (err) {
@@ -346,8 +351,7 @@ function bindUI() {
   els.btnRefrescarCrud?.addEventListener('click', loadCRUD);
 
   els.btnAbrirAgregar?.addEventListener('click', openAddModal);
-  els.btnAbrirEditar?.addEventListener('click', () => {
-    // Preferimos fila seleccionada en CRUD
+  els.btnAbrirEditar?.addEventListener('click', async () => {
     const dt = state.dt.crud;
     let rowData = null;
     if (dt) {
@@ -356,19 +360,17 @@ function bindUI() {
     }
     if (rowData) return openEditModal(rowData);
 
-    // Fallback: si hay ID escrito en el buscador
-    const id = parseInt(els.buscarId.value, 10);
+    const id = parseInt(els.buscarId?.value, 10);
     if (id) {
-      categoriasAPI.getOne(id)
-        .then(r => openEditModal(normalizeCat(Array.isArray(r) ? r[0] : r)))
-        .catch(() => alert('No se encontró la categoría a editar.'));
-      return;
+      try {
+        const raw = await categoriasAPI.getOne(id);
+        const arr = toArray(raw).map(normalizeCat);
+        if (arr[0]) return openEditModal(arr[0]);
+      } catch (_) {}
     }
-
     alert('Selecciona una fila en el CRUD o escribe un ID y usa "Buscar" antes de editar.');
   });
 
-  // Modal
   els.closeModalBtn?.addEventListener('click', closeModal);
   els.cancelModalBtn?.addEventListener('click', closeModal);
   els.form?.addEventListener('submit', onSubmitCategoria);
@@ -377,14 +379,10 @@ function bindUI() {
 /* ------------------------------ Inicializar ------------------------------ */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Asegura thead/tbody correctos ya existen por HTML (evita column count errors)
+  if (!window.jQuery || !$.fn?.DataTable) {
+    console.error('jQuery o DataTables no están cargados aún.');
+    return;
+  }
   bindUI();
-
-  // Cargas iniciales ligeras
-  await loadDropdown();
-  // No cargamos todas las tablas de golpe para no bloquear UI;
-  // el usuario puede ir probando con los botones:
-  // - "Cargar Todas"
-  // - "Buscar"
-  // - "Refrescar CRUD"
+  await loadDropdown(); // carga inicial ligera
 });
