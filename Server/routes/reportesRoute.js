@@ -3,7 +3,7 @@
 const express = require('express');
 const ReportesRouter = express.Router();
 const { db, sql } = require('../../db/dbconnector.js');
-const validator = require('../../services/validatorService.js');
+const validator = require('../validatorService.js');
 const {
   VentasMensualRules,
   TopVentasRules,
