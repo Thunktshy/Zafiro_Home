@@ -1,4 +1,4 @@
-// Panel de administración: Categorías (layout 2025)
+// Panel de administración: Categorías 
 // Controla: dropdown, 3 tablas (simple, búsqueda, CRUD) y modal reutilizable (agregar/editar)
 // Requiere: jQuery, DataTables base, FontAwesome, y categoriasAPI
 

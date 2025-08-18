@@ -1,4 +1,3 @@
-// /admin-resources/scripts/forms/reportes.js
 // Panel: Reportes (Bootstrap + DataTables + Chart.js + logs estándar)
 // Estructura esperada: { success, message, data }
 
@@ -45,7 +44,6 @@ const ym = (y, m) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")
 /* =========================
    Normalizadores por reporte
 ========================= */
-// Ventas mensual (pivot)
 function normalizePivotRow(row) {
   if (!row || typeof row !== "object") return null;
   const year   = row.anio ?? row.year ?? row.Año ?? row.Y ?? null;
@@ -55,8 +53,6 @@ function normalizePivotRow(row) {
   const importe= Number(row.importe ?? row.total ?? row.monto ?? row.suma ?? 0) || 0;
   return { periodo: String(label || ""), ventas, importe };
 }
-
-// Top ventas
 function normalizeTopRow(row) {
   if (!row || typeof row !== "object") return null;
   const nombre = row.nombre_producto ?? row.nombre ?? row.producto ?? row.Producto ?? "";
@@ -64,8 +60,6 @@ function normalizeTopRow(row) {
   const importe  = Number(row.importe ?? row.total ?? row.monto ?? 0) || 0;
   return { producto: String(nombre), unidades, importe };
 }
-
-// Clientes frecuencia
 function normalizeClienteRow(row) {
   if (!row || typeof row !== "object") return null;
   const cliente_id = row.cliente_id ?? row.cliente ?? row.id ?? "";
@@ -80,8 +74,6 @@ function normalizeClienteRow(row) {
     importe
   };
 }
-
-// Historial por cliente
 function normalizeHistRow(row) {
   if (!row || typeof row !== "object") return null;
   const pedido_id = row.pedido_id ?? row.pedido ?? row.id ?? "";
@@ -94,7 +86,6 @@ function normalizeHistRow(row) {
 /* =========================
    DOM refs
 ========================= */
-// Fechas globales
 const desdeInput         = document.getElementById("desde");
 const hastaInput         = document.getElementById("hasta");
 const btnAplicarFechas   = document.getElementById("btnAplicarFechas");
@@ -132,6 +123,27 @@ function showAlert(kind, msg) {
   alertBox.classList.remove("d-none");
   setTimeout(() => alertBox.classList.add("d-none"), 2500);
 }
+function markInvalid(el, invalid = true) {
+  if (!el) return;
+  el.classList.toggle("is-invalid", !!invalid);
+}
+function allFilled(...els) {
+  return els.every((el) => el && String(el.value || "").trim().length > 0);
+}
+function validateDatesOrder(desde, hasta) {
+  if (!desde || !hasta) return true;
+  const d = new Date(desde), h = new Date(hasta);
+  if (isNaN(d) || isNaN(h)) return false;
+  return d.getTime() <= h.getTime();
+}
+function syncButtonsDisabled() {
+  const globalOk = allFilled(desdeInput, hastaInput);
+  btnAplicarFechas?.toggleAttribute("disabled", !globalOk);
+  btnRefrescarTop?.toggleAttribute("disabled", !globalOk);
+
+  const histOk = allFilled(histClienteInput, histDesdeInput, histHastaInput);
+  btnBuscarHist?.toggleAttribute("disabled", !histOk);
+}
 
 /* =========================
    DataTables (instancias)
@@ -157,7 +169,6 @@ function renderTablePivot(rows) {
   });
   return data;
 }
-
 function renderTableTop(rows) {
   const data = rows.map(normalizeTopRow).filter(Boolean);
   if (dtTop) {
@@ -178,7 +189,6 @@ function renderTableTop(rows) {
   });
   return data;
 }
-
 function renderTableClientes(rows) {
   const data = rows.map(normalizeClienteRow).filter(Boolean);
   if (dtClientes) {
@@ -199,7 +209,6 @@ function renderTableClientes(rows) {
   });
   return data;
 }
-
 function renderTableHist(rows) {
   const data = rows.map(normalizeHistRow).filter(Boolean);
   if (dtHist) {
@@ -235,16 +244,12 @@ function drawPivotChart(rows) {
   if (chartPivot) chartPivot.destroy();
   chartPivot = new Chart(chartPivotEl.getContext("2d"), {
     type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: "Ventas (unidades)", data: ventas },
-        { label: "Importe (MXN)", data: importe }
-      ]
-    }
+    data: { labels, datasets: [
+      { label: "Ventas (unidades)", data: ventas },
+      { label: "Importe (MXN)", data: importe }
+    ] }
   });
 }
-
 function drawTopChart(rows) {
   const data = rows.map(normalizeTopRow).filter(Boolean);
   const labels = data.map(r => r.producto);
@@ -253,13 +258,9 @@ function drawTopChart(rows) {
   if (chartTop) chartTop.destroy();
   chartTop = new Chart(chartTopEl.getContext("2d"), {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{ label: "Unidades vendidas", data: unidades }]
-    }
+    data: { labels, datasets: [{ label: "Unidades vendidas", data: unidades }] }
   });
 }
-
 function drawClientesChart(rows) {
   const data = rows.map(normalizeClienteRow).filter(Boolean).slice(0, 10);
   const labels = data.map(r => r.cliente_id);
@@ -268,15 +269,12 @@ function drawClientesChart(rows) {
   if (chartClientes) chartClientes.destroy();
   chartClientes = new Chart(chartClientesEl.getContext("2d"), {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{ label: "Pedidos", data: pedidos }]
-    }
+    data: { labels, datasets: [{ label: "Pedidos", data: pedidos }] }
   });
 }
 
 /* =========================
-   Cargas por sección (usa fechas globales)
+   Validaciones y cargas (con guardas)
 ========================= */
 function getFechas() {
   return {
@@ -284,9 +282,27 @@ function getFechas() {
     hasta: (hastaInput.value || "").trim()
   };
 }
-
-async function cargarPivot(trigger = "(auto) pivot inicial") {
+function guardGlobalFechas(actionLabel) {
   const { desde, hasta } = getFechas();
+  const both = allFilled(desdeInput, hastaInput);
+  markInvalid(desdeInput, !desde);
+  markInvalid(hastaInput, !hasta);
+  if (!both) {
+    showAlert("warning", "Completa las fechas 'Desde' y 'Hasta' antes de continuar.");
+    return null;
+  }
+  if (!validateDatesOrder(desde, hasta)) {
+    markInvalid(desdeInput, true); markInvalid(hastaInput, true);
+    showAlert("danger", "El rango de fechas es inválido: 'Desde' no puede ser mayor que 'Hasta'.");
+    return null;
+  }
+  return { desde, hasta, actionLabel };
+}
+
+async function cargarPivot(trigger = "(user)") {
+  const g = guardGlobalFechas(trigger);
+  if (!g) return;
+  const { desde, hasta } = g;
   try {
     const api  = `/reportes/ventas_mensual_pivot?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
     const resp = assertOk(await reportesAPI.ventasMensualPivot(desde, hasta));
@@ -298,11 +314,14 @@ async function cargarPivot(trigger = "(auto) pivot inicial") {
     renderTablePivot([]);
     if (chartPivot) { chartPivot.destroy(); chartPivot = null; }
     logError(trigger, "/reportes/ventas_mensual_pivot", err);
+    showAlert("danger", err?.message || "No fue posible cargar 'Ventas mensual (pivot)'.");
   }
 }
 
 async function cargarTop(trigger = "Refrescar Top") {
-  const { desde, hasta } = getFechas();
+  const g = guardGlobalFechas(trigger);
+  if (!g) return;
+  const { desde, hasta } = g;
   const limit = Number(limitTopInput.value || 10) || 10;
   try {
     const api  = `/reportes/top_ventas?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&limit=${limit}`;
@@ -315,13 +334,16 @@ async function cargarTop(trigger = "Refrescar Top") {
     renderTableTop([]);
     if (chartTop) { chartTop.destroy(); chartTop = null; }
     logError(trigger, "/reportes/top_ventas", err);
+    showAlert("danger", err?.message || "No fue posible cargar 'Top ventas'.");
   }
 }
 
-async function cargarClientes(trigger = "(auto) clientes inicial") {
-  const { desde, hasta } = getFechas();
+async function cargarClientes(trigger = "(user) clientes") {
+  const g = guardGlobalFechas(trigger);
+  if (!g) return;
+  const { desde, hasta } = g;
   try {
-    const api  = `/reportes/clientes_frecuencia?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
+    const api  = `/reportes/clientes_frecuencia_compra?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
     const resp = assertOk(await reportesAPI.clientesFrecuencia(desde, hasta));
     const arr  = toArrayData(resp);
     const data = renderTableClientes(arr);
@@ -330,17 +352,38 @@ async function cargarClientes(trigger = "(auto) clientes inicial") {
   } catch (err) {
     renderTableClientes([]);
     if (chartClientes) { chartClientes.destroy(); chartClientes = null; }
-    logError(trigger, "/reportes/clientes_frecuencia", err);
+    logError(trigger, "/reportes/clientes_frecuencia_compra", err);
+    showAlert("danger", err?.message || "No fue posible cargar 'Clientes · Frecuencia'.");
   }
 }
 
-async function cargarHistorial(trigger = "Buscar historial") {
+function guardHistorial() {
   const cliente = ensureCl(histClienteInput.value);
   const desde   = (histDesdeInput.value || "").trim();
   const hasta   = (histHastaInput.value || "").trim();
-  if (!cliente) return;
+
+  markInvalid(histClienteInput, !cliente);
+  markInvalid(histDesdeInput, !desde);
+  markInvalid(histHastaInput, !hasta);
+
+  if (!allFilled({ value: cliente }, { value: desde }, { value: hasta })) {
+    showAlert("warning", "Completa Cliente, Desde y Hasta para buscar historial.");
+    return null;
+  }
+  if (!validateDatesOrder(desde, hasta)) {
+    markInvalid(histDesdeInput, true); markInvalid(histHastaInput, true);
+    showAlert("danger", "El rango de fechas del historial es inválido.");
+    return null;
+  }
+  return { cliente, desde, hasta };
+}
+
+async function cargarHistorial(trigger = "Buscar historial") {
+  const g = guardHistorial();
+  if (!g) return;
+  const { cliente, desde, hasta } = g;
   try {
-    const api  = `/reportes/historial_cliente/${encodeURIComponent(cliente)}?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
+    const api  = `/reportes/historial_cliente?cliente_id=${encodeURIComponent(cliente)}&desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
     const resp = assertOk(await reportesAPI.historialCliente(cliente, desde, hasta));
     const arr  = toArrayData(resp);
     renderTableHist(arr);
@@ -348,7 +391,7 @@ async function cargarHistorial(trigger = "Buscar historial") {
     showAlert("info", `Se cargaron ${arr.length} movimientos`);
   } catch (err) {
     renderTableHist([]);
-    logError(trigger, `/reportes/historial_cliente/${cliente}`, err);
+    logError(trigger, `/reportes/historial_cliente?cliente_id=${cliente}`, err);
     showAlert("danger", err?.message || "No fue posible cargar el historial");
   }
 }
@@ -356,15 +399,30 @@ async function cargarHistorial(trigger = "Buscar historial") {
 /* =========================
    Eventos UI
 ========================= */
-// Fechas globales
+// habilitar/deshabilitar según llenado
+[desdeInput, hastaInput, histClienteInput, histDesdeInput, histHastaInput].forEach((el) => {
+  el?.addEventListener("input", () => {
+    markInvalid(el, !String(el.value || "").trim().length);
+    syncButtonsDisabled();
+  });
+});
+
+// Global
 btnAplicarFechas?.addEventListener("click", async () => {
-  // Aplica fechas actuales a TODOS los reportes (excepto historial, que tiene sus propias fechas)
+  // Aplica fechas actuales a TODOS los reportes (excepto historial)
+  const guard = guardGlobalFechas("Aplicar a todos");
+  if (!guard) return;
   await Promise.all([cargarPivot("Aplicar a todos"), cargarTop("Aplicar a todos"), cargarClientes("Aplicar a todos")]);
 });
 btnLimpiarFechas?.addEventListener("click", async () => {
-  desdeInput.value = "";
-  hastaInput.value = "";
-  await Promise.all([cargarPivot("Limpiar fechas"), cargarTop("Limpiar fechas"), cargarClientes("Limpiar fechas")]);
+  desdeInput.value = ""; hastaInput.value = "";
+  markInvalid(desdeInput, false); markInvalid(hastaInput, false);
+  syncButtonsDisabled();
+  // Limpia tablas y gráficos
+  renderTablePivot([]); if (chartPivot) { chartPivot.destroy(); chartPivot = null; }
+  renderTableTop([]);   if (chartTop)   { chartTop.destroy();   chartTop   = null; }
+  renderTableClientes([]); if (chartClientes) { chartClientes.destroy(); chartClientes = null; }
+  showAlert("secondary", "Fechas limpiadas.");
 });
 
 // Top ventas
@@ -388,13 +446,8 @@ histClienteInput?.addEventListener("keydown", (e) => {
 ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
   // Inicializa tablas vacías para que se vean encabezados al cargar
-  renderTablePivot([]);
-  renderTableTop([]);
-  renderTableClientes([]);
-  renderTableHist([]);
+  renderTablePivot([]); renderTableTop([]); renderTableClientes([]); renderTableHist([]);
 
-  // Cargas iniciales (sin fechas => backend decide rango por defecto)
-  await cargarPivot();
-  await cargarTop("(auto) top inicial");
-  await cargarClientes();
+  // No se llaman APIs hasta que el usuario complete los campos requeridos.
+  syncButtonsDisabled();
 });

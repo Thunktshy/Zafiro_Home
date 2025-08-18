@@ -6,6 +6,13 @@ function extractErrorMessage(data, res) {
   return typeof data === 'string' && data.trim() ? data : `Error ${res.status}`;
 }
 
+function toQS(params = {}) {
+  const entries = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && String(v).length > 0)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return entries.length ? `?${entries.join('&')}` : '';
+}
+
 async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
   const opts = { method, credentials: 'include', headers: { Accept: 'application/json' } };
   if (body != null) {
@@ -13,7 +20,7 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     } else {
-      opts.body = body;
+      opts.body = body; // ej. FormData
     }
   }
   const res = await fetch(`${BASE}${path}`, opts);
@@ -26,17 +33,20 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
 export const reportesAPI = {
   // GET /reportes/ventas_mensual_pivot?desde=...&hasta=...
   ventasMensualPivot: (desde, hasta) =>
-    apiFetch(`/ventas_mensual_pivot?desde=${encodeURIComponent(String(desde||''))}&hasta=${encodeURIComponent(String(hasta||''))}`),
+    apiFetch(`/ventas_mensual_pivot${toQS({ desde, hasta })}`),
 
   // GET /reportes/top_ventas?desde=...&hasta=...&limit=10
   topVentas: (desde, hasta, limit = 10) =>
-    apiFetch(`/top_ventas?desde=${encodeURIComponent(String(desde||''))}&hasta=${encodeURIComponent(String(hasta||''))}&limit=${encodeURIComponent(Number(limit||10))}`),
+    apiFetch(`/top_ventas${toQS({ desde, hasta, limit: Number(limit || 10) })}`),
 
-  // GET /reportes/clientes_frecuencia?desde=...&hasta=...
+  // GET /reportes/clientes_frecuencia_compra?desde=...&hasta=...
   clientesFrecuencia: (desde, hasta) =>
-    apiFetch(`/clientes_frecuencia?desde=${encodeURIComponent(String(desde||''))}&hasta=${encodeURIComponent(String(hasta||''))}`),
+    apiFetch(`/clientes_frecuencia_compra${toQS({ desde, hasta })}`),
 
-  // GET /reportes/historial_cliente/:cliente_id?desde=...&hasta=...
-  historialCliente: (cliente_id, desde, hasta) =>
-    apiFetch(`/historial_cliente/${encodeURIComponent(String(cliente_id||''))}?desde=${encodeURIComponent(String(desde||''))}&hasta=${encodeURIComponent(String(hasta||''))}`)
+  // GET /reportes/historial_cliente?cliente_id=...&desde=...&hasta=...
+  historialCliente: (cliente_id, desde, hasta) => {
+    const cid = String(cliente_id || '').trim();
+    if (!cid) throw new Error('cliente_id es requerido');
+    return apiFetch(`/historial_cliente${toQS({ cliente_id: cid, desde, hasta })}`);
+  },
 };
