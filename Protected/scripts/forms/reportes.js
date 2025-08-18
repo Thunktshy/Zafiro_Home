@@ -1,5 +1,5 @@
 // Panel: Reportes (Bootstrap + DataTables + Chart.js + logs estándar)
-// Estructura esperada: { success, message, data }
+// Estructura esperada desde backend: { success, message, data }
 
 import { reportesAPI } from "/admin-resources/scripts/apis/reportesManager.js";
 
@@ -39,34 +39,48 @@ const dtStr = (x) => {
   const d = typeof x === "string" || typeof x === "number" ? new Date(x) : x;
   return isNaN(d?.getTime?.()) ? "" : d.toLocaleString("es-MX");
 };
-const ym = (y, m) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
 
 /* =========================
-   Normalizadores por reporte
+   Adaptadores a la forma real de los SP
 ========================= */
-function normalizePivotRow(row) {
-  if (!row || typeof row !== "object") return null;
-  const year   = row.anio ?? row.year ?? row.Año ?? row.Y ?? null;
-  const month  = row.mes ?? row.month ?? row.Mes ?? row.M ?? null;
-  const label  = row.periodo ?? row.ym ?? row["Año-Mes"] ?? (year != null && month != null ? ym(year, month) : "");
-  const ventas = Number(row.ventas ?? row.unidades ?? row.pedidos ?? row.count ?? 0) || 0;
-  const importe= Number(row.importe ?? row.total ?? row.monto ?? row.suma ?? 0) || 0;
-  return { periodo: String(label || ""), ventas, importe };
+/**
+ * El SP `reporte_ventas_mensual_pivot` regresa filas por producto
+ * con columnas dinámicas por mes (YYYY-MM). Aquí lo "aplanamos" a
+ * una serie temporal: [{periodo:'YYYY-MM', ventas: <suma>}, ...]
+ */
+function flattenPivotToTimeSeries(rows) {
+  if (!Array.isArray(rows)) return [];
+  // Detectar columnas YYYY-MM
+  const monthCols = new Set();
+  for (const r of rows) {
+    Object.keys(r || {}).forEach((k) => { if (/^\d{4}-\d{2}$/.test(k)) monthCols.add(k); });
+  }
+  const months = Array.from(monthCols).sort(); // ascendente
+  return months.map((m) => {
+    let ventas = 0;
+    for (const r of rows) ventas += Number(r?.[m] ?? 0) || 0;
+    return { periodo: m, ventas, importe: 0 }; // importe no disponible en este SP
+  });
 }
+
+/** Top ventas (usa columnas: total_unidades, total_importe, nombre_producto) */
 function normalizeTopRow(row) {
   if (!row || typeof row !== "object") return null;
-  const nombre = row.nombre_producto ?? row.nombre ?? row.producto ?? row.Producto ?? "";
-  const unidades = Number(row.unidades ?? row.ventas ?? row.cantidad ?? row.count ?? 0) || 0;
-  const importe  = Number(row.importe ?? row.total ?? row.monto ?? 0) || 0;
+  const nombre   = row.nombre_producto ?? row.nombre ?? row.producto ?? row.Producto ?? "";
+  const unidades = Number(row.total_unidades ?? row.unidades ?? row.cantidad ?? row.count ?? 0) || 0;
+  const importe  = Number(row.total_importe  ?? row.importe  ?? row.total   ?? row.monto ?? 0) || 0;
   return { producto: String(nombre), unidades, importe };
 }
+
+/** Clientes frecuencia (usa: cliente_id, pedidos_confirmados, total_importe) */
 function normalizeClienteRow(row) {
   if (!row || typeof row !== "object") return null;
   const cliente_id = row.cliente_id ?? row.cliente ?? row.id ?? "";
+  const pedidos    = Number(row.pedidos_confirmados ?? row.pedidos ?? row.count ?? 0) || 0;
+  const importe    = Number(row.total_importe ?? row.importe ?? row.total ?? 0) || 0;
+  // Cuenta/email pueden venir de otro join; si no existen, vacíos.
   const cuenta     = row.cuenta ?? row.username ?? "";
   const email      = row.email ?? row.correo ?? "";
-  const pedidos    = Number(row.pedidos ?? row.ordenes ?? row.orders ?? row.count ?? 0) || 0;
-  const importe    = Number(row.importe ?? row.total ?? row.monto ?? 0) || 0;
   return {
     cliente_id: String(cliente_id),
     cuenta_email: `${cuenta || ""}${cuenta && email ? " / " : ""}${email || ""}`,
@@ -74,12 +88,14 @@ function normalizeClienteRow(row) {
     importe
   };
 }
+
+/** Historial por cliente (usa: pedido_id, fecha_pedido, estado_pedido, subtotal) */
 function normalizeHistRow(row) {
   if (!row || typeof row !== "object") return null;
   const pedido_id = row.pedido_id ?? row.pedido ?? row.id ?? "";
-  const fecha     = dtStr(row.fecha ?? row.fecha_pedido ?? row.created_at ?? null);
-  const estado    = row.estado ?? row.estado_pedido ?? "";
-  const importe   = Number(row.importe ?? row.total ?? row.monto ?? 0) || 0;
+  const fecha     = dtStr(row.fecha_pedido ?? row.fecha ?? row.created_at ?? null);
+  const estado    = row.estado_pedido ?? row.estado ?? "";
+  const importe   = Number(row.subtotal ?? row.importe ?? row.total ?? row.monto ?? 0) || 0;
   return { pedido_id: String(pedido_id), fecha, estado, importe };
 }
 
@@ -151,7 +167,8 @@ function syncButtonsDisabled() {
 let dtPivot = null, dtTop = null, dtClientes = null, dtHist = null;
 
 function renderTablePivot(rows) {
-  const data = rows.map(normalizePivotRow).filter(Boolean);
+  // rows originales -> serie temporal agregada
+  const data = flattenPivotToTimeSeries(rows);
   if (dtPivot) {
     dtPivot.clear().rows.add(data).draw();
     return data;
@@ -236,7 +253,7 @@ function renderTableHist(rows) {
 let chartPivot = null, chartTop = null, chartClientes = null;
 
 function drawPivotChart(rows) {
-  const data = rows.map(normalizePivotRow).filter(Boolean);
+  const data = flattenPivotToTimeSeries(rows);
   const labels = data.map(r => r.periodo);
   const ventas = data.map(r => r.ventas);
   const importe = data.map(r => r.importe);
@@ -307,8 +324,8 @@ async function cargarPivot(trigger = "(user)") {
     const api  = `/reportes/ventas_mensual_pivot?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
     const resp = assertOk(await reportesAPI.ventasMensualPivot(desde, hasta));
     const arr  = toArrayData(resp);
-    const data = renderTablePivot(arr);
-    drawPivotChart(data);
+    const data = renderTablePivot(arr); // usa flattenPivotToTimeSeries internamente
+    drawPivotChart(arr);
     logPaso(trigger, api, resp);
   } catch (err) {
     renderTablePivot([]);
@@ -328,7 +345,7 @@ async function cargarTop(trigger = "Refrescar Top") {
     const resp = assertOk(await reportesAPI.topVentas(desde, hasta, limit));
     const arr  = toArrayData(resp);
     const data = renderTableTop(arr);
-    drawTopChart(data);
+    drawTopChart(arr);
     logPaso(trigger, api, resp);
   } catch (err) {
     renderTableTop([]);
@@ -347,7 +364,7 @@ async function cargarClientes(trigger = "(user) clientes") {
     const resp = assertOk(await reportesAPI.clientesFrecuencia(desde, hasta));
     const arr  = toArrayData(resp);
     const data = renderTableClientes(arr);
-    drawClientesChart(data);
+    drawClientesChart(arr);
     logPaso(trigger, api, resp);
   } catch (err) {
     renderTableClientes([]);

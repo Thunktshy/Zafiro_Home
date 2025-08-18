@@ -1,11 +1,14 @@
 // Public/scripts/apis/reportesManager.js
 const BASE = '/reportes';
 
+// Extrae el mensaje de error, si existe
 function extractErrorMessage(data, res) {
-  if (data && typeof data === 'object') return data.message || data.error || `Error ${res.status}`;
+  if (data && typeof data === 'object')
+    return data.message || data.error || `Error ${res.status}`;
   return typeof data === 'string' && data.trim() ? data : `Error ${res.status}`;
 }
 
+// Serializa los parámetros a query string
 function toQS(params = {}) {
   const entries = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && String(v).length > 0)
@@ -13,6 +16,7 @@ function toQS(params = {}) {
   return entries.length ? `?${entries.join('&')}` : '';
 }
 
+// Realiza la petición fetch a la API, usando JSON o FormData
 async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
   const opts = { method, credentials: 'include', headers: { Accept: 'application/json' } };
   if (body != null) {
@@ -20,7 +24,7 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     } else {
-      opts.body = body; // ej. FormData
+      opts.body = body; // Para FormData u otros tipos
     }
   }
   const res = await fetch(`${BASE}${path}`, opts);
@@ -30,25 +34,32 @@ async function apiFetch(path, { method = 'GET', body, bodyType } = {}) {
   return data;
 }
 
+// API para reportes
 export const reportesAPI = {
-  // GET /reportes/ventas_mensual_pivot?desde=...&hasta=...
-  ventasMensualPivot: (desde, hasta) =>
-    apiFetch(`/ventas_mensual_pivot${toQS({ desde, hasta })}`),
+  // Ventas mensual por producto (pivot)
+  ventasMensualPivot: (desde, hasta) => {
+    // Envía fechas en formato YYYY-MM-DD o compatible con Date
+    return apiFetch(`/ventas_mensual_pivot${toQS({ desde, hasta })}`);
+  },
 
-  // GET /reportes/top_ventas?desde=...&hasta=...&limit=10
+  // Top ventas por producto (ranking)
   topVentas: (desde, hasta, limit = 10) => {
     const n = Number(limit || 10);
-    // Enviar limit y top para compatibilidad con el validador/ruta del backend
-    return apiFetch(`/top_ventas${toQS({ desde, hasta, limit: n, top: n })}`);
+    // El backend acepta 'limit', ignora 'top' (se deja solo 'limit' para limpieza)
+    return apiFetch(`/top_ventas${toQS({ desde, hasta, limit: n })}`);
   },
-  // GET /reportes/clientes_frecuencia_compra?desde=...&hasta=...
-  clientesFrecuencia: (desde, hasta) =>
-    apiFetch(`/clientes_frecuencia_compra${toQS({ desde, hasta })}`),
 
-  // GET /reportes/historial_cliente?cliente_id=...&desde=...&hasta=...
+  // Clasificación de clientes por frecuencia
+  clientesFrecuencia: (desde, hasta) => {
+    return apiFetch(`/clientes_frecuencia_compra${toQS({ desde, hasta })}`);
+  },
+
+  // Historial de compras por cliente (cliente_id en formato 'cl-#')
   historialCliente: (cliente_id, desde, hasta) => {
-    const cid = String(cliente_id || '').trim();
+    let cid = String(cliente_id || '').trim();
     if (!cid) throw new Error('cliente_id es requerido');
+    // Normaliza para enviar siempre 'cl-#'
+    if (!cid.startsWith('cl-')) cid = 'cl-' + cid;
     return apiFetch(`/historial_cliente${toQS({ cliente_id: cid, desde, hasta })}`);
   },
 };
