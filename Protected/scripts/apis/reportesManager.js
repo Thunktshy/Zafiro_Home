@@ -36,9 +36,11 @@ export const reportesAPI = {
     apiFetch(`/ventas_mensual_pivot${toQS({ desde, hasta })}`),
 
   // GET /reportes/top_ventas?desde=...&hasta=...&limit=10
-  topVentas: (desde, hasta, limit = 10) =>
-    apiFetch(`/top_ventas${toQS({ desde, hasta, limit: Number(limit || 10) })}`),
-
+  topVentas: (desde, hasta, limit = 10) => {
+    const n = Number(limit || 10);
+    // Enviar limit y top para compatibilidad con el validador/ruta del backend
+    return apiFetch(`/top_ventas${toQS({ desde, hasta, limit: n, top: n })}`);
+  },
   // GET /reportes/clientes_frecuencia_compra?desde=...&hasta=...
   clientesFrecuencia: (desde, hasta) =>
     apiFetch(`/clientes_frecuencia_compra${toQS({ desde, hasta })}`),
